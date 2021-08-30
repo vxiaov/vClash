@@ -15,6 +15,28 @@ CPU架构: Armv7l (能运行clash可执行程序)
 - [ ] 节点配置:支持provider(url)和group配置。
 - [x] DNS设置：使用无污染的DNS解析国外域名。
 
+## 怎么使用？
+
+```bash
+git clone https://github.com/learnhard-cn/clash.git
+rm -tr clash/.git
+tar zcvf clash.tar.gz clash
+```
+
+或者， 到`Release`页面下载安装包 [https://github.com/learnhard-cn/clash/releases/latest](https://github.com/learnhard-cn/clash/releases/latest)
+
+选择最新版本下载到本地，重命名为： `clash.tar.gz` 。
+
+接下来就可以将这个安装包通过SSH传输到路由器上的`/tmp/`目录上，执行如下命令进行手动安装：
+
+```bash
+cd /tmp
+tar zxvf clash.tar.gz
+sh clash/install.sh
+```
+安装成功后，即可在`软件中心`里看到`clash`插件了。
+
+
 
 ## 为什么有这个项目
 
