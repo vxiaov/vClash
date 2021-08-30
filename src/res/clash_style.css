@@ -1,0 +1,12 @@
+.clash_menu {
+    cursor: pointer;
+    margin: none;
+    width: 80px;
+    display: inline-block;
+    box-shadow: 2px 2px 4px 0px silver;
+}
+
+.clash_menu:hover {
+    color: white;
+    background: #276ce2;
+}
