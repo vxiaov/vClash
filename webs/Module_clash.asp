@@ -28,6 +28,9 @@
     <script type="text/javascript">
         var $j = jQuery.noConflict();
 
+        function E(e) {
+            return (typeof(e) == 'string') ? document.getElementById(e) : e;
+        }
         function init() {
             show_menu(menu_hook);
             buildswitch();
@@ -51,10 +54,110 @@
                 });
         }
 
+        var _responseLen;
+        var noChange = 0;
+
+        function get_proc_status() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_proc_status.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_kms.asp";
+            $j.ajax({
+                type: "POST",
+                url: '/applydb.cgi?p=clash_',
+                contentType: "application/x-www-form-urlencoded",
+                dataType: 'text',
+                data: dbus,
+                success: function(response) {
+                    // 检查结果
+                    setTimeout("write_proc_status();", 500);
+                }
+            });
+        }
+
+        var noChange3 = 0;
+        function write_proc_status() {
+            E("textarea").value = ""
+            $j.ajax({
+                url: '/res/clash_proc_status.htm',
+                dataType: 'html',
+                error: function(xhr) {
+                    setTimeout("write_proc_status();", 1400);
+                },
+                success: function(response) {
+                    var retArea = E("textarea");
+                    if (response.search("XU6J03M6") != -1) {
+                        retArea.value = response.replace("XU6J03M6", " ");
+                        //retArea.scrollTop = retArea.scrollHeight;
+                        return true;
+                    } else {}
+                    if (_responseLen == response.length) {
+                        noChange3++;
+                    } else {
+                        noChange3 = 0;
+                    }
+                    if (noChange3 > 100) {
+                        return false;
+                    } else {
+                        setTimeout("write_proc_status();", 500);
+                    }
+                    retArea.value = response.replace("XU6J03M6", " ");
+                    //retArea.scrollTop = retArea.scrollHeight;
+                    _responseLen = response.length;
+                }
+            });
+        }
+
+
+        function checkCmdRet() {
+            $j.ajax({
+                url: '/cmdRet_check.htm',
+                dataType: 'html',
+                error: function(xhr) {
+                    setTimeout("checkCmdRet();", 1000);
+                },
+                success: function(response) {
+                    var retArea = document.getElementById("textarea");
+                    var _cmdBtn = document.getElementById("cmdBtn");
+                    if (response.search("XU6J03M6") != -1) {
+                        document.getElementById("loadingIcon").style.display = "none";
+                        _cmdBtn.disabled = false;
+                        _cmdBtn.style.color = "#FFF";
+                        retArea.value = response.replace("XU6J03M6", " ");
+                        retArea.scrollTop = retArea.scrollHeight;
+                        return false;
+                    }
+                    if (_responseLen == response.length)
+                        noChange++;
+                    else
+                        noChange = 0;
+                    if (noChange > 10) {
+                        document.getElementById("loadingIcon").style.display = "none";
+                        _cmdBtn.disabled = false;
+                        _cmdBtn.style.color = "#FFF";
+                        setTimeout("checkCmdRet();", 1000);
+                    } else {
+                        _cmdBtn.disabled = true;
+                        _cmdBtn.style.color = "#666";
+                        document.getElementById("loadingIcon").style.display = "";
+                        setTimeout("checkCmdRet();", 1000);
+                    }
+                    retArea.value = response;
+                    retArea.scrollTop = retArea.scrollHeight;
+                    _responseLen = response.length;
+                }
+            });
+        }
+
+
         function onSubmitCtrl(o, s) {
             document.form.action_mode.value = s;
-            showLoading(3);
+            //showLoading(3);
             document.form.submit();
+            document.getElementById("cmdBtn").disabled = true;
+            document.getElementById("cmdBtn").style.color = "#666";
+            document.getElementById("loadingIcon").style.display = "";
+            setTimeout("checkCmdRet();", 500);
         }
 
         function reload_Soft_Center() {
@@ -106,7 +209,7 @@
         <input type="hidden" name="action_wait" value="5" />
         <input type="hidden" name="first_time" value="" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get(" preferred_lang "); %>" />
-        <input type="hidden" name="SystemCmd" onkeydown="onSubmitCtrl(this, ' Refresh ')" value="clash_control.sh" />
+        <input type="hidden" name="SystemCmd" value="clash_control.sh" />
         <input type="hidden" name="firmver" value="<% nvram_get(" firmver "); %>" />
         <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "0"); %>' />
         <!-- 主要页面内容定义-->
@@ -152,6 +255,13 @@
                     </div>
                     <div class="apply_gen">
                         <button id="cmdBtn" class="button_gen" onclick="onSubmitCtrl(this, ' Refresh ')">提交</button>
+                        <img id="loadingIcon" style="display:none;" src="/images/loading.gif">
+                        <a type="button" class="ss_btn" style="cursor:pointer" onclick="get_proc_status(3)" href="javascript:void(0);">详细状态</a>
+                    </div>
+                    <div style="margin-top:8px" id="logArea">
+                        <textarea cols="63" rows="27" wrap="off" readonly="readonly" id="textarea" style="width:99%;font-family:Courier New, Courier, mono; font-size:11px;background:#475A5F;color:#FFFFFF;">
+                            <% nvram_dump("syscmd.log",""); %>
+                        </textarea>
                     </div>
                     <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png" /></div>
                     <div class="KoolshareBottom" style="margin-top:540px;">
@@ -168,8 +278,17 @@
             </tr>
         </table>
     </form>
+    
     </td>
     <div id="footer"></div>
 </body>
+<script type="text/javascript">
+    <!--[if !IE]>-->
+    (function($) {
+        var textArea = document.getElementById('textarea');
+        textArea.scrollTop = textArea.scrollHeight;
+    })(jQuery);
+    <!--<![endif]-->
+</script>
 
 </html>
