@@ -22,6 +22,7 @@
     display: table-cell;
     float: left;
     padding-left: 20px;
+    font-size: 18px;
     width: 200px;
     text-align: right;
     font-weight: bolder;
@@ -54,9 +55,12 @@ div.proc_info {
 }
 
 .button_gen {
-    font-size: 14px;
+    font-size: 18px;
 }
 
 .apply_gen {
     width: 98%;
+}
+span{
+    font-size: 14px;
 }

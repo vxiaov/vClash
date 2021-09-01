@@ -19,6 +19,7 @@ LOGGER() {
 
 CMD="${app_name} -d ${KSHOME}/${app_name}/"
 lan_ipaddr=$(nvram get lan_ipaddr)
+cron_id="daemon_clash_watchdog"     # 调度ID,用来查询和删除操作标识
 
 
 usage() {
@@ -47,16 +48,17 @@ echo_status() {
 }
 
 get_proc_status() {
-    echo "----------------------------------------------------"
     LOGGER "检查进程信息："
     LOGGER "`echo_status head`"
     LOGGER "`echo_status $app_name`"
     LOGGER "`echo_status dns2socks5`"
     LOGGER "`echo_status dnsmasq`"
     echo "----------------------------------------------------"
+    LOGGER "调度信息： `cru l| grep ${cron_id}`"
+    echo "----------------------------------------------------"
+
 }
 
-cron_id="daemon_clash_watchdog"
 # 添加守护监控脚本
 add_cron() { 
     if cru l |grep ${cron_id} >/dev/null  ; then

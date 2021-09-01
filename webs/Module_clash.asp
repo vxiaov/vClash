@@ -300,14 +300,14 @@
 
                         <!-- 日志显示部分-->
                         <div>
-                            <button type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">运行状态检查</button>
+                            <button type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">状态检查</button>
                         </div>
                         <div style="margin-top:8px" id="logArea">
                             <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
                             <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="text_log"></textarea>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <div class="KoolshareBottom" style="margin-top:500px;">
+                        <div class="KoolshareBottom" style="margin-top:10px;">
                             技术支持： <a href="https://t.me/share_proxy_001" target="_blank" rel="noopener noreferrer">电报群:@share_proxy_001</a>
                             <a href="http://vlike.work/" target="_blank">
                                 <i><u>http://vlike.work</u></i> </a> <br /> Github项目：
