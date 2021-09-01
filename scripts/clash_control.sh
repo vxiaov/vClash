@@ -10,6 +10,8 @@ app_name="clash"
 
 source ${KSHOME}/scripts/base.sh
 
+eval `dbus export ${app_name}_`
+
 LOGGER() {
     # Magic number for Log 9977
     logger -s -t "9977`date +%H`.clashlog" "$@"
@@ -31,6 +33,28 @@ usage() {
 END
 }
 
+echo_status() {
+    if [ "$1" = "head" ] ; then
+        printf "%-20s %-20s %-s" "进程名称" "进程号" "运行状态"
+        return 0
+    fi
+    pids=`pidof $1`
+    if [ "$pids" == "" ] ; then
+        printf "%-15s %-15s %-s" "$1" "$pids" "已停止."
+    else
+        printf "%-15s %-15s %-s" "$1" "$pids" "正常运行中."
+    fi
+}
+
+get_proc_status() {
+    echo "----------------------------------------------------"
+    LOGGER "检查进程信息："
+    LOGGER "`echo_status head`"
+    LOGGER "`echo_status $app_name`"
+    LOGGER "`echo_status dns2socks5`"
+    LOGGER "`echo_status dnsmasq`"
+    echo "----------------------------------------------------"
+}
 
 cron_id="daemon_clash_watchdog"
 # 添加守护监控脚本
@@ -68,7 +92,10 @@ del_cron() {
 add_iptables() {
     # 1. 转发 HTTP/HTTPS 请求到 Clash redir-port 端口
     # 2. 转发 DNS 53端口请求到 Clash dns.listen 端口
-
+    if [ "$clash_trans" = "off" ] ; then
+        LOGGER "透明代理模式已关闭！不需要添加iptables转发规则！"
+        return 0
+    fi
     if iptables -t nat -S ${app_name} >/dev/null 2>&1 ; then
         LOGGER "已经配置过${app_name}的iptables规则！"
         return 0
@@ -88,6 +115,7 @@ add_iptables() {
     iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 22,1080,8080 -j RETURN
     iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports 3333
 
+    
     # 转发DNS请求到端口1053解析
     iptables -t nat -A ${app_name} -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports 1053
     iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
@@ -112,10 +140,14 @@ status() {
 }
 
 start_dns() {
-    LOGGER "添加gfwlist.conf与wblist.conf到 dnsmasq.d 目录下"
+    if [ "$clash_trans" = "off" ] ; then
+        LOGGER "透明代理模式已关闭！不启动DNS转发请求"
+        return 0
+    fi
     for fn in wblist.conf gfwlist.conf
     do
         if [ ! -f /jffs/configs/dnsmasq.d/${fn} ] ; then
+            LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
             ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
         fi
     done
@@ -193,25 +225,90 @@ stop() {
     del_cron
 }
 
-do_action() {
-    # web界面配置操作
-    str_enable=`dbus get ${app_name}_enable`
-    if [ "$str_enable" = "1" ] ; then
-        LOGGER "执行启动动作 ${app_name} ..."
-        start   # 启用动作
-    elif [ "$str_enable" = "0" ] ; then
-        LOGGER "执行停止动作 ${app_name} ..."
-        stop    # 禁用动作
-    else
-        LOGGER "未知动作:${str_enable}"
+########## config part ###########
+
+# 更新Clash订阅源URL地址 #
+update_provider_url() {
+    config_file="$KSHOME/${app_name}/config.yaml"
+    temp_provider_file="/tmp/clash_provider.yaml"
+    LOGGER "更新订阅源URL地址"
+    if [ "$clash_provider_url" = "" ] ; then
+        LOGGER "没有设置订阅源信息: clash_provider_url=${clash_provider_url} ，不更新！"
+        return 99
     fi
+    LOGGER "curl版本信息：\n`curl -V`"
+    LOGGER "yq版本信息:\n `yq -V`"
+
+    status_code=`curl -I ${clash_provider_url} | awk '/HTTP/{ print $2 }'`
+    if [ "$status_code" != "200" ] ; then
+        LOGGER "提供的远程订阅地址无效,curl访问返回状态码(非200):${status_code},clash_provider_url：${clash_provider_url}"
+        return 1
+    fi
+    curl -o $temp_provider_file ${clash_provider_url} >/dev/null 2>&1
+    if [ "$?" != 0 ] ; then
+        LOGGER 下载节点订阅源文件失败!
+        return 2
+    fi
+    
+    # URL地址请求正常，并不能表明 yaml 格式正常
+    check_format=`yq e '.proxies[0].name' $temp_provider_file`
+    if [ "$check_format" = "null" ] ; then
+        LOGGER "节点订阅源配置文件yaml格式错误： ${temp_provider_file}"
+        LOGGER "订阅源文件格式应该是这样的：\nproxies:\n- name: xxx\n  type: ss\n  server: 1.2.3.4\n  port: 12304\n  cipher: aes-256-gcm\n  password: 123132131\n...\n"
+        return 3
+    fi
+    LOGGER "开始替换订阅源地址:"
+    cp ${config_file} ${config_file}.old
+    yq e -i '.proxy-providers.provider01.url = strenv(clash_provider_url)' $config_file
+    if [ "$?" != "0" ] ; then
+        LOGGER "替换订阅源地址失败了！ 赶紧看看 $config_file 的 proxy-providers.provider01.url 参数路径为啥错误吧！"
+        return 4
+    fi
+    LOGGER "万幸！恭喜呀！更新订阅源成功了！"
 }
 
+######## 执行主要动作信息  ########
+do_action() {
+    # web界面配置操作
+    LOGGER "执行动作 ${clash_action} ..."
+    case "$clash_action" in
+        1|start)
+            start
+        ;;
+        0|stop)
+            stop
+        ;;
+        restart|switch_trans_mode)
+            stop
+            start
+        ;;
+        update_provider_url) 
+            # 需要重启的操作分类
+            $clash_action
+            if [ "$?" != "0" ] ; then
+                return $?
+            fi
+            stop
+            start
+        ;;
+        get_proc_status)
+            # 不需要重启操作
+            $clash_action
+        ;;
+        *)
+            LOGGER "无效的操作！ clash_action:[$clash_action]"
+        ;;
+    esac
+    # 执行完成动作后，清理动作.
+    dbus remove clash_action
+}
+
+# 命令行参数处理
+# main 与 do_action 类似， 但 do_action 根据 clash_action 选择要执行什么操作
 main() {
     str_cmd=${1:-"do_action"}
     case "${str_cmd}" in 
-
-        start|stop|status|do_action|add_iptables|del_iptables)
+        start|stop|status|do_action|add_iptables|del_iptables|get_proc_status|update_provider_url)
             ${str_cmd} 
             ;;
         restart)

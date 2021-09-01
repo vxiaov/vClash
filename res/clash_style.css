@@ -10,3 +10,53 @@
     color: white;
     background: #276ce2;
 }
+
+#clash_version_status {
+    display: block;
+    padding-top: 5px;
+    padding-bottom: 10px;
+    width: 95%;
+}
+
+.switch_label {
+    display: table-cell;
+    float: left;
+    padding-left: 20px;
+    width: 200px;
+    text-align: right;
+    font-weight: bolder;
+}
+
+.switch_field {
+    display: table-cell;
+    float: left;
+}
+
+div.proc_info {
+    display: block;
+    margin: 0px;
+}
+
+.blank_line {
+    margin-left: 5px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding-top: 5px;
+}
+
+#text_log,
+#clash_provider_url {
+    width: 95%;
+    font-family: Courier New, Courier, mono;
+    font-size: 14px;
+    background: #51686d;
+    color: #FFFFFF;
+}
+
+.button_gen {
+    font-size: 14px;
+}
+
+.apply_gen {
+    width: 98%;
+}

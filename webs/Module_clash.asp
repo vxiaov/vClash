@@ -25,6 +25,7 @@
     <script type="text/javascript" src="/switcherplugin/jquery.iphone-switch.js"></script>
     <script type="text/javascript" src="/client_function.js"></script>
     <script type="text/javascript" src="/dbconf?p=clash_&v=<% uptime(); %>"></script>
+    <link rel="stylesheet" type="text/css" href="/res/clash_style.css">
     <script type="text/javascript">
         var $j = jQuery.noConflict();
 
@@ -35,79 +36,90 @@
             show_menu(menu_hook);
             buildswitch();
             version_show();
-            var rrt = document.getElementById("switch");
+            var rrt = document.getElementById("switch_service");
             if (document.form.clash_enable.value != "1") {
                 rrt.checked = false;
             } else {
                 rrt.checked = true;
             }
+            var s_trans = document.getElementById("switch_trans");
+            if (document.form.clash_trans.value != "on") {
+                s_trans.checked = false;
+            } else {
+                s_trans.checked = true;
+            }
         }
 
         function buildswitch() {
-            $j("#switch").click(
+            $j("#switch_service").click(
                 function() {
-                    if (document.getElementById('switch').checked) {
+                    if (document.getElementById('switch_service').checked) {
                         document.form.clash_enable.value = 1;
+                        document.form.clash_action.value = 1;
                     } else {
                         document.form.clash_enable.value = 0;
+                        document.form.clash_action.value = 0;
+                    }
+                });
+            $j("#switch_trans").click(
+                function() {
+                    if (document.getElementById('switch_trans').checked) {
+                        document.form.clash_trans.value = "on";
+                    } else {
+                        document.form.clash_trans.value = "off";
                     }
                 });
         }
 
-        var _responseLen;
-        var noChange = 0;
+        // 切换透明代理模式
+        function switch_trans_mode() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_trans"] = E("clash_trans").value;
+            dbus["clash_action"] = "switch_trans_mode";
+            apply_action(dbus);
+        }
 
+        // 进程状态检查
         function get_proc_status() {
             var dbus = {};
-            dbus["SystemCmd"] = "clash_proc_status.sh";
+            dbus["SystemCmd"] = "clash_control.sh";
             dbus["action_mode"] = " Refresh ";
-            dbus["current_page"] = "Module_kms.asp";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_action"] = "get_proc_status";
+            apply_action(dbus);
+        }
+
+        // 更新节点订阅源URL
+        function update_provider_url() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_provider_url"] = E("clash_provider_url").value;
+            dbus["clash_action"] = "update_provider_url";
+            apply_action(dbus);
+        }
+
+        function apply_action(data) {
             $j.ajax({
                 type: "POST",
                 url: '/applydb.cgi?p=clash_',
                 contentType: "application/x-www-form-urlencoded",
                 dataType: 'text',
-                data: dbus,
+                data: data,
                 success: function(response) {
                     // 检查结果
-                    setTimeout("write_proc_status();", 500);
+                    document.getElementById("loadingIcon").style.display = "";
+                    setTimeout("checkCmdRet();", 500);
                 }
             });
         }
 
-        var noChange3 = 0;
-        function write_proc_status() {
-            E("textarea").value = ""
-            $j.ajax({
-                url: '/res/clash_proc_status.htm',
-                dataType: 'html',
-                error: function(xhr) {
-                    setTimeout("write_proc_status();", 1400);
-                },
-                success: function(response) {
-                    var retArea = E("textarea");
-                    if (response.search("XU6J03M6") != -1) {
-                        retArea.value = response.replace("XU6J03M6", " ");
-                        //retArea.scrollTop = retArea.scrollHeight;
-                        return true;
-                    } else {}
-                    if (_responseLen == response.length) {
-                        noChange3++;
-                    } else {
-                        noChange3 = 0;
-                    }
-                    if (noChange3 > 100) {
-                        return false;
-                    } else {
-                        setTimeout("write_proc_status();", 500);
-                    }
-                    retArea.value = response.replace("XU6J03M6", " ");
-                    //retArea.scrollTop = retArea.scrollHeight;
-                    _responseLen = response.length;
-                }
-            });
-        }
-
+        var _responseLen;
+        var noChange = 0;
 
         function checkCmdRet() {
             $j.ajax({
@@ -117,7 +129,7 @@
                     setTimeout("checkCmdRet();", 1000);
                 },
                 success: function(response) {
-                    var retArea = document.getElementById("textarea");
+                    var retArea = document.getElementById("text_log");
                     var _cmdBtn = document.getElementById("cmdBtn");
                     if (response.search("XU6J03M6") != -1) {
                         document.getElementById("loadingIcon").style.display = "none";
@@ -142,13 +154,12 @@
                         document.getElementById("loadingIcon").style.display = "";
                         setTimeout("checkCmdRet();", 1000);
                     }
-                    retArea.value = response;
+                    retArea.value = response.replace("XU6J03M6", " ");
                     retArea.scrollTop = retArea.scrollHeight;
                     _responseLen = response.length;
                 }
             });
         }
-
 
         function onSubmitCtrl(o, s) {
             document.form.action_mode.value = s;
@@ -212,6 +223,9 @@
         <input type="hidden" name="SystemCmd" value="clash_control.sh" />
         <input type="hidden" name="firmver" value="<% nvram_get(" firmver "); %>" />
         <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "0"); %>' />
+        <input type="hidden" id="clash_trans" name="clash_trans" value='<% dbus_get_def("clash_trans", "on"); %>' />
+        <input type="hidden" id="clash_action" name="clash_action" value='' />
+        
         <!-- 主要页面内容定义-->
         <table class="content" align="center" cellpadding="0" cellspacing="0">
             <tr>
@@ -222,54 +236,84 @@
                 </td>
                 <td valign="top">
                     <div id="tabMenu" class="submenuBlock"></div>
-                    <div class="clash_all">
+                    <div class="apply_gen">
                         <div class="clash_top">
                             <div style="float:left;" class="formfonttitle">系统工具- Clash科学上网 </div>
                             <div style="float:right; width:15px; height:25px;margin-top:10px">
-                                <img id="return_btn" onclick="reload_Soft_Center();" align="right" style="cursor:pointer;position:absolute;margin-left:-30px;margin-top:-25px;" title="返回软件中心" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'"></img>
+                                <img id="return_btn" onclick="reload_Soft_Center();" align="right" style="cursor:pointer;margin-left:-80px;margin-top:-25px;" title="返回软件中心" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'"></img>
                             </div>
-                            <div style="margin-left:5px;margin-top:10px;margin-bottom:10px">
-                                <img src="/images/New_ui/export/line_export.png">
-                            </div>
+                            <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         </div>
                         <div id="main_content" style="text-align: center;">
-                            <div style="display:table-cell;float: left; padding-left: 20px;">Clash服务开关： </div>
-                            <div class="switch_field" style="display:table-cell;float: left;">
-                                <label for="switch">
-                                    <input id="switch" class="switch" type="checkbox" style="display: none;">
+                            <div id="clash_version_status">
+                                <i>当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
+                            </div>
+                            <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
+                            </div>                            
+                        </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                        <div class="proc_info">
+                            <div class="switch_label">Clash服务开关： </div>
+                            <div class="switch_field" style="display:table-cell;float: left; ">
+                                <label for="switch_service">
+                                    <input id="switch_service" class="switch" type="checkbox" style="display: none;">
                                     <div class="switch_container">
                                         <div class="switch_bar"></div>
                                         <div class="switch_circle transition_style"></div>
                                     </div>
                                 </label>
                             </div>
-                            <div id="clash_version_status" style="padding-top:5px;margin-left:230px;margin-top:0px;">
-                                <i>当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
-                            </div>
-                            <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
-                            </div>
                         </div>
-                    </div>
-                    <div style="margin-left:5px;margin-top:10px;margin-bottom:10px">
-                        <img src="/images/New_ui/export/line_export.png">
-                    </div>
-                    <div class="apply_gen">
-                        <button id="cmdBtn" class="button_gen" onclick="onSubmitCtrl(this, ' Refresh ')">提交</button>
-                        <img id="loadingIcon" style="display:none;" src="/images/loading.gif">
-                        <a type="button" class="ss_btn" style="cursor:pointer" onclick="get_proc_status(3)" href="javascript:void(0);">详细状态</a>
-                    </div>
-                    <div style="margin-top:8px" id="logArea">
-                        <textarea cols="63" rows="27" wrap="off" readonly="readonly" id="textarea" style="width:99%;font-family:Courier New, Courier, mono; font-size:11px;background:#475A5F;color:#FFFFFF;">
-                            <% nvram_dump("syscmd.log",""); %>
-                        </textarea>
-                    </div>
-                    <div style="margin-left:5px;margin-top:10px;margin-bottom:10px"><img src="/images/New_ui/export/line_export.png" /></div>
-                    <div class="KoolshareBottom" style="margin-top:540px;">
-                        技术支持： <a href="https://t.me/share_proxy_001" target="_blank" rel="noopener noreferrer">电报群:@share_proxy_001</a>
-                        <a href="http://vlike.work/" target="_blank">
-                            <i><u>http://vlike.work</u></i> </a> <br /> Github项目：
-                        <a href="https://github.com/learnhard-cn/clash" target="_blank">
-                            <i><u>https://github.com/learnhard-cn/clash</u></i> </a> <br /> Shell by： <i>Awkee</i> , Web by： <i>Awkee</i>
+                        <div class="proc_info">
+                            <button id="cmdBtn" class="button_gen" onclick="onSubmitCtrl(this, ' Refresh ')">保存</button>
+                        </div>
+                        <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                        <div><span><b style="color: red"> Clash服务开关</b>:控制着Clash服务的<b>启动和停止</b>！包括对<i>透明代理模式</i>选项的设置。</span></div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+
+                        <!-- 透明代理模式开关 -->
+                        <div class="switch_label">透明代理模式开关： </div>
+                        <div class="switch_field" >
+                            <label for="switch_trans">
+                                <input id="switch_trans" class="switch" type="checkbox" style="display: none;">
+                                <div class="switch_container">
+                                    <div class="switch_bar"></div>
+                                    <div class="switch_circle transition_style"></div>
+                                </div>
+                            </label>
+                        </div>
+                        <div>
+                            <button type="button" class="button_gen" onclick="switch_trans_mode()" href="javascript:void(0);">切换模式</button>
+                        </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                        <div><span><b style="color: crimson;">透明代理</b>：局域网不用做任何设置即可科学上网。<br>控制<i>透明代理模式</i>选项，点击<b>切换模式</b>按钮后，会自动<b>重启Clash服务</b></span></div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+
+                        <!-- 订阅源URL更新部分 -->
+                        <div style="display:table-cell;float: left; padding-left: 20px;">Clash节点订阅源URL地址： </div>
+                        <input type="url" placeholder="# 此处填入节点订阅源URL地址！填入前确保有效的yaml文件格式哦！以免影响Clash服务状态。" id="clash_provider_url" name="clash_provider_url">
+                        <div>
+                            <button type="button" class="button_gen" onclick="update_provider_url()" href="javascript:void(0);">更新订阅源</button>
+                        </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+
+                        <!-- 日志显示部分-->
+                        <div>
+                            <button type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">运行状态检查</button>
+                        </div>
+                        <div style="margin-top:8px" id="logArea">
+                            <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
+                            <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="text_log"></textarea>
+                        </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                        <div class="KoolshareBottom" style="margin-top:500px;">
+                            技术支持： <a href="https://t.me/share_proxy_001" target="_blank" rel="noopener noreferrer">电报群:@share_proxy_001</a>
+                            <a href="http://vlike.work/" target="_blank">
+                                <i><u>http://vlike.work</u></i> </a> <br /> Github项目：
+                            <a href="https://github.com/learnhard-cn/clash" target="_blank">
+                                <i><u>https://github.com/learnhard-cn/clash</u></i> </a> <br /> Shell by： <i>Awkee</i> , Web by： <i>Awkee</i>
+                        </div>
                     </div>
                 </td>
                 <div class="author-info">
@@ -282,10 +326,13 @@
     </td>
     <div id="footer"></div>
 </body>
+<script type="text/css">
+
+</script>
 <script type="text/javascript">
     <!--[if !IE]>-->
     (function($) {
-        var textArea = document.getElementById('textarea');
+        var textArea = document.getElementById('text_log');
         textArea.scrollTop = textArea.scrollHeight;
     })(jQuery);
     <!--<![endif]-->
