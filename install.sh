@@ -10,21 +10,40 @@ LOGGER() {
     logger -s -t "9977$(date +%H).clashlog" "$@"
 }
 
-mkdir -p /koolshare/${app_name}
-mkdir -p /tmp/${app_name}_backup
+# ================================== INSTALL_CHECK 安装前的系统信息检查 =========================
 
-ARCH=$(uname -m)
-# 判断路由架构和平台
-case ${ARCH} in
-    armv7l)
-        LOGGER 固件平台【koolshare merlin armv7l】符合安装要求，开始安装插件！
-        ;;
+ARCH=""
+# 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
+case $(uname -m) in
+    armv7l) 
+        if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1 ; then
+            ARCH="armv7"
+        elif grep -i vfpv1 /proc/cpuinfo >/dev/null 2>&1 ; then
+            ARCH="armv6"
+        else
+            ARCH="armv5"
+        fi
+    ;;
     *)
-        LOGGER 本插件适用于koolshare merlin armv7l固件平台，你的平台"${ARCH}"不能安装！！！
-        LOGGER 退出安装！
-        exit 1
-        ;;
+        LOGGER "糟糕！平台类型不支持呀！赶紧通知开发者适配！或者自己动手丰衣足食！"
+        exit 0
+    ;;
 esac
+
+# 固件版本检测
+build_ver="$(nvram get buildno| cut -d '.' -f1)"
+if [ "$build_ver" != "380" ] ; then
+    LOGGER "很抱歉！本插件只支持 KS梅林固件的380.xx版本!"
+    exit 2
+fi
+LOGGER "梅林固件版本： $build_ver"
+
+ks_ver=$(dbus get softcenter_version)
+if [ "$ks_ver" = "" ] ; then
+    LOGGER "找不到软件中心版本信息！你确定这是KS梅林固件?"
+    exit 3
+fi
+LOGGER "软件中心版本: $ks_ver"
 
 bin_list="${app_name} dns2socks5 yq"
 
@@ -34,8 +53,7 @@ remove_files() {
     rm -rf /koolshare/${app_name}
     rm -rf /koolshare/scripts/${app_name}_*
     rm -rf /koolshare/webs/Module_${app_name}.asp
-    for fn in ${bin_list}
-    do
+    for fn in ${bin_list}; do
         rm -f /koolshare/bin/${fn}
     done
     rm -rf /koolshare/res/icon-${app_name}.png
@@ -48,9 +66,10 @@ remove_files() {
 copy_files() {
     LOGGER 开始复制文件！
     cd /tmp/${app_name}/
+    mkdir -p /koolshare/${app_name}
 
     LOGGER 复制相关二进制文件！此步时间可能较长！
-    for fn in ${bin_list} ; do
+    for fn in ${bin_list}; do
 
         cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
         chmod +x /koolshare/bin/${fn}

@@ -4,7 +4,7 @@ redir-port: 3333      # 透明代理端口
 allow-lan: true
 mode: Rule
 log-level: info
-external-controller: 127.0.0.1:9090
+external-controller: 0.0.0.0:9090
 secret: route
 
 # 透明代理开启DNS

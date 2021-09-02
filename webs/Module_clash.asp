@@ -29,18 +29,17 @@
     <script type="text/javascript">
         var $j = jQuery.noConflict();
 
-        function E(e) {
-            return (typeof(e) == 'string') ? document.getElementById(e) : e;
-        }
         function init() {
             show_menu(menu_hook);
             buildswitch();
             version_show();
             var rrt = document.getElementById("switch_service");
-            if (document.form.clash_enable.value != "1") {
+            if (document.form.clash_enable.value != "on") {
                 rrt.checked = false;
+                $j("#cmdBtn").html("代理关闭中")
             } else {
                 rrt.checked = true;
+                $j("#cmdBtn").html("代理启用中")
             }
             var s_trans = document.getElementById("switch_trans");
             if (document.form.clash_trans.value != "on") {
@@ -54,11 +53,13 @@
             $j("#switch_service").click(
                 function() {
                     if (document.getElementById('switch_service').checked) {
-                        document.form.clash_enable.value = 1;
-                        document.form.clash_action.value = 1;
+                        document.form.clash_enable.value = "on";
+                        document.form.clash_action.value = "start";
+                        $j("#cmdBtn").html("确定启用")
                     } else {
-                        document.form.clash_enable.value = 0;
-                        document.form.clash_action.value = 0;
+                        document.form.clash_enable.value = "off";
+                        document.form.clash_action.value = "stop";
+                        $j("#cmdBtn").html("确定关闭")
                     }
                 });
             $j("#switch_trans").click(
@@ -77,7 +78,7 @@
             dbus["SystemCmd"] = "clash_control.sh";
             dbus["action_mode"] = " Refresh ";
             dbus["current_page"] = "Module_clash.asp";
-            dbus["clash_trans"] = E("clash_trans").value;
+            dbus["clash_trans"] = document.getElementById("clash_trans").value;
             dbus["clash_action"] = "switch_trans_mode";
             apply_action(dbus);
         }
@@ -98,9 +99,21 @@
             dbus["SystemCmd"] = "clash_control.sh";
             dbus["action_mode"] = " Refresh ";
             dbus["current_page"] = "Module_clash.asp";
-            dbus["clash_provider_url"] = E("clash_provider_url").value;
+            dbus["clash_provider_url"] = document.getElementById("clash_provider_url").value;
             dbus["clash_action"] = "update_provider_url";
             apply_action(dbus);
+        }
+
+        // 更新节点订阅源URL
+        function update_clash_bin() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_new_version"] = document.getElementById("clash_new_version").value;
+            dbus["clash_action"] = "update_clash_bin";
+            apply_action(dbus);
+            $j("#btn_update_ver").style.display = "none";
         }
 
         function apply_action(data) {
@@ -186,6 +199,8 @@
                         var obj = res[0];
                         if (obj.name != db_clash_["clash_version"]) {
                             $j("#clash_version_status").html("<i>有新版本：" + obj.name);
+                            document.getElementById("clash_new_version").value = obj.name;
+                            document.getElementById("btn_update_ver").style.display = "";
                         } else {
                             $j("#clash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
                         }
@@ -222,9 +237,10 @@
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get(" preferred_lang "); %>" />
         <input type="hidden" name="SystemCmd" value="clash_control.sh" />
         <input type="hidden" name="firmver" value="<% nvram_get(" firmver "); %>" />
-        <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "0"); %>' />
+        <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "off"); %>' />
         <input type="hidden" id="clash_trans" name="clash_trans" value='<% dbus_get_def("clash_trans", "on"); %>' />
         <input type="hidden" id="clash_action" name="clash_action" value='' />
+        <input type="hidden" id="clash_new_version" value='' />
         
         <!-- 主要页面内容定义-->
         <table class="content" align="center" cellpadding="0" cellspacing="0">
@@ -238,7 +254,7 @@
                     <div id="tabMenu" class="submenuBlock"></div>
                     <div class="apply_gen">
                         <div class="clash_top">
-                            <div style="float:left;" class="formfonttitle">系统工具- Clash科学上网 </div>
+                            <div style="float:left;" class="formfonttitle"><b>Clash</b>版科学上网工具</div>
                             <div style="float:right; width:15px; height:25px;margin-top:10px">
                                 <img id="return_btn" onclick="reload_Soft_Center();" align="right" style="cursor:pointer;margin-left:-80px;margin-top:-25px;" title="返回软件中心" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'"></img>
                             </div>
@@ -249,6 +265,7 @@
                                 <i>当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
                             </div>
                             <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
+                                <button id="btn_update_ver" style="display: none;" type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新版本</button>
                             </div>                            
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
