@@ -44,3 +44,7 @@ sh clash/install.sh
 
 因此，就产生了这个项目。
 
+## 主界面
+
+![](./images/demo.png)
+
