@@ -1,8 +1,12 @@
+.clash_basic_info{
+    display: block;
+    text-align: left;
+    font-size: 13px;
+    font-family: 'Courier New', Courier, monospace;
+}
 
 #clash_version_status {
     display: block;
-    padding-top: 5px;
-    padding-bottom: 10px;
     width: 95%;
 }
 
@@ -21,19 +25,14 @@
     float: left;
 }
 
-div.proc_info {
-    display: block;
-    margin: 0px;
-}
-
 .blank_line {
-    margin-left: 5px;
+    margin-left: 0px;
     margin-top: 10px;
     margin-bottom: 10px;
     padding-top: 5px;
 }
 
-#text_log,
+#clash_text_log,
 #clash_provider_url {
     width: 95%;
     font-family: Courier New, Courier, mono;
@@ -47,5 +46,6 @@ div.proc_info {
 }
 
 .apply_gen {
-    width: 98%;
+    width: 95%;
+    margin-top: 0px;
 }

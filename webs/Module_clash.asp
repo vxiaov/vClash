@@ -142,7 +142,7 @@
                     setTimeout("checkCmdRet();", 1000);
                 },
                 success: function(response) {
-                    var retArea = document.getElementById("text_log");
+                    var retArea = document.getElementById("clash_text_log");
                     var _cmdBtn = document.getElementById("cmdBtn");
                     if (response.search("XU6J03M6") != -1) {
                         document.getElementById("loadingIcon").style.display = "none";
@@ -198,7 +198,7 @@
                     if (typeof(res) != "undefined" && res.length > 0) {
                         var obj = res[0];
                         if (obj.name != db_clash_["clash_version"]) {
-                            $j("#clash_version_status").html("<i>有新版本：" + obj.name);
+                            $j("#clash_version_status").html("<i>当前版本：" + db_clash_["clash_version"] + "，<i>有新版本：" + obj.name);
                             document.getElementById("clash_new_version").value = obj.name;
                             document.getElementById("btn_update_ver").style.display = "";
                         } else {
@@ -252,11 +252,27 @@
                 </td>
                 <td valign="top">
                     <div id="tabMenu" class="submenuBlock"></div>
-                    <div class="apply_gen">
-                        <div class="clash_top">
+                    <div class="apply_gen FormTitle">
+                        <div class="clash_top" style="padding-top: 20px;">
                             <div style="float:left;" class="formfonttitle"><b>Clash</b>版科学上网工具</div>
                             <div style="float:right; width:15px; height:25px;margin-top:10px">
                                 <img id="return_btn" onclick="reload_Soft_Center();" align="right" style="cursor:pointer;margin-left:-80px;margin-top:-25px;" title="返回软件中心" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'"></img>
+                            </div>
+                            <div class="clash_basic_info">
+                                <!--插件特点-->
+                                <p><a href='https://github.com/Dreamacro/clash' target='_blank'><em><u>Clash</u></em></a>是一个基于规则的代理程序，支持<a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank'><em><u>SS</u></em></a>、<a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank'><em><u>SSR</u></em></a>、<a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、<a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。</p>
+                                <p style="text-align: left; color: red; font-size: 20px;padding-top: 10px;">使用说明：</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;1. 特点： <b style="font-size: 25px;">安装即用</b>，已经内置<a href="https://github.com/learnhard-cn/free_proxy_ss"  target="_blank">订阅源URL地址</a> 到配置文件中。<b>插件代码已<a href="https://github.com/learnhard-cn/clash" target="_blank">Github开源</a> </b>。 </p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;2. 支持功能： 更新订阅源URL地址，若订阅源URL格式错误,请参考<a href="https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers" target="_blank" rel="noopener noreferrer">Clash-Provider格式配置参考链接</a> </p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;3. 兼容性： 如果使用了透明代理模式，这可能会与<b>其他代理插件可能产生冲突</b> ，使用前要关闭其他透明代理插件。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;4. <b style="color: red;">透明代理</b>：局域网不用做任何设置即可科学上网。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;5. 关闭透明代理，可结合 <b>switchyomega插件</b> 使用SOCKS5代理端口： <b>1080</b> ! 非大陆IP自动使用代理转发。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;6. 代理节点切换模式： </p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-<b>url-test</b>: 优先选择低延迟节点。定期验证可用性并进行延迟排序。<b>推荐选择此模式！默认使用此模式。</b> </p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-<b>select</b>: 按配置顺序选择结点。<b>使用哪个结点你说了算!</b>，但结点不可用时你得自己切换。 </p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-<b>fallback</b>: 按顺序选择第一个可用代理，与 url-test 区别是 <b>不按照延迟排序</b> 。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-<b>load-balance</b>: 个人不建议使用，应用场景：同一个域名请求使用相同节点，<b>适合并发多网站请求模式</b> 。</p>
+                                <p style="text-align: center; color: #FC0; font-size: 20px;">闲话少说！<b style="font-size: 25px;">安装即用</b>就对了。</p>
                             </div>
                             <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         </div>
@@ -286,9 +302,6 @@
                         </div>
                         <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <div><span><b style="color: red"> Clash服务开关</b>:控制着Clash服务的<b>启动和停止</b>！包括对<i>透明代理模式</i>选项的设置。</span></div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-
                         <!-- 透明代理模式开关 -->
                         <div class="switch_label">透明代理模式开关： </div>
                         <div class="switch_field" >
@@ -304,8 +317,6 @@
                             <button type="button" class="button_gen" onclick="switch_trans_mode()" href="javascript:void(0);">切换模式</button>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <div><span><b style="color: crimson;">透明代理</b>：局域网不用做任何设置即可科学上网。<br>控制<i>透明代理模式</i>选项，点击<b>切换模式</b>按钮后，会自动<b>重启Clash服务</b></span></div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
 
                         <!-- 订阅源URL更新部分 -->
                         <div style="display:table-cell;float: left; padding-left: 20px;">Clash节点订阅源URL地址： </div>
@@ -315,13 +326,18 @@
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
 
+                        <!--打开 Clash控制面板-->
+                        <div>
+                            <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
+                        </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <!-- 日志显示部分-->
                         <div>
                             <button type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">状态检查</button>
                         </div>
                         <div style="margin-top:8px" id="logArea">
                             <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
-                            <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="text_log"></textarea>
+                            <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="clash_text_log"></textarea>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <div class="KoolshareBottom" style="margin-top:10px;">
@@ -349,7 +365,7 @@
 <script type="text/javascript">
     <!--[if !IE]>-->
     (function($) {
-        var textArea = document.getElementById('text_log');
+        var textArea = document.getElementById('clash_text_log');
         textArea.scrollTop = textArea.scrollHeight;
     })(jQuery);
     <!--<![endif]-->
