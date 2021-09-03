@@ -28,25 +28,32 @@
     <link rel="stylesheet" type="text/css" href="/res/clash_style.css">
     <script type="text/javascript">
         var $j = jQuery.noConflict();
-
+        function E(e) {
+            return (typeof(e) == 'string') ? document.getElementById(e) : e;
+        }
         function init() {
             show_menu(menu_hook);
             buildswitch();
             version_show();
+
+            clash_group_type = db_clash_["clash_group_type"];
+            if (typeof(clash_group_type) != "undefined" && clash_group_type != "") {
+                $j("#clash_select_type").val(clash_group_type);
+            } else {
+                $j("#clash_select_type").val("url-test");
+            }
             var rrt = document.getElementById("switch_service");
             if (document.form.clash_enable.value != "on") {
                 rrt.checked = false;
-                $j("#cmdBtn").html("代理关闭中")
             } else {
                 rrt.checked = true;
-                $j("#cmdBtn").html("代理启用中")
             }
             var s_trans = document.getElementById("switch_trans");
             if (document.form.clash_trans.value != "on") {
                 s_trans.checked = false;
             } else {
                 s_trans.checked = true;
-            }
+            } 
         }
 
         function buildswitch() {
@@ -55,12 +62,11 @@
                     if (document.getElementById('switch_service').checked) {
                         document.form.clash_enable.value = "on";
                         document.form.clash_action.value = "start";
-                        $j("#cmdBtn").html("确定启用")
                     } else {
                         document.form.clash_enable.value = "off";
                         document.form.clash_action.value = "stop";
-                        $j("#cmdBtn").html("确定关闭")
                     }
+                    onSubmitCtrl(' Refresh ');
                 });
             $j("#switch_trans").click(
                 function() {
@@ -69,7 +75,27 @@
                     } else {
                         document.form.clash_trans.value = "off";
                     }
+                    switch_trans_mode();
                 });
+            $j("#clash_select_type").change(function(){
+                val_new = document.getElementById("clash_select_type").value;
+                val_old = db_clash_["clash_group_type"];
+                id = "btn_switch_trans";
+                if (val_new != val_old) {
+                    switch_trans_mode();
+                }
+            })
+        }
+
+        //按钮是否可用设置
+        function btn_change(id, val_new, val_old) {
+            if (typeof(val_old) == "undefined" || val_new != val_old) {
+                document.getElementById(id).disabled = false;
+                document.getElementById(id).style.color = "#FFF";
+            } else {
+                document.getElementById(id).disabled = true;
+                document.getElementById(id).style.color = "#666";
+            }
         }
 
         // 切换透明代理模式
@@ -78,11 +104,15 @@
             dbus["SystemCmd"] = "clash_control.sh";
             dbus["action_mode"] = " Refresh ";
             dbus["current_page"] = "Module_clash.asp";
+            //透明代理模式切换
             dbus["clash_trans"] = document.getElementById("clash_trans").value;
+            //节点组切换模式更新，clash_group_type 存储old值，clash_select_type存储新变更值
+            dbus["clash_select_type"] = document.getElementById("clash_select_type").value;
             dbus["clash_action"] = "switch_trans_mode";
             apply_action(dbus);
         }
 
+        
         // 进程状态检查
         function get_proc_status() {
             var dbus = {};
@@ -143,11 +173,8 @@
                 },
                 success: function(response) {
                     var retArea = document.getElementById("clash_text_log");
-                    var _cmdBtn = document.getElementById("cmdBtn");
                     if (response.search("XU6J03M6") != -1) {
                         document.getElementById("loadingIcon").style.display = "none";
-                        _cmdBtn.disabled = false;
-                        _cmdBtn.style.color = "#FFF";
                         retArea.value = response.replace("XU6J03M6", " ");
                         retArea.scrollTop = retArea.scrollHeight;
                         return false;
@@ -158,12 +185,8 @@
                         noChange = 0;
                     if (noChange > 10) {
                         document.getElementById("loadingIcon").style.display = "none";
-                        _cmdBtn.disabled = false;
-                        _cmdBtn.style.color = "#FFF";
                         setTimeout("checkCmdRet();", 1000);
                     } else {
-                        _cmdBtn.disabled = true;
-                        _cmdBtn.style.color = "#666";
                         document.getElementById("loadingIcon").style.display = "";
                         setTimeout("checkCmdRet();", 1000);
                     }
@@ -174,12 +197,10 @@
             });
         }
 
-        function onSubmitCtrl(o, s) {
+        function onSubmitCtrl(s) {
             document.form.action_mode.value = s;
             //showLoading(3);
             document.form.submit();
-            document.getElementById("cmdBtn").disabled = true;
-            document.getElementById("cmdBtn").style.color = "#666";
             document.getElementById("loadingIcon").style.display = "";
             setTimeout("checkCmdRet();", 500);
         }
@@ -239,6 +260,7 @@
         <input type="hidden" name="firmver" value="<% nvram_get(" firmver "); %>" />
         <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "off"); %>' />
         <input type="hidden" id="clash_trans" name="clash_trans" value='<% dbus_get_def("clash_trans", "on"); %>' />
+        
         <input type="hidden" id="clash_action" name="clash_action" value='' />
         <input type="hidden" id="clash_new_version" value='' />
         
@@ -296,33 +318,37 @@
                                     </div>
                                 </label>
                             </div>
-                        </div>
-                        <div class="proc_info">
-                            <button id="cmdBtn" class="button_gen" onclick="onSubmitCtrl(this, ' Refresh ')">保存</button>
+                            <!-- 透明代理模式开关 -->
+                            <div class="switch_label">透明代理模式开关： </div>
+                            <div class="switch_field" >
+                                <label for="switch_trans">
+                                    <input id="switch_trans" class="switch" type="checkbox" style="display: none;">
+                                    <div class="switch_container">
+                                        <div class="switch_bar"></div>
+                                        <div class="switch_circle transition_style"></div>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                         <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <!-- 透明代理模式开关 -->
-                        <div class="switch_label">透明代理模式开关： </div>
-                        <div class="switch_field" >
-                            <label for="switch_trans">
-                                <input id="switch_trans" class="switch" type="checkbox" style="display: none;">
-                                <div class="switch_container">
-                                    <div class="switch_bar"></div>
-                                    <div class="switch_circle transition_style"></div>
-                                </div>
-                            </label>
-                        </div>
-                        <div>
-                            <button type="button" class="button_gen" onclick="switch_trans_mode()" href="javascript:void(0);">切换模式</button>
+                        
+                        <div class="switch_label">节点组切换模式： </div>
+                        <div class="switch_field">
+                            <select id="clash_select_type" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
+                                <option value="select">【1】 select模式</option>
+                                <option value="url-test">【2】 url-test模式</option>
+                                <option value="fallback">【3】 fallback模式</option>
+                                <option value="load-balance">【4】 LB负载均衡模式</option>
+                            </select>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-
+                        <!-- 节点切换模式 -->
                         <!-- 订阅源URL更新部分 -->
                         <div style="display:table-cell;float: left; padding-left: 20px;">Clash节点订阅源URL地址： </div>
                         <input type="url" placeholder="# 此处填入节点订阅源URL地址！填入前确保有效的yaml文件格式哦！以免影响Clash服务状态。" id="clash_provider_url" name="clash_provider_url">
                         <div>
-                            <button type="button" class="button_gen" onclick="update_provider_url()" href="javascript:void(0);">更新订阅源</button>
+                            <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_url()" href="javascript:void(0);">更新订阅源</button>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
 

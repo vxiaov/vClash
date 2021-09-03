@@ -102,9 +102,10 @@ copy_files() {
 init_env() {
     LOGGER 设置一些默认值
     # 默认不启用
-    [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable=0
-    # 移除一些没用的值
-    dbus remove ${app_name}_version
+    [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
+    
+    # 默认组节点选择模式为 url-test
+    dbus set clash_group_type="url-test"
 
     # 离线安装时设置软件中心内储存的版本号和连接
     CUR_VERSION=$(cat /koolshare/${app_name}/version)

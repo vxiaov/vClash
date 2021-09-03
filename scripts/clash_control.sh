@@ -257,10 +257,10 @@ stop() {
 }
 
 ########## config part ###########
+config_file="$KSHOME/${app_name}/config.yaml"
 
 # 更新Clash订阅源URL地址 #
 update_provider_url() {
-    config_file="$KSHOME/${app_name}/config.yaml"
     temp_provider_file="/tmp/clash_provider.yaml"
     LOGGER "更新订阅源URL地址"
     if [ "$clash_provider_url" = "" ]; then
@@ -297,6 +297,15 @@ update_provider_url() {
         return 4
     fi
     LOGGER "万幸！恭喜呀！更新订阅源成功了！"
+}
+
+# 切换模式： 透明代理开关 + 组节点切换开关
+switch_trans_mode() {
+    if [ "$clash_group_type" != "$clash_select_type" ] ; then
+        LOGGER 切换了组节点模式为: "$clash_select_type"
+        yq e -i '.proxy-groups[0].type = strenv(clash_select_type)' $config_file
+        dbus set clash_group_type=$clash_select_type
+    fi
 }
 
 # 更新新版本clash客户端可执行程序
@@ -337,11 +346,11 @@ do_action() {
     stop)
         stop
         ;;
-    restart | switch_trans_mode)
+    restart)
         stop
         start
         ;;
-    update_provider_url | update_clash_bin)
+    update_provider_url | update_clash_bin|switch_trans_mode)
         # 需要重启的操作分类
         $clash_action
         if [ "$?" != "0" ]; then
