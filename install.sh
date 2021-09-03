@@ -1,7 +1,10 @@
 #! /bin/sh
+#########################################################
+# Clash Process Control script for AM380 merlin firmware
+# Writen by Awkee (next4nextjob(at)gmail.com)
+# Website: https://vlike.work
+#########################################################
 
-# shadowsocks script for AM380 merlin firmware
-# by sadog (sadoneli@gmail.com) from koolshare.cn
 
 app_name="clash"
 eval $(dbus export $app_name)
