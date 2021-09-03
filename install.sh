@@ -93,7 +93,9 @@ copy_files() {
 
     LOGGER 添加自启动脚本软链接
     [ ! -L "/koolshare/init.d/S99${app_name}.sh" ] && ln -sf /koolshare/scripts/${app_name}_control.sh /koolshare/init.d/S99${app_name}.sh
-
+    
+    LOGGER 添加Clash面板页面软链接
+    [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
 }
 
 # 设置初始化环境变量信息 #
@@ -128,7 +130,7 @@ need_action() {
 clean() {
     LOGGER 移除安装包！
     cd /tmp
-    rm -rf /tmp/${app_name} >/dev/null 2>&1
+    rm -rf /tmp/${app_name}  /tmp/${app_name}.tar.gz >/dev/null 2>&1
 }
 
 ## main 安装流程
