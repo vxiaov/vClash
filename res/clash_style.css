@@ -6,7 +6,7 @@
 }
 
 #clash_version_status {
-    display: block;
+    display: table-cell;
     width: 95%;
 }
 
@@ -37,7 +37,7 @@
     width: 95%;
     font-family: Courier New, Courier, mono;
     font-size: 14px;
-    background: #51686d;
+    background: #3b4c50;
     color: #FFFFFF;
 }
 
@@ -48,4 +48,9 @@
 .apply_gen {
     width: 95%;
     margin-top: 0px;
+}
+
+.FormTable th {
+    text-align: right;
+    font-size: 16px;
 }

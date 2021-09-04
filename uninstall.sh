@@ -9,13 +9,13 @@
 app_name="clash"
 LOGGER() {
     # Magic number for Log 9977
-    logger -s -t "9977$(date +%H).clashlog" "$@"
+    logger -s -t "$(date +%Y年%m月%d日%H:%M:%S):clash" "$@"
 }
 
 sh /koolshare/scripts/${app_name}_control.sh stop
 
 # 清理文件目录
-bin_list="${app_name} dns2socks5 yq"
+bin_list="${app_name} yq"
 
 # 清理旧文件，升级情况需要
 remove_files() {
@@ -45,6 +45,11 @@ remove_env() {
     dbus remove ${app_name}_action
     dbus remove ${app_name}_trans
     dbus remove ${app_name}_version
+    dbus remove ${app_name}_provider_file_old
+    dbus remove ${app_name}_provider_file
+    dbus remove ${app_name}_group_type
+    dbus remove ${app_name}_select_type
+    dbus remove ${app_name}_provider_url
 }
 
 LOGGER "开始卸载插件啦！"

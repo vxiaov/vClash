@@ -298,64 +298,88 @@
                             </div>
                             <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         </div>
-                        <div id="main_content" style="text-align: center;">
-                            <div id="clash_version_status">
-                                <i>当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
-                            </div>
-                            <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
-                                <button id="btn_update_ver" style="display: none;" type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新版本</button>
-                            </div>                            
-                        </div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <div class="proc_info">
-                            <div class="switch_label">Clash服务开关： </div>
-                            <div class="switch_field" style="display:table-cell;float: left; ">
-                                <label for="switch_service">
-                                    <input id="switch_service" class="switch" type="checkbox" style="display: none;">
-                                    <div class="switch_container">
-                                        <div class="switch_bar"></div>
-                                        <div class="switch_circle transition_style"></div>
+                        <table style="margin:20px 0px 0px 0px;" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
+                            <thead>
+                            <tr>
+                                <td colspan="2">Clash - 设置面板</td>
+                            </tr>
+                            </thead>
+                            <tr id="switch_enable_tr">
+                                <th>
+                                    <label>开启Clash服务:</label>
+                                </th>
+                                <td colspan="2">
+                                    <div class="switch_field" style="display:table-cell;float: left; ">
+                                        <label for="switch_service">
+                                            <input id="switch_service" class="switch" type="checkbox" style="display: none;">
+                                            <div class="switch_container">
+                                                <div class="switch_bar"></div>
+                                                <div class="switch_circle transition_style"></div>
+                                            </div>
+                                        </label>
                                     </div>
-                                </label>
-                            </div>
-                            <!-- 透明代理模式开关 -->
-                            <div class="switch_label">透明代理模式开关： </div>
-                            <div class="switch_field" >
-                                <label for="switch_trans">
-                                    <input id="switch_trans" class="switch" type="checkbox" style="display: none;">
-                                    <div class="switch_container">
-                                        <div class="switch_bar"></div>
-                                        <div class="switch_circle transition_style"></div>
+                                    <div id="clash_version_status">
+                                        <i>当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
                                     </div>
-                                </label>
-                            </div>
-                        </div>
-                        <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                                    <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
+                                        <button id="btn_update_ver" style="display: none;" type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新版本</button>
+                                    </div>
+                                    <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
+                                </td>
+                            </tr>
+                            <tr id="switch_trans_tr">
+                                <th>
+                                    <label>透明代理模式开关:</label>
+                                </th>
+                                <td colspan="2">
+                                    <div class="switch_field" >
+                                        <label for="switch_trans">
+                                            <input id="switch_trans" class="switch" type="checkbox" style="display: none;">
+                                            <div class="switch_container">
+                                                <div class="switch_bar"></div>
+                                                <div class="switch_circle transition_style"></div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </td>
+                            </tr>
+                            <!-- 节点切换模式 -->
+                            <tr id="switch_trans_tr">
+                                <th>
+                                    <label>节点组切换模式:</label>
+                                </th>
+                                <td colspan="2">
+                                    <div class="switch_field">
+                                        <select id="clash_select_type" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
+                                            <option value="select">【1】 select模式</option>
+                                            <option value="url-test">【2】 url-test模式</option>
+                                            <option value="fallback">【3】 fallback模式</option>
+                                            <option value="load-balance">【4】 LB负载均衡模式</option>
+                                        </select>
+                                    </div>
+                                </td>
+                            </tr>
+                            <!-- 订阅源URL更新部分 -->
+                            <tr id="switch_trans_tr">
+                                <th>
+                                    <label>订阅源URL地址:</label>
+                                </th>
+                                <td colspan="2">
+                                    <input type="url" placeholder="# 此处填入节点订阅源URL地址！填入前确保有效的yaml文件格式哦！以免影响Clash服务状态。" id="clash_provider_url" name="clash_provider_url">
+                                    <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_url()" href="javascript:void(0);">更新订阅源</button>
+                                </td>
+                            </tr>
+                            <!--打开 Clash控制面板-->
+                            <tr id="btn_tr">
+                                <th>
+                                    Web控制面板(默认密码：route):
+                                </th>
+                                <td>
+                                    <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
+                                </td>
+                            </tr>
+                        </table>
                         
-                        <div class="switch_label">节点组切换模式： </div>
-                        <div class="switch_field">
-                            <select id="clash_select_type" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
-                                <option value="select">【1】 select模式</option>
-                                <option value="url-test">【2】 url-test模式</option>
-                                <option value="fallback">【3】 fallback模式</option>
-                                <option value="load-balance">【4】 LB负载均衡模式</option>
-                            </select>
-                        </div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <!-- 节点切换模式 -->
-                        <!-- 订阅源URL更新部分 -->
-                        <div style="display:table-cell;float: left; padding-left: 20px;">Clash节点订阅源URL地址： </div>
-                        <input type="url" placeholder="# 此处填入节点订阅源URL地址！填入前确保有效的yaml文件格式哦！以免影响Clash服务状态。" id="clash_provider_url" name="clash_provider_url">
-                        <div>
-                            <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_url()" href="javascript:void(0);">更新订阅源</button>
-                        </div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-
-                        <!--打开 Clash控制面板-->
-                        <div>
-                            <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
-                        </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <!-- 日志显示部分-->
                         <div>

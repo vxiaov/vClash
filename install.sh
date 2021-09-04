@@ -10,7 +10,7 @@ app_name="clash"
 eval $(dbus export $app_name)
 LOGGER() {
     # Magic number for Log 9977
-    logger -s -t "9977$(date +%H).clashlog" "$@"
+    logger -s -t "$(date +%Y年%m月%d日%H:%M:%S):clash" "$@"
 }
 
 # ================================== INSTALL_CHECK 安装前的系统信息检查 =========================
@@ -48,7 +48,7 @@ if [ "$ks_ver" = "" ] ; then
 fi
 LOGGER "软件中心版本: $ks_ver"
 
-bin_list="${app_name} dns2socks5 yq"
+bin_list="${app_name} yq"
 
 # 清理旧文件，升级情况需要
 remove_files() {
