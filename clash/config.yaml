@@ -11,7 +11,7 @@ secret: route
 dns:
   enable: true
   ipv6: false
-  listen: 0.0.0.0:53
+  listen: 0.0.0.0:1053
   enhanced-mode: redir-host        # redir-host or fake-ip
   # fake-ip-range: 198.18.0.1/16  # Fake IP addresses pool CIDR
   # use-hosts: true # lookup hosts and return IP record
@@ -21,8 +21,10 @@ dns:
   # 提供 fallback 时，如果GEOIP非 CN 中国时使用 fallback 解析
   fallback:
     - tls://8.8.8.8:853         # Google DNS over TLS
-    - tls://1.1.1.1             # cloudflare DNS over TLS
+    - tls://8.8.4.4:853         # cloudflare DNS over TLS
     - https://1.1.1.1/dns-query # cloudflare DNS over HTTPS
+    - https://dns.google/dns-query # Google DNS over HTTPS
+
   # 强制DNS解析使用`fallback`配置
   fallback-filter:
     # true: CN使用nameserver解析，非CN使用fallback
@@ -225,5 +227,5 @@ rules:
   - RULE-SET,google,PROXY
   - RULE-SET,proxy,PROXY
   - RULE-SET,apple,PROXY
-  - RULE-SET,icloud,DIRECT
+  - RULE-SET,icloud,PROXY
   - MATCH,DIRECT

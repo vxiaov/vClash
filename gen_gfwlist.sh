@@ -22,7 +22,7 @@ get_filelist() {
 
 ## 生成 gfwlist.conf # dnsmasq 服务使用
 awk '!/^[a-z]/{
-    gsub(/+|'\''/,"",$2);
+    gsub(/+.|'\''/,"",$2);
     rule[$2] += 1;
 }END{
     for( i in rule) {

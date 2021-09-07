@@ -14,20 +14,25 @@ eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
 bin_list="${app_name} yq"
-dns_port="53"
+dns_port="1053"
+# 存放规则文件目录#
+rule_src_dir="$KSHOME/clash/ruleset"
+config_file="$KSHOME/${app_name}/config.yaml"
+temp_provider_file="/tmp/clash_provider.yaml"
+
+CMD="${app_name} -d ${KSHOME}/${app_name}/"
+lan_ipaddr=$(nvram get lan_ipaddr)
+cron_id="daemon_clash_watchdog"             # 调度ID,用来查询和删除操作标识
 
 LOGGER() {
     # Magic number for Log 9977
     logger -s -t "$(date +'%Y年%m月%d日%H:%M:%S'):clash" "$@"
 }
 
-CMD="${app_name} -d ${KSHOME}/${app_name}/"
-lan_ipaddr=$(nvram get lan_ipaddr)
 if [ "$lan_ipaddr" = "" ]; then
     LOGGER "真糟糕！ nvram 命令没找到局域网路由器地址，这样防火墙规则配置不了啦！还是自己手动设置后再执行吧！"
     exit 1
 fi
-cron_id="daemon_clash_watchdog" # 调度ID,用来查询和删除操作标识
 # 检测是否有 cru 命令
 if [ ! -x "$(which cru)" ]; then
     if [ -x "$(which cru.sh)" ]; then
@@ -88,9 +93,7 @@ get_proc_status() {
     LOGGER "$(echo_status dnsmasq)"
     echo "----------------------------------------------------"
     LOGGER "服务守护调度： [$(cru l | grep ${cron_id})]"
-    if [ "$dns_port" != "53" ] ; then
-        LOGGER "文件更新调度： [$(cru l| grep update_provider_local)]"
-    fi
+    LOGGER "文件更新调度： [$(cru l| grep update_provider_local)]"
     echo "----------------------------------------------------"
     LOGGER "Clash版本信息： $(clash -v)"
     LOGGER "yq工具版本信息： $(yq -V)"
@@ -105,10 +108,8 @@ add_cron() {
         return 0
     fi
     cru a "${cron_id}" "*/2 * * * * /koolshare/scripts/clash_control.sh start"
-    if [ "$dns_port" != "53" ] ; then
-        # 使用iptables转发53端口请求时需要更新
-        cru a "update_gfwlist" "0 12 * * * /koolshare/scripts/clash_control.sh update_gfwlist"
-    fi
+    # 使用iptables转发53端口请求时需要更新
+    cru a "update_gfwlist" "0 12 * * * /koolshare/scripts/clash_control.sh update_gfwlist"
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "添加进程守护脚本成功!"
     else
@@ -137,6 +138,10 @@ add_iptables() {
         LOGGER "已经配置过${app_name}的iptables规则！"
         return 0
     fi
+    LOGGER "创建ipset规则集"
+    ipset -! create gfwlist nethash && ipset flush gfwlist
+    ipset -! create router nethash && ipset flush router
+
     LOGGER "开始配置 ${app_name} iptables规则..."
     iptables -t nat -N ${app_name}
     iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
@@ -150,14 +155,11 @@ add_iptables() {
     iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
 
     # 服务端口3333接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 22,1080,8080 -j RETURN
     iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports 3333
 
     # 转发DNS请求到端口 dns_port 解析
-    if [ "$dns_port" != "53" ] ; then
-        iptables -t nat -A ${app_name} -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-        iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
-    fi
+    iptables -t nat -A ${app_name} -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
 }
 
 # 清理iptables规则
@@ -178,17 +180,12 @@ status() {
     # ps | grep ${app_name} | grep -v grep |grep -v /bin/sh | grep -v " vi "
 }
 
-
-# 存放规则文件目录#
-rule_src_dir="$KSHOME/clash/ruleset"
-
 get_filelist() {
     for fn in gfw apple google greatfire icloud proxy telegramcidr
     do
         printf "%s/%s.yaml " ${rule_src_dir} $fn
     done
 }
-
 
 ## 生成 gfwlist.conf # dnsmasq 服务使用
 update_gfwlist() {
@@ -214,21 +211,18 @@ start_dns() {
         LOGGER "透明代理模式已关闭！不启动DNS转发请求"
         return 0
     fi
-    if [ "$dns_port" != "53" ] ; then
-        for fn in wblist.conf gfwlist.conf; do
-            if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
-                LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
-                ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
-            fi
-        done
-    else
-        fn="port.conf"  # 自定义dnsmasq的DNS端口为5353
-        ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
-    fi
+    for fn in wblist.conf gfwlist.conf; do
+        if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
+            LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
+            ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
+        fi
+    done
+
     run_dnsmasq restart
 }
 
 stop_dns() {
+    
     LOGGER "删除gfwlist.conf与wblist.conf文件:"
     for fn in wblist.conf gfwlist.conf; do
         rm -f /jffs/configs/dnsmasq.d/${fn}
@@ -295,8 +289,6 @@ stop() {
 }
 
 ########## config part ###########
-config_file="$KSHOME/${app_name}/config.yaml"
-temp_provider_file="/tmp/clash_provider.yaml"
 
 # 更新订阅源：文件类型
 update_provider_file() {
