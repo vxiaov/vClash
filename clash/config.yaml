@@ -11,9 +11,9 @@ secret: route
 dns:
   enable: true
   ipv6: false
-  listen: 0.0.0.0:1053
-  enhanced-mode: redir-host     # or fake-ip
-  # fake-ip-range: 198.18.0.1/16 # Fake IP addresses pool CIDR
+  listen: 0.0.0.0:53
+  enhanced-mode: redir-host        # redir-host or fake-ip
+  # fake-ip-range: 198.18.0.1/16  # Fake IP addresses pool CIDR
   # use-hosts: true # lookup hosts and return IP record
   nameserver:
     - 119.29.29.29      # DNSpod DNS 17ms

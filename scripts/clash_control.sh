@@ -14,7 +14,7 @@ eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
 bin_list="${app_name} yq"
-dns_port="1053"
+dns_port="53"
 
 LOGGER() {
     # Magic number for Log 9977
@@ -88,7 +88,9 @@ get_proc_status() {
     LOGGER "$(echo_status dnsmasq)"
     echo "----------------------------------------------------"
     LOGGER "服务守护调度： [$(cru l | grep ${cron_id})]"
-    LOGGER "文件更新调度： [$(cru l| grep update_provider_local)]"
+    if [ "$dns_port" != "53" ] ; then
+        LOGGER "文件更新调度： [$(cru l| grep update_provider_local)]"
+    fi
     echo "----------------------------------------------------"
     LOGGER "Clash版本信息： $(clash -v)"
     LOGGER "yq工具版本信息： $(yq -V)"
@@ -103,7 +105,10 @@ add_cron() {
         return 0
     fi
     cru a "${cron_id}" "*/2 * * * * /koolshare/scripts/clash_control.sh start"
-    cru a "update_gfwlist" "0 12 * * * /koolshare/scripts/clash_control.sh update_gfwlist"
+    if [ "$dns_port" != "53" ] ; then
+        # 使用iptables转发53端口请求时需要更新
+        cru a "update_gfwlist" "0 12 * * * /koolshare/scripts/clash_control.sh update_gfwlist"
+    fi
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "添加进程守护脚本成功!"
     else
@@ -141,6 +146,7 @@ add_iptables() {
     iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
     iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
     iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
+    iptables -t nat -A ${app_name} -d 198.18.0.1/16 -j RETURN
     iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
 
     # 服务端口3333接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
@@ -148,8 +154,10 @@ add_iptables() {
     iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports 3333
 
     # 转发DNS请求到端口 dns_port 解析
-    iptables -t nat -A ${app_name} -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
+    if [ "$dns_port" != "53" ] ; then
+        iptables -t nat -A ${app_name} -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
+        iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
+    fi
 }
 
 # 清理iptables规则
@@ -206,12 +214,17 @@ start_dns() {
         LOGGER "透明代理模式已关闭！不启动DNS转发请求"
         return 0
     fi
-    for fn in wblist.conf gfwlist.conf; do
-        if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
-            LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
-            ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
-        fi
-    done
+    if [ "$dns_port" != "53" ] ; then
+        for fn in wblist.conf gfwlist.conf; do
+            if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
+                LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
+                ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
+            fi
+        done
+    else
+        fn="port.conf"  # 自定义dnsmasq的DNS端口为5353
+        ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
+    fi
     run_dnsmasq restart
 }
 
