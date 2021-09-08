@@ -15,7 +15,7 @@ dns:
   enable: true
   ipv6: false
   listen: 0.0.0.0:1053
-  enhanced-mode: fake-ip          # redir-host or fake-ip
+  enhanced-mode: redir-host       # redir-host or fake-ip
   fake-ip-range: 198.18.0.1/16    # Fake IP addresses pool CIDR
   use-hosts: true                 # lookup hosts and return IP record
   nameserver:
