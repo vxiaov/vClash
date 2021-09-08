@@ -7,14 +7,17 @@ log-level: info
 external-controller: 0.0.0.0:9090
 secret: route
 
+hosts:
+  'router.asus.com': 192.168.50.1
+
 # 透明代理开启DNS
 dns:
   enable: true
   ipv6: false
   listen: 0.0.0.0:1053
-  enhanced-mode: redir-host        # redir-host or fake-ip
-  # fake-ip-range: 198.18.0.1/16  # Fake IP addresses pool CIDR
-  # use-hosts: true # lookup hosts and return IP record
+  enhanced-mode: fake-ip          # redir-host or fake-ip
+  fake-ip-range: 198.18.0.1/16    # Fake IP addresses pool CIDR
+  use-hosts: true                 # lookup hosts and return IP record
   nameserver:
     - 119.29.29.29      # DNSpod DNS 17ms
     - 223.5.5.5         # 阿里 19ms
@@ -40,16 +43,17 @@ proxy-providers:
     type: http
     url: https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml
     path: ./provider_remote.yaml
+    interval: 3600
     health-check:
       enable: true
-      interval: 3600
+      interval: 600
       url: http://www.gstatic.com/generate_204
   provider02:
     type: file
     path: ./provider_local.yaml
     health-check:
       enable: true
-      interval: 3600
+      interval: 600
       url: http://www.gstatic.com/generate_204
 
 # 类型选择 简介

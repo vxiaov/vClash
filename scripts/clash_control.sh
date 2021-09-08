@@ -14,7 +14,10 @@ eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
 bin_list="${app_name} yq"
-dns_port="1053"
+
+dns_port="1053"         # Clash DNS端口
+redir_port="3333"       # Clash 透明代理端口
+
 # 存放规则文件目录#
 rule_src_dir="$KSHOME/clash/ruleset"
 config_file="$KSHOME/${app_name}/config.yaml"
@@ -108,8 +111,6 @@ add_cron() {
         return 0
     fi
     cru a "${cron_id}" "*/2 * * * * /koolshare/scripts/clash_control.sh start"
-    # 使用iptables转发53端口请求时需要更新
-    cru a "update_gfwlist" "0 12 * * * /koolshare/scripts/clash_control.sh update_gfwlist"
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "添加进程守护脚本成功!"
     else
@@ -121,7 +122,6 @@ add_cron() {
 # 删除守护监控脚本
 del_cron() {
     cru d "update_provider_local"
-    cru d "update_gfwlist"
     cru d "${cron_id}"
     LOGGER "删除进程守护脚本成功!"
 }
@@ -138,28 +138,32 @@ add_iptables() {
         LOGGER "已经配置过${app_name}的iptables规则！"
         return 0
     fi
-    LOGGER "创建ipset规则集"
-    ipset -! create gfwlist nethash && ipset flush gfwlist
-    ipset -! create router nethash && ipset flush router
+    #LOGGER "创建ipset规则集"
+    #ipset -! create gfwlist nethash && ipset flush gfwlist
+    #ipset -! create router nethash && ipset flush router
 
     LOGGER "开始配置 ${app_name} iptables规则..."
     iptables -t nat -N ${app_name}
+    iptables -t nat -F ${app_name}
     iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
+    # Fake-IP 规则添加
+    iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
 
     # 本地地址请求不转发
     iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
     iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
     iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
     iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
-    iptables -t nat -A ${app_name} -d 198.18.0.1/16 -j RETURN
     iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
-
-    # 服务端口3333接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports 3333
+    # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
 
     # 转发DNS请求到端口 dns_port 解析
-    iptables -t nat -A ${app_name} -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
+    iptables -t nat -N ${app_name}_dns
+    iptables -t nat -F ${app_name}_dns
+    iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
 }
 
 # 清理iptables规则
@@ -170,9 +174,16 @@ del_iptables() {
     fi
     LOGGER "开始清理 ${app_name} iptables规则 ..."
     iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
-    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/16 -j ${app_name}
+    # Fake-IP 规则清理
+    iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
     iptables -t nat -F ${app_name}
     iptables -t nat -X ${app_name}
+
+    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
+    iptables -t nat -D OUTPUT -p udp --dport 53 -j ${app_name}_dns
+    iptables -t nat -F ${app_name}_dns
+    iptables -t nat -X ${app_name}_dns
+
 }
 
 status() {
@@ -187,7 +198,7 @@ get_filelist() {
     done
 }
 
-## 生成 gfwlist.conf # dnsmasq 服务使用
+## 已经废弃:生成 gfwlist.conf # dnsmasq 服务使用
 update_gfwlist() {
     gfwlist_file=$KSHOME/$app_name/gfwlist.conf
 
@@ -206,6 +217,7 @@ update_gfwlist() {
     run_dnsmasq restart
 }
 
+# 废弃操作
 start_dns() {
     if [ "$clash_trans" = "off" ]; then
         LOGGER "透明代理模式已关闭！不启动DNS转发请求"
@@ -220,7 +232,7 @@ start_dns() {
 
     run_dnsmasq restart
 }
-
+# 废弃操作
 stop_dns() {
     
     LOGGER "删除gfwlist.conf与wblist.conf文件:"
@@ -231,6 +243,7 @@ stop_dns() {
     run_dnsmasq restart
 }
 
+# 废弃操作
 run_dnsmasq() {
     case "$1" in
     start | stop | restart)
@@ -265,7 +278,7 @@ start() {
         LOGGER "启动 ${CMD} 失败！"
     fi
     add_iptables
-    start_dns
+    # start_dns
     add_cron
 }
 
@@ -284,7 +297,7 @@ stop() {
     else
         LOGGER "停止 ${CMD} 成功！"
     fi
-    stop_dns
+    # stop_dns
     del_cron
 }
 
@@ -491,7 +504,7 @@ do_action() {
 main() {
     str_cmd=${1:-"do_action"}
     case "${str_cmd}" in
-    start | stop | status | do_action | add_iptables | del_iptables | get_proc_status|update_provider_file|update_gfwlist)
+    start | stop | status | do_action | add_iptables | del_iptables | get_proc_status|update_provider_file)
         ${str_cmd}
         ;;
     restart)
