@@ -61,7 +61,7 @@ proxy-providers:
 # load-balance : 相同eTLD+1的请求将拨号到同一个代理。
 # url-test : 通过对 URL 的速度进行基准测试来选择将使用哪个代理。
 # fallback : 按优先级选择可用的策略。通过访问 URL 来测试可用性，就像自动 url-test 组一样。
-# relay : 中继链接代理。代理不应包含中继。不支持 UDP。 流量：冲突 <-> http <-> vmess <-> ss1 <-> ss2 <-> Internet 
+# relay : 中继链接代理。代理不应包含中继。不支持 UDP。 流量：Clash <-> http <-> vmess <-> ss1 <-> ss2 <-> Internet 
 #  
 # 推荐选择：
 #   命令行服务建议选择 url-test / fallback / load-balance

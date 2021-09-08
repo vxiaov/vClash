@@ -13,6 +13,7 @@ source ${KSHOME}/scripts/base.sh
 eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
+
 bin_list="${app_name} yq"
 
 dns_port="1053"         # Clash DNS端口
@@ -25,7 +26,7 @@ temp_provider_file="/tmp/clash_provider.yaml"
 
 CMD="${app_name} -d ${KSHOME}/${app_name}/"
 lan_ipaddr=$(nvram get lan_ipaddr)
-cron_id="daemon_clash_watchdog"             # 调度ID,用来查询和删除操作标识
+cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 
 LOGGER() {
     # Magic number for Log 9977
@@ -90,16 +91,17 @@ case $(uname -m) in
 esac
 
 get_proc_status() {
-    LOGGER "检查进程信息："
-    LOGGER "$(echo_status head)"
-    LOGGER "$(echo_status $app_name)"
-    LOGGER "$(echo_status dnsmasq)"
+    echo "检查进程信息："
+    echo "$(echo_status head)"
+    echo "$(echo_status $app_name)"
     echo "----------------------------------------------------"
-    LOGGER "服务守护调度： [$(cru l | grep ${cron_id})]"
-    LOGGER "文件更新调度： [$(cru l| grep update_provider_local)]"
+    echo "服务守护调度： [$(cru l | grep ${cron_id})]"
+    echo "文件更新调度： [$(cru l| grep update_provider_local)]"
+    echo "订阅URL: $(yq e '.proxy-providers.provider01.url' $config_file)"
+    echo "订阅FILE: $clash_provider_file"
     echo "----------------------------------------------------"
-    LOGGER "Clash版本信息： $(clash -v)"
-    LOGGER "yq工具版本信息： $(yq -V)"
+    echo "Clash版本信息： $(clash -v)"
+    echo "yq工具版本信息： $(yq -V)"
     echo "----------------------------------------------------"
 
 }
@@ -357,7 +359,7 @@ update_provider_url() {
     LOGGER "yq版本信息: $(yq -V)"
 
     insecure_flag="0" # 标记是否SSL证书有问题
-    curl -I ${clash_provider_url} >/dev/null
+    curl --ssl -I ${clash_provider_url} >/dev/null
     ret_val="$?"
     if [ "$ret_val" != "0" ]; then
         # URL地址一定有问题，除了SSL证书问题外，其他问题都不继续执行
@@ -379,12 +381,12 @@ update_provider_url() {
         update_provider_file $temp_provider_file
         return 0
     fi
-    status_code=$(curl -I ${clash_provider_url} | awk '/HTTP/{ print $2 }')
+    status_code=$(curl --ssl -I ${clash_provider_url} | awk '/HTTP/{ print $2 }')
     if [ "$status_code" != "200" ]; then
         LOGGER "订阅URL地址无效,curl访问返回状态码(非200):${status_code},clash_provider_url：[${clash_provider_url}]"
         return 1
     fi
-    curl -o $temp_provider_file ${clash_provider_url} >/dev/null 2>&1
+    curl --ssl -o $temp_provider_file ${clash_provider_url} >/dev/null 2>&1
     if [ "$?" != "0" ]; then
         LOGGER 下载订阅源URL信息失败!可能原因：1.URL地址被屏蔽！2.使用代理不稳定. 重新尝试一次。
         return 2
