@@ -24,6 +24,11 @@ rule_src_dir="$KSHOME/clash/ruleset"
 config_file="$KSHOME/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
 
+# provider_url_bak="$KSHOME/${app_name}/provider_url.yaml"        # URL订阅源配置信息
+# provider_file_bak="$KSHOME/${app_name}/provider_file.yaml"      # FILE订阅源配置信息
+
+update_file="$KSHOME/${app_name}/provider_remote.yaml"          # 远程URL更新文件
+
 CMD="${app_name} -d ${KSHOME}/${app_name}/"
 lan_ipaddr=$(nvram get lan_ipaddr)
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
@@ -97,21 +102,20 @@ get_proc_status() {
     echo "----------------------------------------------------"
     echo "服务守护调度： [$(cru l | grep ${cron_id})]"
     echo "文件更新调度： [$(cru l| grep update_provider_local)]"
-    echo "订阅URL: $(yq e '.proxy-providers.provider01.url' $config_file)"
-    echo "订阅FILE: $clash_provider_file"
+    echo "订阅链接: $clash_provider_file"
     echo "----------------------------------------------------"
     echo "Clash版本信息： $(clash -v)"
     echo "yq工具版本信息： $(yq -V)"
     echo "----------------------------------------------------"
-
 }
 
 # 添加守护监控脚本
 add_cron() {
-    if cru l | grep ${cron_id} >/dev/null; then
+    if cru l | grep ${cron_id} >/dev/null && cru l |grep update_provider_local >/dev/null; then
         LOGGER "进程守护脚本已经添加!不需要重复添加吧？！？"
         return 0
     fi
+
     cru a "${cron_id}" "*/2 * * * * /koolshare/scripts/clash_control.sh start"
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "添加进程守护脚本成功!"
@@ -119,6 +123,15 @@ add_cron() {
         LOGGER "不知道啥原因，守护脚本没添加到调度里！赶紧查查吧！"
         return 1
     fi
+
+    cru a "update_provider_local" "0 * * * * /koolshare/scripts/clash_control.sh update_provider_file >/dev/null 2>&1"
+    if cru l | grep update_provider_local >/dev/null; then
+        LOGGER "添加订阅源更新调度脚本成功!"
+    else
+        LOGGER "不知道啥原因，订阅源更新调度脚本没添加到调度里！赶紧查查吧！"
+        return 1
+    fi
+
 }
 
 # 删除守护监控脚本
@@ -305,9 +318,77 @@ stop() {
 
 ########## config part ###########
 
+# DIY节点 列表
+list_nodes() {
+    filename="$config_file"
+    node_list=$(yq e '.proxies[].name' $filename| awk '!/test/{ printf("%s ", $0)}')
+    LOGGER "DIY节点列表: [${node_list}]"
+    dbus set clash_name_list="$node_list"
+}
+
+# DIY节点 添加节点(一个或多个)
+add_nodes() {
+    tmp_node_file="/koolshare/clash/tmp_node.yaml"
+    # 替换掉回车、多行文本变量页面加载时会出错！
+    dbus set clash_node_list="$(echo "$clash_node_list" | sed 's/\n/\t/g')"
+    node_list="$clash_node_list"
+    if [ "$node_list" = "" ] ; then
+        LOGGER "想啥呢！节点可不会凭空产生！你得传入 ss:// 或 ssr:// 或者 vmess:// 前缀的URI链接！"
+        return 1
+    fi
+
+    # 生成节点文件
+    uri_decoder -uri "$node_list" -out "${tmp_node_file}" -db "/koolshare/clash/Country.mmdb"
+    if [ "$?" != "0" ] ; then
+        LOGGER "抱歉！你添加的链接解析失败啦！给个正确的链接吧！"
+    fi
+    LOGGER "成功导入DIY代理节点"
+
+    cp $config_file $config_file.old
+    # d : 深度合并数组
+    yq ea -i 'select(fi==0) *d select(fi==1)' ${config_file} ${tmp_node_file}
+    if [ "$?" != "0" ] ; then
+        LOGGER "怎么会这样! 添加DIY代理节点失败啦！"
+        return 2
+    fi
+    LOGGER "添加DIY节点成功！"
+    list_nodes
+}
+
+# DIY节点 删除一个节点
+delete_one_node() {
+    filename="$config_file"
+    cp $config_file $config_file.old
+    LOGGER "开始删除DIY节点 (${clash_delete_name})："
+    f=${clash_delete_name} yq e -i 'del(.proxies[]|select(.name == strenv(f)))' $filename
+    f=${clash_delete_name} yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
+    LOGGER "节点删除完成!"
+    list_nodes
+}
+
+# DIY节点 全部删除
+delete_all_nodes() {
+    filename="$config_file"
+    cp $config_file $config_file.old
+    LOGGER "开始清理所有DIY节点："
+    # for fn in `yq e '.proxies[].name' $filename|grep -v test`
+    for fn in ${clash_name_list}
+    do
+        # 保留 test 节点，删掉后添加节点会很出问题的哦！
+        if [ $fn != "test" ] ; then
+            f="$fn" yq e -i 'del(.proxies[]|select(.name == strenv(f)))' $filename
+            f="$fn" yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
+        fi
+    done
+    LOGGER "清理DIY节点完毕！让世界回归平静！"
+    list_nodes
+}
+
+#############  provider 订阅源管理
+
 # 更新订阅源：文件类型
 update_provider_file() {
-    update_file="$KSHOME/${app_name}/provider_local.yaml"
+    
     if [ "$clash_provider_file" = "" ]; then
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦！ clash_provider_file=[$clash_provider_file]!"
         return 1
@@ -339,7 +420,6 @@ update_provider_file() {
     
     if [ "$clash_provider_file" != "$clash_provider_file_old" ]; then
         LOGGER "更新了订阅源！ 旧地址：[$clash_provider_file_old]"
-        
         dbus set clash_provider_file_old=$clash_provider_file
     fi
 
@@ -348,86 +428,11 @@ update_provider_file() {
     rm -f $temp_provider_file
 }
 
-# # 更新订阅源：URL订阅类型
-update_provider_url() {
-    LOGGER "更新订阅源URL地址"
-    if [ "$clash_provider_url" = "" ]; then
-        LOGGER "没有设置订阅源信息: clash_provider_url=[${clash_provider_url}] ，不更新！"
-        return 99
-    fi
-    LOGGER "curl版本信息： $(curl -V)"
-    LOGGER "yq版本信息: $(yq -V)"
-
-    insecure_flag="0" # 标记是否SSL证书有问题
-    curl --ssl -I ${clash_provider_url} >/dev/null
-    ret_val="$?"
-    if [ "$ret_val" != "0" ]; then
-        # URL地址一定有问题，除了SSL证书问题外，其他问题都不继续执行
-        if [ "$ret_val" = "60" ]; then
-            insecure_flag="1"
-            LOGGER "订阅源URL地址SSL证书失效啦！不过请放心！此类订阅源更新通过curl命令定时更新啦。"
-        else
-            LOGGER "订阅源地址有问题(curl命令返回值非0和60) 。检测命令： curl -I ${clash_provider_url} >/dev/null"
-            LOGGER "这个订阅源可能被墙，或者已经不能访问了！换个更好的订阅源试试！"
-            return 98
-        fi
-    fi
-    # 处理SSL证书失效类型URL地址
-    if [ "$insecure_flag" = "1" ]; then
-        LOGGER "URL地址存在证书失效问题，只能使用文件类型订阅更新啦！"
-        dbus set clash_provider_file=$clash_provider_url
-        export clash_provider_file=$clash_provider_url
-        dbus remove clash_provider_url
-        update_provider_file $temp_provider_file
-        return 0
-    fi
-    status_code=$(curl --ssl -I ${clash_provider_url} | awk '/HTTP/{ print $2 }')
-    if [ "$status_code" != "200" ]; then
-        LOGGER "订阅URL地址无效,curl访问返回状态码(非200):${status_code},clash_provider_url：[${clash_provider_url}]"
-        return 1
-    fi
-    curl --ssl -o $temp_provider_file ${clash_provider_url} >/dev/null 2>&1
-    if [ "$?" != "0" ]; then
-        LOGGER 下载订阅源URL信息失败!可能原因：1.URL地址被屏蔽！2.使用代理不稳定. 重新尝试一次。
-        return 2
-    fi
-    # URL地址请求正常，并不能表明 yaml 格式正常
-    # 配置文件不规范的使用文件类型更新
-    check_format=$(yq e '.redir-port' $temp_provider_file)
-    if [ "$check_format" != "null" ]; then
-        LOGGER "yaml订阅源格式不规范，只能使用文件类型订阅更新啦！"
-        dbus set clash_provider_file=$clash_provider_url
-        export clash_provider_file=$clash_provider_url
-        dbus remove clash_provider_url
-        update_provider_file $temp_provider_file
-        return 0
-    fi
-    check_format=$(yq e '.proxies[0].name' $temp_provider_file)
-    if [ "$check_format" = "null" ]; then
-        LOGGER "节点订阅源配置文件yaml格式错误： ${temp_provider_file}"
-        LOGGER "错误原因：没找到 proxies 代理节点配置！ 没有代理节点怎么科学上网呢？"
-        LOGGER "订阅源文件格式应该是这样的：<br\>proxies:<br\>- name: xxx<br\>  type: ss<br\>  server: 1.2.3.4<br\>  port: 12304<br\>  cipher: aes-256-gcm<br\>  password: 123132131<br\>...<br\>"
-        return 3
-    fi
-
-    basic_proxy_info=$(yq e '.proxies[].type' ${temp_provider_file} | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')
-    rm -f ${temp_provider_file}
-    LOGGER "开始更新订阅源地址:"
-    yq e -i '.proxy-providers.provider01.url = strenv(clash_provider_url)' $config_file
-    if [ "$?" != "0" ]; then
-        LOGGER "替换订阅源地址失败了！ 赶紧看看 $config_file 的 proxy-providers.provider01.url 参数路径为啥错误吧！"
-        return 4
-    fi
-    rm -f $KSHOME/${app_name}/provider_remote.yaml
-    LOGGER "万幸！恭喜呀！更新订阅源成功了！"
-    LOGGER "成功导入代理节点：$basic_proxy_info"
-}
-
 # 切换模式： 透明代理开关 + 组节点切换开关
 switch_trans_mode() {
     if [ "$clash_group_type" != "$clash_select_type" ]; then
         LOGGER 切换了组节点模式为: "$clash_select_type"
-        yq e -i '.proxy-groups[0].type = strenv(clash_select_type)' $config_file
+        yq e -i '.proxy-groups[1].type = strenv(clash_select_type)' $config_file
         dbus set clash_group_type=$clash_select_type
     fi
 }
@@ -489,7 +494,7 @@ do_action() {
         stop
         start
         ;;
-    get_proc_status)
+    get_proc_status|add_nodes|delete_one_node|delete_all_nodes)
         # 不需要重启操作
         $clash_action
         ;;
@@ -506,7 +511,7 @@ do_action() {
 main() {
     str_cmd=${1:-"do_action"}
     case "${str_cmd}" in
-    start | stop | status | do_action | add_iptables | del_iptables | get_proc_status|update_provider_file)
+    start | stop | status | do_action | add_iptables | del_iptables | get_proc_status|update_provider_file|list_nodes)
         ${str_cmd}
         ;;
     restart)

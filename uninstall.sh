@@ -15,7 +15,7 @@ LOGGER() {
 sh /koolshare/scripts/${app_name}_control.sh stop
 
 # 清理文件目录
-bin_list="${app_name} yq"
+bin_list="${app_name} yq uri_decoder"
 
 # 清理旧文件，升级情况需要
 remove_files() {
@@ -50,6 +50,9 @@ remove_env() {
     dbus remove ${app_name}_group_type
     dbus remove ${app_name}_select_type
     dbus remove ${app_name}_provider_url
+    dbus remove ${app_name}_node_list
+    dbus remove ${app_name}_name_list
+    dbus remove ${app_name}_delete_name
 }
 
 LOGGER "开始卸载插件啦！"

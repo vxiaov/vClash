@@ -42,6 +42,12 @@
             } else {
                 $j("#clash_select_type").val("url-test");
             }
+
+            clash_provider_file = db_clash_["clash_provider_file"];
+            if (typeof(clash_provider_file) != "undefined" && clash_provider_file != "") {
+                $j("#provider_value").val(clash_provider_file);
+            }
+
             var rrt = document.getElementById("switch_service");
             if (document.form.clash_enable.value != "on") {
                 rrt.checked = false;
@@ -53,7 +59,8 @@
                 s_trans.checked = false;
             } else {
                 s_trans.checked = true;
-            } 
+            }
+            document.getElementById("btn_default_tab").click();
         }
 
         function buildswitch() {
@@ -84,7 +91,7 @@
                 if (val_new != val_old) {
                     switch_trans_mode();
                 }
-            })
+            });
         }
 
         //按钮是否可用设置
@@ -112,7 +119,6 @@
             apply_action(dbus);
         }
 
-        
         // 进程状态检查
         function get_proc_status() {
             var dbus = {};
@@ -124,14 +130,70 @@
         }
 
         // 更新节点订阅源URL
-        function update_provider_url() {
+        function update_provider_file() {
             var dbus = {};
             dbus["SystemCmd"] = "clash_control.sh";
             dbus["action_mode"] = " Refresh ";
             dbus["current_page"] = "Module_clash.asp";
-            dbus["clash_provider_url"] = document.getElementById("clash_provider_url").value;
-            dbus["clash_action"] = "update_provider_url";
+            dbus["clash_provider_file"] = document.getElementById("provider_value").value;
+            dbus["clash_action"] = "update_provider_file";
             apply_action(dbus);
+        }
+
+        // DIY节点添加
+        function add_nodes() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_node_list"] = document.getElementById("proxy_node_list").value;
+            dbus["clash_node_list"].replace(/\n/g, " ")
+            dbus["clash_action"] = "add_nodes";
+            apply_action(dbus);
+        }
+
+        // 更新DIY节点 名称列表
+        function update_node_list(f) {
+            $j.ajax({
+                type: "GET",
+                url: '/dbconf?p=clash_',
+                dataType: 'html',
+                success: function(response) {
+                    $j.globalEval(response);
+                    var obj = document.getElementById("proxy_node_name");
+                    obj.options.length=0;
+                    const node_arr = db_clash_["clash_name_list"].trim().split(" ");
+                    for (let index = 0; index < node_arr.length; index++) {
+                        const element = node_arr[index];
+                        obj.options.add(new Option(element, element));
+                    }
+                }
+            });
+        }
+
+        // DIY节点 全部删除
+        function delete_all_nodes() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_action"] = "delete_all_nodes";
+            apply_action(dbus);
+            var obj = document.getElementById("proxy_node_name");
+            obj.options.length = 0;
+        }
+
+        // DIY节点 按名称删除
+        function delete_one_node() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_delete_name"] = document.getElementById("proxy_node_name").value;
+            dbus["clash_action"] = "delete_one_node";
+            apply_action(dbus);
+            var obj = document.getElementById("proxy_node_name");
+            obj.options.remove(obj.selectedIndex);
         }
 
         // 更新节点订阅源URL
@@ -157,9 +219,22 @@
                     // 检查结果
                     document.getElementById("loadingIcon").style.display = "";
                     setTimeout("checkCmdRet();", 500);
+                    update_dbconf();
                 }
             });
         }
+
+        function update_dbconf() {
+            $j.ajax({
+                type: "GET",
+                url: '/dbconf?p=clash_&v=uptime()',
+                dataType: 'html',
+                success: function(response) {
+                    $j.globalEval(response);
+                }
+            });
+        }
+
 
         var _responseLen;
         var noChange = 0;
@@ -239,6 +314,26 @@
             tabtitle[tabtitle.length -1] = new Array("", "软件中心", "离线安装", "Clash版代理工具");
             tablink[tablink.length -1] = new Array("", "Main_Soft_center.asp", "Main_Soft_setting.asp", "Module_clash.asp");
         }
+        function switch_tabs(evt, tab_id) {
+            // Declare all variables
+            var i, tabcontent, tablinks;
+
+            // Get all elements with class="tabcontent" and hide them
+            tabcontent = document.getElementsByClassName("FormTable");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+
+            // Get all elements with class="tablinks" and remove the class "active"
+            tablinks = document.getElementsByClassName("tab");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+
+            // Show the current tab, and add an "active" class to the button that opened the tab
+            document.getElementById(tab_id).style.display = "inline-table";
+            evt.currentTarget.className += " active";
+        }
     </script>
 </head>
 
@@ -260,6 +355,7 @@
         <input type="hidden" name="firmver" value="<% nvram_get(" firmver "); %>" />
         <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "off"); %>' />
         <input type="hidden" id="clash_trans" name="clash_trans" value='<% dbus_get_def("clash_trans", "on"); %>' />
+        
         
         <input type="hidden" id="clash_action" name="clash_action" value='' />
         <input type="hidden" id="clash_new_version" value='' />
@@ -298,18 +394,27 @@
                             </div>
                             <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         </div>
-                        <table style="margin:20px 0px 0px 0px;" width="100%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="FormTable">
-                            <thead>
-                            <tr>
-                                <td colspan="2">Clash - 设置面板</td>
-                            </tr>
+                        <!-- Tab菜单 -->
+                        <div id="tabs">
+                            <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
+                            <button class="tab" onclick="switch_tabs(event, 'menu_provider_update')">订阅源管理</button>
+                            <button class="tab" onclick="switch_tabs(event, 'menu_group_add')">添加节点</button>
+                            <button class="tab" onclick="switch_tabs(event, 'menu_group_delete');update_node_list()">删除节点</button>
+                        </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                        <!-- 默认设置Tab -->
+                        <table id="menu_default" class="FormTable">
+                            <thead width="100%">
+                                <tr>
+                                    <td colspan="2">Clash - 设置面板</td>
+                                </tr>
                             </thead>
-                            <tr id="switch_enable_tr">
+                            <tr>
                                 <th>
                                     <label>开启Clash服务:</label>
                                 </th>
                                 <td colspan="2">
-                                    <div class="switch_field" style="display:table-cell;float: left; ">
+                                    <div class="switch_field">
                                         <label for="switch_service">
                                             <input id="switch_service" class="switch" type="checkbox" style="display: none;">
                                             <div class="switch_container">
@@ -327,7 +432,7 @@
                                     <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
                                 </td>
                             </tr>
-                            <tr id="switch_trans_tr">
+                            <tr>
                                 <th>
                                     <label>透明代理模式开关:</label>
                                 </th>
@@ -344,7 +449,7 @@
                                 </td>
                             </tr>
                             <!-- 节点切换模式 -->
-                            <tr id="switch_trans_tr">
+                            <tr>
                                 <th>
                                     <label>节点组切换模式:</label>
                                 </th>
@@ -359,18 +464,8 @@
                                     </div>
                                 </td>
                             </tr>
-                            <!-- 订阅源URL更新部分 -->
-                            <tr id="switch_trans_tr">
-                                <th>
-                                    <label>订阅源URL地址:</label>
-                                </th>
-                                <td colspan="2">
-                                    <input type="url" placeholder="# 此处填入节点订阅源URL地址！填入前确保有效的yaml文件格式哦！以免影响Clash服务状态。" id="clash_provider_url" name="clash_provider_url">
-                                    <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_url()" href="javascript:void(0);">更新订阅源</button>
-                                </td>
-                            </tr>
                             <!--打开 Clash控制面板-->
-                            <tr id="btn_tr">
+                            <tr>
                                 <th>
                                     Web控制面板(默认密码：route):
                                 </th>
@@ -379,7 +474,75 @@
                                 </td>
                             </tr>
                         </table>
-                        
+                        <!-- 订阅源URL更新部分 -->
+                        <table id="menu_provider_update" class="FormTable">
+                            <thead>
+                                <tr>
+                                    <td colspan="2">Clash - 订阅源更新</td>
+                                </tr>
+                            </thead>
+                            <tr>
+                                <th>
+                                    <label>订阅源URL链接:</label>
+                                </th>
+                                <td colspan="2">
+                                    <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="provider_value" class="input_text">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_file()" href="javascript:void(0);">更新订阅源</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
+                                </td>
+                            </tr>
+                        </table>
+                        <!-- 代理组添加节点操作 -->
+                        <table id="menu_group_add" class="FormTable">
+                            <thead>
+                                <tr>
+                                    <td colspan="2">Clash - 代理组添加节点</td>
+                                </tr>
+                            </thead>
+                            <tr>
+                                <th>输入链接：</th>
+                                <td colspan="2">
+                                    <textarea rows="5" class="input_text" id="proxy_node_list" placeholder="#粘贴代理链接，每行一个代理,支持SS/SSR/VMESS类型URI链接解析"></textarea>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <button type="button" class="button_gen" onclick="add_nodes()" href="javascript:void(0);">添加</button>
+                                </td>
+                            </tr>
+                        </table>
+                        <!-- 代理组删除节点操作 -->
+                        <table id="menu_group_delete" class="FormTable">
+                            <thead>
+                                <tr>
+                                    <td colspan="2">Clash - 代理组删除节点</td>
+                                </tr>
+                            </thead>
+                            <tr>
+                                <th>名称:</th>
+                                <td colspan="2">
+                                    <div class="switch_field">
+                                        <select id="proxy_node_name" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
+                                        </select>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <button type="button" class="button_gen" onclick="delete_one_node()" href="javascript:void(0);">删除</button>
+                                    <button type="button" class="button_gen" onclick="delete_all_nodes()" href="javascript:void(0);">删除全部</button>
+                                </td>
+                            </tr>
+                        </table>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <!-- 日志显示部分-->
                         <div>
@@ -387,7 +550,7 @@
                         </div>
                         <div style="margin-top:8px" id="logArea">
                             <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
-                            <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="clash_text_log"></textarea>
+                            <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <div class="KoolshareBottom" style="margin-top:10px;">
