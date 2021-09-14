@@ -227,9 +227,7 @@
                 success: function(response) {
                     // 检查结果
                     document.getElementById("loadingIcon").style.display = "";
-                    setTimeout("checkCmdRet();", 500);
-                    
-                }
+                    setTimeout("checkCmdRet();", 500);                }
             });
         }
 
@@ -285,7 +283,6 @@
 
         function onSubmitCtrl(s) {
             document.form.action_mode.value = s;
-            //showLoading(3);
             document.form.submit();
             document.getElementById("loadingIcon").style.display = "";
             setTimeout("checkCmdRet();", 500);
@@ -565,8 +562,10 @@
                        
                         <div>
                             <!--打开 Clash控制面板-->
-                            <span><b>Web控制面板(默认密码：route):</b></span>
+                            <span><b>Web控制面板(默认密码：route):</b></span><br>
                             <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
+                            <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                            
                             <!-- 日志显示部分-->
                             <a type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">状态检查</a>
                         </div>
