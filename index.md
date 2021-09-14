@@ -52,5 +52,5 @@ sh clash/install.sh
 
 ## 主界面
 
-![](https://github.com/learnhard-cn/clash/blob/main/images/demo.png)
+![](https://raw.githubusercontent.com/learnhard-cn/clash/main/images/demo.png)
 
