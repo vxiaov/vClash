@@ -22,15 +22,23 @@ bin_list="${app_name} yq uri_decoder"
 # 清理旧文件，升级情况需要
 remove_files() {
     LOGGER 清理旧文件
-    rm -rf /koolshare/${app_name}   &&  LOGGER "执行命令：rm -rf /koolshare/${app_name}"
-    rm -rf /koolshare/webs/Module_${app_name}.asp &&  LOGGER "执行命令： rm -rf /koolshare/webs/Module_${app_name}.asp"
+    LOGGER "执行命令：rm -rf /koolshare/${app_name}"
+    rm -rf /koolshare/${app_name}
+
+    LOGGER "执行命令： rm -rf /koolshare/webs/Module_${app_name}.asp"
+    rm -rf /koolshare/webs/Module_${app_name}.asp
     for fn in ${bin_list}
     do
-        rm -f /koolshare/bin/${fn}  && LOGGER "执行命令： rm -f /koolshare/bin/${fn}"
+        LOGGER "执行命令： rm -f /koolshare/bin/${fn}"
+        rm -f /koolshare/bin/${fn}
     done
-    rm -rf /koolshare/res/icon-${app_name}.png  && LOGGER "执行命令： rm -f /koolshare/res/icon-${app_name}.png"
-    rm -rf /koolshare/res/${app_name}_*         && LOGGER "执行命令： rm -rf /koolshare/res/${app_name}_*"
-    rm -rf /koolshare/init.d/S??${app_name}.sh  && LOGGER "执行命令： rm -f /koolshare/init.d/S??${app_name}.sh"
+    LOGGER "执行命令： rm -f /koolshare/res/icon-${app_name}.png"
+    rm -rf /koolshare/res/icon-${app_name}.png
+    
+    LOGGER "执行命令： rm -rf /koolshare/res/${app_name}_*"
+    rm -rf /koolshare/res/${app_name}_*
+    LOGGER "执行命令： rm -f /koolshare/init.d/S??${app_name}.sh"
+    rm -rf /koolshare/init.d/S??${app_name}.sh
 }
 
 

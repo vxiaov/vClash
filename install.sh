@@ -85,7 +85,7 @@ copy_files() {
     LOGGER 复制相关的脚本文件！
     cp -rf ./${app_name}/ /koolshare/
     cp -f ./scripts/${app_name}_*.sh /koolshare/scripts/
-    cp -f ./uninstall.sh /koolshare/scripts/${app_name}_uninstall.sh
+    cp -f ./uninstall.sh /koolshare/scripts/uninstall_${app_name}.sh
 
     chmod 755 /koolshare/scripts/${app_name}_*.sh
 
