@@ -5,6 +5,7 @@
 # Website: https://vlike.work
 #########################################################
 
+source ${KSHOME}/scripts/base.sh
 
 app_name="clash"
 eval $(dbus export $app_name)

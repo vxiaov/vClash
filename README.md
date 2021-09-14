@@ -21,6 +21,12 @@
 
 > 为了支持 ss/ssr/vmess URI后台解析，新增加了一个`uri_decoder`工具，目的是解析URI并生成新增加节点的yaml文件，最后使用`yq`命令合并两个文件，完成节点添加功能。
 
+## 订阅规则手动更新
+> 增加手动更新 `ruleset`/`Country.mmdb`文件。
+
+- 更新 `ruleset` ： 规则集下载。
+- 更新 `Country.mmdb` ： 官方文件下载。
+
 ## 怎么使用？
 
 ```bash

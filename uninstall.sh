@@ -5,14 +5,14 @@
 # Writen by Awkee (next4nextjob(at)gmail.com) 
 # Website: https://vlike.work
 #########################################################
+source ${KSHOME}/scripts/base.sh
 
-app_name="clash"
 LOGGER() {
     # Magic number for Log 9977
     logger -s -t "$(date +%Y年%m月%d日%H:%M:%S):clash" "$@"
 }
 
-sh /koolshare/scripts/${app_name}_control.sh stop
+app_name="clash"
 
 # 清理文件目录
 bin_list="${app_name} yq uri_decoder"
@@ -21,7 +21,6 @@ bin_list="${app_name} yq uri_decoder"
 remove_files() {
     LOGGER 清理旧文件
     rm -rf /koolshare/${app_name}   &&  LOGGER "执行命令：rm -rf /koolshare/${app_name}"
-    rm -rf /koolshare/scripts/${app_name}_*   &&  LOGGER "执行命令：rm -rf /koolshare/scripts/${app_name}_*"
     rm -rf /koolshare/webs/Module_${app_name}.asp &&  LOGGER "执行命令： rm -rf /koolshare/webs/Module_${app_name}.asp"
     for fn in ${bin_list}
     do
@@ -57,8 +56,12 @@ remove_env() {
 
 LOGGER "开始卸载插件啦！"
 
+sh /koolshare/scripts/${app_name}_control.sh stop
+
 remove_files
 remove_env
-
 LOGGER "卸载完成啦！一切都归于尘土，哦不！是垃圾站！"
+
+LOGGER "执行命令：rm -rf /koolshare/scripts/${app_name}_*"
+rm -rf /koolshare/scripts/${app_name}_*
 

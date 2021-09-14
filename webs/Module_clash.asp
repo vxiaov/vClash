@@ -140,6 +140,26 @@
             apply_action(dbus);
         }
 
+        // 更新GeoIP
+        function update_geoip() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_action"] = "update_geoip";
+            apply_action(dbus);
+        }
+
+        // 更新 ruleset
+        function update_ruleset() {
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            dbus["clash_action"] = "update_ruleset";
+            apply_action(dbus);
+        }
+
         // DIY节点添加
         function add_nodes() {
             var dbus = {};
@@ -464,15 +484,7 @@
                                     </div>
                                 </td>
                             </tr>
-                            <!--打开 Clash控制面板-->
-                            <tr>
-                                <th>
-                                    Web控制面板(默认密码：route):
-                                </th>
-                                <td>
-                                    <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
-                                </td>
-                            </tr>
+                            
                         </table>
                         <!-- 订阅源URL更新部分 -->
                         <table id="menu_provider_update" class="FormTable">
@@ -497,6 +509,22 @@
                             <tr>
                                 <td colspan="2">
                                     <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label>GeoIP数据文件:</label>
+                                </th>
+                                <td colspan="2">
+                                    <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>
+                                    <label>规则集ruleset文件:</label>
+                                </th>
+                                <td colspan="2">
+                                    <button type="button" class="button_gen" onclick="update_ruleset()" href="javascript:void(0);">更新</button>
                                 </td>
                             </tr>
                         </table>
@@ -543,11 +571,16 @@
                             </tr>
                         </table>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
-                        <!-- 日志显示部分-->
+                       
                         <div>
-                            <button type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">状态检查</button>
+                            <!--打开 Clash控制面板-->
+                            <span><b>Web控制面板(默认密码：route):</b></span>
+                            <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
+                            <!-- 日志显示部分-->
+                            <a type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">状态检查</a>
                         </div>
+                        <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                        
                         <div style="margin-top:8px" id="logArea">
                             <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
                             <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>

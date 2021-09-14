@@ -428,6 +428,57 @@ update_provider_file() {
     rm -f $temp_provider_file
 }
 
+update_geoip() {
+    #
+    geoip_file="${KSHOME}/clash/Country.mmdb"
+    cp ${geoip_file} ${geoip_file}.bak
+    curl -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
+    if [ "$?" != "0" ] ; then
+        LOGGER "下载「$geoip_file」文件失败！"
+        mv -f ${geoip_file}.bak ${geoip_file}
+        return 1
+    fi
+    rm ${geoip_file}.bak
+    LOGGER "「$geoip_file」文件更新成功！"
+}
+
+all_ruleset() {
+    cat <<END
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/proxy.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/private.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/apple.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/icloud.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/google.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/gfw.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/greatfire.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/tld-not-cn.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/telegramcidr.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/lancidr.txt
+https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/cncidr.txt
+END
+
+}
+
+# 更新规则集
+update_ruleset() {
+    outdir="$KSHOME/clash/ruleset/"
+    all_ruleset | while read dn_url
+    do
+        fn=`basename ${dn_url}`
+        cp ${outdir}/$fn ${outdir}/${fn}.bak
+        curl -o ${outdir}/$fn ${dn_url}
+        if [ "$?" != "0" ] ; then
+            mv -f ${outdir}/${fn}.bak ${outdir}/${fn}
+            LOGGER "更新[$fn]失败."
+        else
+            rm -f ${outdir}/${fn}.bak
+            LOGGER "更新[$fn]成功."
+        fi
+    done
+}
+
 # 切换模式： 透明代理开关 + 组节点切换开关
 switch_trans_mode() {
     if [ "$clash_group_type" != "$clash_select_type" ]; then
