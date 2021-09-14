@@ -94,17 +94,6 @@
             });
         }
 
-        //按钮是否可用设置
-        function btn_change(id, val_new, val_old) {
-            if (typeof(val_old) == "undefined" || val_new != val_old) {
-                document.getElementById(id).disabled = false;
-                document.getElementById(id).style.color = "#FFF";
-            } else {
-                document.getElementById(id).disabled = true;
-                document.getElementById(id).style.color = "#666";
-            }
-        }
-
         // 切换透明代理模式
         function switch_trans_mode() {
             var dbus = {};
@@ -239,7 +228,7 @@
                     // 检查结果
                     document.getElementById("loadingIcon").style.display = "";
                     setTimeout("checkCmdRet();", 500);
-                    update_dbconf();
+                    
                 }
             });
         }
@@ -251,6 +240,7 @@
                 dataType: 'html',
                 success: function(response) {
                     $j.globalEval(response);
+                    init();
                 }
             });
         }
@@ -272,6 +262,7 @@
                         document.getElementById("loadingIcon").style.display = "none";
                         retArea.value = response.replace("XU6J03M6", " ");
                         retArea.scrollTop = retArea.scrollHeight;
+                        update_dbconf();
                         return false;
                     }
                     if (_responseLen == response.length)

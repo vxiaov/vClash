@@ -444,29 +444,29 @@ update_geoip() {
 
 all_ruleset() {
     cat <<END
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/proxy.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/reject.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/private.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/apple.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/icloud.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/google.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/gfw.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/greatfire.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/tld-not-cn.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/telegramcidr.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/lancidr.txt
-https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/cncidr.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/icloud.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/greatfire.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/tld-not-cn.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt
+https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt
 END
 
 }
 
 # 更新规则集
 update_ruleset() {
-    outdir="$KSHOME/clash/ruleset/"
+    outdir="$KSHOME/clash/ruleset"
     all_ruleset | while read dn_url
     do
-        fn=`basename ${dn_url}`
+        fn=`basename ${dn_url}|sed 's/txt/yaml/g'`
         cp ${outdir}/$fn ${outdir}/${fn}.bak
         curl -o ${outdir}/$fn ${dn_url}
         if [ "$?" != "0" ] ; then
@@ -495,12 +495,12 @@ update_clash_bin() {
     old_version=$clash_version
     
     # 专业版更新
-    download_url="$(curl https://github.com/Dreamacro/clash/releases/tag/premium| awk '/premium.clash-linux-armv5/{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
+    download_url="$(curl -x socks5://127.0.0.1:1080 https://github.com/Dreamacro/clash/releases/tag/premium| awk '/premium.clash-linux-armv5/{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
     bin_file=$(basename $download_url)
     LOGGER "新版本地址：${download_url}"
     # bin_file="clash-linux-${ARCH}-${new_ver}"
     # download_url="https://github.com/Dreamacro/clash/releases/download/${new_ver}/${bin_file}.gz"
-    curl -o ${bin_file}.gz -L $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv $KSHOME/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
+    curl -x socks5://127.0.0.1:1080 -o ${bin_file}.gz -L $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv $KSHOME/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
         [[ -f /tmp/${app_name}.${old_version} ]] && mv /tmp/${app_name}.${old_version} $KSHOME/bin/${app_name}
@@ -545,7 +545,7 @@ do_action() {
         stop
         start
         ;;
-    get_proc_status|add_nodes|delete_one_node|delete_all_nodes)
+    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_ruleset|update_geoip)
         # 不需要重启操作
         $clash_action
         ;;

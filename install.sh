@@ -109,6 +109,8 @@ init_env() {
     
     # 默认组节点选择模式为 url-test
     dbus set clash_group_type="url-test"
+    dbus set clash_provider_file="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml"
+    dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
 
     # 离线安装时设置软件中心内储存的版本号和连接
     CUR_VERSION=$(cat /koolshare/${app_name}/version)
