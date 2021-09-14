@@ -5,6 +5,8 @@
 # Website: https://vlike.work
 #########################################################
 
+KSHOME="/koolshare"
+
 source ${KSHOME}/scripts/base.sh
 
 app_name="clash"

@@ -5,6 +5,8 @@
 # Writen by Awkee (next4nextjob(at)gmail.com) 
 # Website: https://vlike.work
 #########################################################
+
+KSHOME="/koolshare"
 source ${KSHOME}/scripts/base.sh
 
 LOGGER() {
