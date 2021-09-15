@@ -292,6 +292,7 @@ start() {
     else
         LOGGER "启动 ${CMD} 失败！"
     fi
+    [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
     add_iptables
     # start_dns
     add_cron

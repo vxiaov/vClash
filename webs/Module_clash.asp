@@ -437,7 +437,6 @@
                                     <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
                                         <button id="btn_update_ver" style="display: none;" type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新版本</button>
                                     </div>
-                                    <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
                                 </td>
                             </tr>
                             <tr>
@@ -568,6 +567,9 @@
                             
                             <!-- 日志显示部分-->
                             <a type="button" class="button_gen" onclick="get_proc_status()" href="javascript:void(0);">状态检查</a>
+                            
+                            <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
+                            <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         
