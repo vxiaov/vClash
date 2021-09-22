@@ -10,24 +10,27 @@ app_name="clash"
 
 source ${KSHOME}/scripts/base.sh
 
+# 避免出现 out of memory 问题
+ulimit -s unlimited
+
 eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
-
+CURL_OPTS="--proxy socks5://127.0.0.1:1080 -sSL "
 bin_list="${app_name} yq"
 
 dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
 
 # 存放规则文件目录#
-rule_src_dir="$KSHOME/clash/ruleset"
-config_file="$KSHOME/${app_name}/config.yaml"
+rule_src_dir="${KSHOME}/clash/ruleset"
+config_file="${KSHOME}/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
 
-# provider_url_bak="$KSHOME/${app_name}/provider_url.yaml"        # URL订阅源配置信息
-# provider_file_bak="$KSHOME/${app_name}/provider_file.yaml"      # FILE订阅源配置信息
+# provider_url_bak="${KSHOME}/${app_name}/provider_url.yaml"        # URL订阅源配置信息
+# provider_file_bak="${KSHOME}/${app_name}/provider_file.yaml"      # FILE订阅源配置信息
 
-update_file="$KSHOME/${app_name}/provider_remote.yaml"          # 远程URL更新文件
+update_file="${KSHOME}/${app_name}/provider_remote.yaml"          # 远程URL更新文件
 
 CMD="${app_name} -d ${KSHOME}/${app_name}/"
 lan_ipaddr=$(nvram get lan_ipaddr)
@@ -104,8 +107,8 @@ get_proc_status() {
     echo "文件更新调度： [$(cru l| grep update_provider_local)]"
     echo "订阅链接: $clash_provider_file"
     echo "----------------------------------------------------"
-    echo "Clash版本信息： $(clash -v)"
-    echo "yq工具版本信息： $(yq -V)"
+    echo "Clash版本信息： `clash -v`"
+    echo "yq工具版本信息： `yq -V`"
     echo "----------------------------------------------------"
 }
 
@@ -153,32 +156,40 @@ add_iptables() {
         LOGGER "已经配置过${app_name}的iptables规则！"
         return 0
     fi
-    #LOGGER "创建ipset规则集"
-    #ipset -! create gfwlist nethash && ipset flush gfwlist
-    #ipset -! create router nethash && ipset flush router
 
     LOGGER "开始配置 ${app_name} iptables规则..."
-    iptables -t nat -N ${app_name}
-    iptables -t nat -F ${app_name}
-    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
+    
     # Fake-IP 规则添加
     iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
 
-    # 本地地址请求不转发
-    iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
-    iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
-    iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
-    iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
-    iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
-    # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
-
-    # 转发DNS请求到端口 dns_port 解析
-    iptables -t nat -N ${app_name}_dns
-    iptables -t nat -F ${app_name}_dns
-    iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
-    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
+    
+    if [ "$clash_gfwlist_mode" = "on" ] ; then
+        # 根据dnsmasq的ipset规则识别流量代理
+        LOGGER "创建ipset规则集"
+        ipset -! create gfwlist nethash && ipset flush gfwlist
+        # ipset -! create router nethash && ipset flush router
+        iptables -t nat -N ${app_name}
+        iptables -t nat -A ${app_name} -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports ${redir_port}
+        iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16 -m set --match-set gfwlist dst -j ${app_name}
+    else
+        iptables -t nat -N ${app_name}
+        iptables -t nat -F ${app_name}
+        iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16  -j ${app_name}
+        # 本地地址请求不转发
+        iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
+        iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
+        iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
+        iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
+        iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
+        # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
+        iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
+        # 转发DNS请求到端口 dns_port 解析
+        iptables -t nat -N ${app_name}_dns
+        iptables -t nat -F ${app_name}_dns
+        iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
+        iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
+        iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
+    fi
 }
 
 # 清理iptables规则
@@ -188,9 +199,12 @@ del_iptables() {
         return 0
     fi
     LOGGER "开始清理 ${app_name} iptables规则 ..."
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
     # Fake-IP 规则清理
     iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
+    
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -m set --match-set gfwlist dst -j ${app_name}
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
+    iptables -t nat -D ${app_name} -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports ${redir_port}
     iptables -t nat -F ${app_name}
     iptables -t nat -X ${app_name}
 
@@ -215,7 +229,7 @@ get_filelist() {
 
 ## 已经废弃:生成 gfwlist.conf # dnsmasq 服务使用
 update_gfwlist() {
-    gfwlist_file=$KSHOME/$app_name/gfwlist.conf
+    gfwlist_file=${KSHOME}/$app_name/gfwlist.conf
 
     awk '!/^[a-z]/{
         gsub(/\+|'\''/,"",$2);
@@ -294,7 +308,9 @@ start() {
     fi
     [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
     add_iptables
-    # start_dns
+    if [ "$clash_gfwlist_mode" = "on" ] ; then
+        start_dns
+    fi
     add_cron
 }
 
@@ -313,7 +329,7 @@ stop() {
     else
         LOGGER "停止 ${CMD} 成功！"
     fi
-    # stop_dns
+    stop_dns
     del_cron
 }
 
@@ -394,7 +410,7 @@ update_provider_file() {
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦！ clash_provider_file=[$clash_provider_file]!"
         return 1
     fi
-    curl --insecure -o $temp_provider_file ${clash_provider_file} >/dev/null 2>&1
+    curl --insecure ${CURL_OPTS} -o $temp_provider_file ${clash_provider_file} >/dev/null 2>&1
     if [ "$?" != "0" ]; then
         LOGGER "下载订阅源URL信息失败!可能原因：1.URL地址被屏蔽！2.使用代理不稳定. 重新尝试一次。"
         return 2
@@ -410,7 +426,11 @@ update_provider_file() {
         return 3
     fi
 
-    yq e '{ "proxies": .proxies}' $temp_provider_file >$update_file
+    yq e '{ "proxies": .proxies}' $temp_provider_file > $update_file
+    if [ "$?" != "0" ] ; then
+        LOGGER "更新节点错误！[$?]！订阅源配置可能存在问题！"
+        return 4
+    fi
 
     if cru l | grep update_provider_local >/dev/null; then
         LOGGER "已经添加了调度! $(cru l | grep update_provider_local)"
@@ -426,14 +446,14 @@ update_provider_file() {
 
     LOGGER "还不错！更新订阅源成功了！"
     LOGGER "成功导入代理节点：$(yq e '.proxies[].type' $update_file | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')"
-    rm -f $temp_provider_file
+    #rm -f $temp_provider_file
 }
 
 update_geoip() {
     #
     geoip_file="${KSHOME}/clash/Country.mmdb"
     cp ${geoip_file} ${geoip_file}.bak
-    curl -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
+    curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
     if [ "$?" != "0" ] ; then
         LOGGER "下载「$geoip_file」文件失败！"
         mv -f ${geoip_file}.bak ${geoip_file}
@@ -464,12 +484,12 @@ END
 
 # 更新规则集
 update_ruleset() {
-    outdir="$KSHOME/clash/ruleset"
+    outdir="${KSHOME}/clash/ruleset"
     all_ruleset | while read dn_url
     do
         fn=`basename ${dn_url}|sed 's/txt/yaml/g'`
         cp ${outdir}/$fn ${outdir}/${fn}.bak
-        curl -o ${outdir}/$fn ${dn_url}
+        curl ${CURL_OPTS} -o ${outdir}/$fn ${dn_url}
         if [ "$?" != "0" ] ; then
             mv -f ${outdir}/${fn}.bak ${outdir}/${fn}
             LOGGER "更新[$fn]失败."
@@ -478,6 +498,15 @@ update_ruleset() {
             LOGGER "更新[$fn]成功."
         fi
     done
+}
+
+# 切换gfwlist黑名单模式(使用dnsmasq过滤黑名单URL规则请求到代理处理)
+switch_gfwlist_mode(){
+    gfw_status="关闭"
+    if [ "$clash_gfwlist_mode" = "on" ] ; then
+        gfw_status="启用"
+    fi
+    LOGGER "${gfw_status} 黑名单模式： dnsmasq过滤黑名单URL规则请求到代理中！"
 }
 
 # 切换模式： 透明代理开关 + 组节点切换开关
@@ -496,18 +525,18 @@ update_clash_bin() {
     old_version=$clash_version
     
     # 专业版更新
-    download_url="$(curl -x socks5://127.0.0.1:1080 https://github.com/Dreamacro/clash/releases/tag/premium| awk '/premium.clash-linux-armv5/{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
+    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium| awk '/premium.clash-linux-armv5/{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
     bin_file=$(basename $download_url)
     LOGGER "新版本地址：${download_url}"
     # bin_file="clash-linux-${ARCH}-${new_ver}"
     # download_url="https://github.com/Dreamacro/clash/releases/download/${new_ver}/${bin_file}.gz"
-    curl -x socks5://127.0.0.1:1080 -o ${bin_file}.gz -L $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv $KSHOME/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
+    curl ${CURL_OPTS} -o ${bin_file}.gz -L $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
-        [[ -f /tmp/${app_name}.${old_version} ]] && mv /tmp/${app_name}.${old_version} $KSHOME/bin/${app_name}
-        if [ -f $KSHOME/bin/${app_name} ]; then
-            LOGGER "更新 $KSHOME/bin/${app_name} 失败啦！"
-            LOGGER 当前Clash版本信息: $($KSHOME/bin/${app_name} -v)
+        [[ -f /tmp/${app_name}.${old_version} ]] && mv /tmp/${app_name}.${old_version} ${KSHOME}/bin/${app_name}
+        if [ -f ${KSHOME}/bin/${app_name} ]; then
+            LOGGER "更新 ${KSHOME}/bin/${app_name} 失败啦！"
+            LOGGER 当前Clash版本信息: $(${KSHOME}/bin/${app_name} -v)
             LOGGER "别急！先把更新失败原因找到再想更新的事儿吧！"
         else
             LOGGER "太牛啦！如果走到这里，说明Clash可执行程序搞的不翼而飞啦！谁吃了呢？"
@@ -537,7 +566,7 @@ do_action() {
         stop
         start
         ;;
-    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode)
+    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode|switch_gfwlist_mode)
         # 需要重启的操作分类
         $clash_action
         if [ "$?" != "0" ]; then

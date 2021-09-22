@@ -62,6 +62,7 @@ remove_env() {
     dbus remove ${app_name}_node_list
     dbus remove ${app_name}_name_list
     dbus remove ${app_name}_delete_name
+    dbus remove ${app_name}_gfwlist_mode
 }
 
 LOGGER "开始卸载插件啦！"

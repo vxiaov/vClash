@@ -47,7 +47,13 @@
             if (typeof(clash_provider_file) != "undefined" && clash_provider_file != "") {
                 $j("#provider_value").val(clash_provider_file);
             }
-
+            
+            var gfwmode = document.getElementById("switch_gfwmode");
+            if (document.form.clash_gfwlist_mode.value != "on") {
+                gfwmode.checked = false;
+            } else {
+                gfwmode.checked = true;
+            }
             var rrt = document.getElementById("switch_service");
             if (document.form.clash_enable.value != "on") {
                 rrt.checked = false;
@@ -64,6 +70,15 @@
         }
 
         function buildswitch() {
+            $j("#switch_gfwmode").click(
+                function() {
+                    if (document.getElementById('switch_gfwmode').checked) {
+                        document.form.clash_gfwlist_mode.value = "on";
+                    } else {
+                        document.form.clash_gfwlist_mode.value = "off";
+                    }
+                    switch_gfwlist_mode();
+                });
             $j("#switch_service").click(
                 function() {
                     if (document.getElementById('switch_service').checked) {
@@ -94,6 +109,17 @@
             });
         }
 
+        // 切换gfwlist黑名单模式
+        function switch_gfwlist_mode(){
+            var dbus = {};
+            dbus["SystemCmd"] = "clash_control.sh";
+            dbus["action_mode"] = " Refresh ";
+            dbus["current_page"] = "Module_clash.asp";
+            //透明代理模式切换
+            dbus["clash_gfwlist_mode"] = document.form.clash_gfwlist_mode.value;
+            dbus["clash_action"] = "switch_gfwlist_mode";
+            apply_action(dbus);
+        }
         // 切换透明代理模式
         function switch_trans_mode() {
             var dbus = {};
@@ -363,6 +389,7 @@
         <input type="hidden" name="firmver" value="<% nvram_get(" firmver "); %>" />
         <input type="hidden" id="clash_enable" name="clash_enable" value='<% dbus_get_def("clash_enable", "off"); %>' />
         <input type="hidden" id="clash_trans" name="clash_trans" value='<% dbus_get_def("clash_trans", "on"); %>' />
+        <input type="hidden" id="clash_gfwlist_mode" name="clash_gfwlist_mode" value='<% dbus_get_def("clash_gfwlist_mode", "off"); %>' />
         
         
         <input type="hidden" id="clash_action" name="clash_action" value='' />
@@ -407,7 +434,8 @@
                             <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
                             <button class="tab" onclick="switch_tabs(event, 'menu_provider_update')">订阅源管理</button>
                             <button class="tab" onclick="switch_tabs(event, 'menu_group_add')">添加节点</button>
-                            <button class="tab" onclick="switch_tabs(event, 'menu_group_delete');update_node_list()">删除节点</button>
+                            <button class="tab" onclick="switch_tabs(event, 'menu_group_delete');update_node_list();">删除节点</button>
+                            <button class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         </div>
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                         <!-- 默认设置Tab -->
@@ -557,6 +585,29 @@
                                 </td>
                             </tr>
                         </table>
+                        <!-- 可选配置信息 -->
+                        <table id="menu_options" class="FormTable">
+                            <thead>
+                                <tr>
+                                    <td colspan="2">Clash - 可选配置</td>
+                                </tr>
+                            </thead>
+                            <tr>
+                                <th>启用DNSMASQ黑名单列表:</th>
+                                <td colspan="2">
+                                    <div class="switch_field">
+                                        <label for="switch_gfwmode">
+                                            <input id="switch_gfwmode" class="switch" type="checkbox" style="display: none;">
+                                            <div class="switch_container">
+                                                <div class="switch_bar"></div>
+                                                <div class="switch_circle transition_style"></div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                        
                         <div class="blank_line"><img src="/images/New_ui/export/line_export.png" /></div>
                        
                         <div>
