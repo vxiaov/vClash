@@ -212,7 +212,6 @@ del_iptables() {
     iptables -t nat -D OUTPUT -p udp --dport 53 -j ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
     iptables -t nat -X ${app_name}_dns
-
 }
 
 status() {
@@ -323,7 +322,7 @@ stop() {
         killall ${app_name}
         dbus set ${app_name}_enable="off"
     fi
-    del_iptables
+    del_iptables  2>/dev/null
     if status >/dev/null 2>&1; then
         LOGGER "停止 ${CMD} 失败！"
     else
@@ -355,7 +354,7 @@ add_nodes() {
     fi
 
     # 生成节点文件
-    uri_decoder -uri "$node_list" -out "${tmp_node_file}" -db "/koolshare/clash/Country.mmdb"
+    uri_decoder -uri "$node_list" -db "/koolshare/clash/Country.mmdb" > ${tmp_node_file}
     if [ "$?" != "0" ] ; then
         LOGGER "抱歉！你添加的链接解析失败啦！给个正确的链接吧！"
     fi
@@ -426,10 +425,14 @@ update_provider_file() {
         return 3
     fi
 
-    yq e '{ "proxies": .proxies}' $temp_provider_file > $update_file
+    yq e '{ "proxies": .proxies}' $temp_provider_file > ${update_file}.new
     if [ "$?" != "0" ] ; then
         LOGGER "更新节点错误！[$?]！订阅源配置可能存在问题！"
+        rm -f ${update_file}.new
         return 4
+    else
+        mv ${update_file} ${update_file}.old
+        mv ${update_file}.new  ${update_file}
     fi
 
     if cru l | grep update_provider_local >/dev/null; then
@@ -445,8 +448,8 @@ update_provider_file() {
     fi
 
     LOGGER "还不错！更新订阅源成功了！"
-    LOGGER "成功导入代理节点：$(yq e '.proxies[].type' $update_file | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')"
-    #rm -f $temp_provider_file
+    LOGGER "成功导入代理节点：$(yq e '.proxies[].type' ${update_file} | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')"
+    rm -f $temp_provider_file
 }
 
 update_geoip() {
