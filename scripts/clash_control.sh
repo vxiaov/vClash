@@ -36,9 +36,11 @@ CMD="${app_name} -d ${KSHOME}/${app_name}/"
 lan_ipaddr=$(nvram get lan_ipaddr)
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 
+LOGFILE="/tmp/upload/clash_status.log"
+echo > $LOGFILE
 LOGGER() {
-    # Magic number for Log 9977
-    logger -s -t "$(date +'%Y年%m月%d日%H:%M:%S'):clash" "$@"
+    # logger -s -t "$(date +'%Y年%m月%d日%H:%M:%S'):clash" "$@"  >> $LOGFILE
+    echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
 }
 
 if [ "$lan_ipaddr" = "" ]; then
@@ -91,6 +93,9 @@ case $(uname -m) in
         else
             ARCH="armv5"
         fi
+        ;;
+    aarch64)
+        ARCH="armv8"
         ;;
     *)
         LOGGER "糟糕！平台类型不支持呀！赶紧通知开发者适配！或者自己动手丰衣足食！"
@@ -226,7 +231,7 @@ get_filelist() {
     done
 }
 
-## 已经废弃:生成 gfwlist.conf # dnsmasq 服务使用
+# 生成 gfwlist.conf # dnsmasq 服务使用
 update_gfwlist() {
     gfwlist_file=${KSHOME}/$app_name/gfwlist.conf
 
@@ -245,8 +250,12 @@ update_gfwlist() {
     run_dnsmasq restart
 }
 
-# 废弃操作
+# Dnsmasq 配置
 start_dns() {
+    if [ "$clash_gfwlist_mode" = "off" ] ; then
+        LOGGER "未启用DNSMASQ黑名单列表，不需要设置gfwlist.conf配置！"
+        return 0
+    fi
     if [ "$clash_trans" = "off" ]; then
         LOGGER "透明代理模式已关闭！不启动DNS转发请求"
         return 0
@@ -257,10 +266,9 @@ start_dns() {
             ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
         fi
     done
-
     run_dnsmasq restart
 }
-# 废弃操作
+# 清理Dnsmasq配置
 stop_dns() {
     
     LOGGER "删除gfwlist.conf与wblist.conf文件:"
@@ -271,7 +279,7 @@ stop_dns() {
     run_dnsmasq restart
 }
 
-# 废弃操作
+# dnsmasq 管理
 run_dnsmasq() {
     case "$1" in
     start | stop | restart)
@@ -307,9 +315,7 @@ start() {
     fi
     [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
     add_iptables
-    if [ "$clash_gfwlist_mode" = "on" ] ; then
-        start_dns
-    fi
+    start_dns
     add_cron
 }
 
@@ -512,13 +518,15 @@ switch_gfwlist_mode(){
     LOGGER "${gfw_status} 黑名单模式： dnsmasq过滤黑名单URL规则请求到代理中！"
 }
 
-# 切换模式： 透明代理开关 + 组节点切换开关
-switch_trans_mode() {
-    if [ "$clash_group_type" != "$clash_select_type" ]; then
-        LOGGER 切换了组节点模式为: "$clash_select_type"
-        yq e -i '.proxy-groups[1].type = strenv(clash_select_type)' $config_file
-        dbus set clash_group_type=$clash_select_type
-    fi
+# 切换模式： 组节点切换开关
+switch_group_type() {
+    LOGGER 切换了组节点模式为: "$clash_group_type"
+    yq e -i '.proxy-groups[1].type = strenv(clash_group_type)' $config_file
+}
+
+# 透明代理开关
+switch_trans_mode(){
+    LOGGER "切换透明代理模式：$clash_trans"
 }
 
 # 更新新版本clash客户端可执行程序
@@ -556,9 +564,19 @@ update_clash_bin() {
 
 ######## 执行主要动作信息  ########
 do_action() {
-    # web界面配置操作
-    LOGGER "执行动作 ${clash_action} ..."
-    case "$clash_action" in
+    if [ "$#" = "2" ] ; then
+        http_response "$1"
+        action_job="$2"
+    else
+        # web界面配置操作
+        if [ "$1" = "" ] ; then
+            action_job="$clash_action"
+        else
+            action_job="$1"
+        fi
+    fi
+    LOGGER "执行动作 ${action_job} ..."
+    case "$action_job" in
     start)
         start
         ;;
@@ -569,9 +587,9 @@ do_action() {
         stop
         start
         ;;
-    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode|switch_gfwlist_mode)
+    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode)
         # 需要重启的操作分类
-        $clash_action
+        $action_job
         if [ "$?" != "0" ]; then
             return $?
         fi
@@ -580,32 +598,20 @@ do_action() {
         ;;
     get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_ruleset|update_geoip)
         # 不需要重启操作
-        $clash_action
+        $action_job
+        ;;
+    add_iptables | del_iptables|list_nodes)
+        $action_job
         ;;
     *)
-        LOGGER "无效的操作！ clash_action:[$clash_action]"
+        LOGGER "无效的操作！ clash_action:[$action_job]"
+        usage
         ;;
     esac
     # 执行完成动作后，清理动作.
     dbus remove clash_action
+    echo "XU6J03M6"
 }
 
-# 命令行参数处理
-# main 与 do_action 类似， 但 do_action 根据 clash_action 选择要执行什么操作
-main() {
-    str_cmd=${1:-"do_action"}
-    case "${str_cmd}" in
-    start | stop | status | do_action | add_iptables | del_iptables | get_proc_status|update_provider_file|list_nodes)
-        ${str_cmd}
-        ;;
-    restart)
-        stop
-        start
-        ;;
-    *)
-        usage
-        ;;
-    esac
-}
+do_action $@ 2>&1 >> $LOGFILE
 
-main $@

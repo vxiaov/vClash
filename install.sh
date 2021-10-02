@@ -10,7 +10,9 @@ KSHOME="/koolshare"
 source ${KSHOME}/scripts/base.sh
 
 app_name="clash"
-eval $(dbus export $app_name)
+DIR=$(cd $(dirname $0); pwd)
+module=${DIR##*/}
+
 LOGGER() {
     # Magic number for Log 9977
     logger -s -t "$(date +%Y年%m月%d日%H:%M:%S):clash" "$@"
@@ -21,7 +23,7 @@ LOGGER() {
 ARCH=""
 # 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
 case $(uname -m) in
-    armv7l) 
+    armv7l)     # ARM平台
         if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1 ; then
             ARCH="armv7"
         elif grep -i vfpv1 /proc/cpuinfo >/dev/null 2>&1 ; then
@@ -30,6 +32,10 @@ case $(uname -m) in
             ARCH="armv5"
         fi
     ;;
+    aarch64)    # hnd(High end)平台
+        ARCH="armv8"  # hnd 平台 可以使用 armv5/v6/v7/v8 可执行程序
+    ;;
+
     *)
         LOGGER "糟糕！平台类型不支持呀！赶紧通知开发者适配！或者自己动手丰衣足食！"
         exit 0
@@ -38,11 +44,24 @@ esac
 
 # 固件版本检测
 build_ver="$(nvram get buildno| cut -d '.' -f1)"
-if [ "$build_ver" != "380" ] ; then
-    LOGGER "很抱歉！本插件只支持 KS梅林固件的380.xx版本!"
+if [ "$build_ver" != "380" -a "$build_ver" != "386" ]; then
+    LOGGER "很抱歉！本插件只支持 KS梅林固件的380和386版本!而您的固件版本为: $build_ver"
     exit 2
 fi
 LOGGER "梅林固件版本： $build_ver"
+
+ODMPID=$(nvram get odmpid)
+MODEL=$(nvram get productid)
+
+if [ "$build_ver" != "380" ] ; then
+	local LINUX_VER=$(uname -r|awk -F"." '{print $1$2}')
+	if [ -d "/koolshare" -a -f "/usr/bin/skipd" -a "${LINUX_VER}" -ge "41" ];then
+		LOGGER "机型：${MODEL} ${FW_TYPE_NAME} 符合安装要求，开始安装插件！"
+	else
+        LOGGER "您当前固件版本: $build_ver , Linux内核版本:$(uname -r)"
+		exit 3
+	fi
+fi
 
 ks_ver=$(dbus get softcenter_version)
 if [ "$ks_ver" = "" ] ; then
@@ -71,7 +90,7 @@ remove_files() {
 
 copy_files() {
     LOGGER 开始复制文件！
-    cd /tmp/${app_name}/
+    cd /tmp/${module}/
     mkdir -p /koolshare/${app_name}
 
     LOGGER 复制相关二进制文件！此步时间可能较长！
@@ -106,15 +125,17 @@ init_env() {
     LOGGER 设置一些默认值
     # 默认不启用
     [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
-    
-    # 默认组节点选择模式为 url-test
-    dbus set clash_group_type="url-test"
+
     dbus set clash_provider_file="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml"
     dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
-
-    # 离线安装时设置软件中心内储存的版本号和连接
+    dbus set clash_group_type="select"  # 默认组节点选择模式 select
+    dbus set clash_trans="on"           # 默认开启透明代理模式
+    dbus set clash_gfwlist_mode="on"    # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
+    
     CUR_VERSION=$(cat /koolshare/${app_name}/version)
     dbus set ${app_name}_version="$CUR_VERSION"
+
+    # 离线安装时设置软件中心内储存的版本号和连接
     dbus set softcenter_module_${app_name}_install="1"
     dbus set softcenter_module_${app_name}_version="$CUR_VERSION"
     dbus set softcenter_module_${app_name}_title="Clash版科学上网"
