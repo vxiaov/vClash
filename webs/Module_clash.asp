@@ -321,12 +321,12 @@
                         </div>
                         <div class="clash_basic_info">
                             <!--插件特点-->
-                            <p><a href='https://github.com/Dreamacro/clash' target='_blank'><em><u>Clash</u></em></a>是一个基于规则的代理程序，支持<a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank'><em><u>SS</u></em></a>、<a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank'><em><u>SSR</u></em></a>、<a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、<a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。</p>
-                            <p style="text-align: left; color: red; font-size: 20px;padding-top: 10px;">使用说明：</p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;1. 特点： <b style="font-size: 25px;">安装即用</b>，已经内置<a href="https://github.com/learnhard-cn/free_proxy_ss"  target="_blank">订阅源URL地址</a> 到配置文件中。<b>插件代码已<a href="https://github.com/learnhard-cn/clash" target="_blank">Github开源</a> </b>。 </p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;2. 支持功能： 更新订阅源URL地址，若订阅源URL格式错误,请参考<a href="https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers" target="_blank" rel="noopener noreferrer">Clash-Provider格式配置参考链接</a> </p>
+                            <p><a href='https://github.com/Dreamacro/clash' target='_blank' rel="noopener noreferrer"><em><u>Clash</u></em></a>是一个基于规则的代理程序，支持<a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank' rel="noopener noreferrer"><em><u>SS</u></em></a>、<a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、<a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、<a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。</p>
+                            <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
+                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;1. 特点： <b style="font-size: 25px;color: rgb(32, 252, 32);">安装即用</b>，已经内置<a href="https://github.com/learnhard-cn/free_proxy_ss"  target="_blank" style="color: rgb(32, 252, 32); text-decoration: underline;">订阅源URL地址</a> 到配置文件中。插件代码已<a href="https://github.com/learnhard-cn/clash" target="_blank" style="color: rgb(32, 252, 32);text-decoration: underline;">Github开源</a> 。 </p>
+                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;2. 支持功能： 更新订阅源URL地址，若订阅源URL格式错误,请参考<a href="https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers" target="_blank" rel="noopener noreferrer" style="color: rgb(32, 252, 32);text-decoration: underline;">Clash-Provider格式配置参考链接</a> </p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;3. 兼容性： 如果使用了透明代理模式，这可能会与<b>其他代理插件可能产生冲突</b> ，使用前要关闭其他透明代理插件。</p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;4. <b style="color: red;">透明代理</b>：局域网不用做任何设置即可科学上网。</p>
+                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;4. <b style="color: rgb(32, 252, 32);">透明代理</b>：局域网不用做任何设置即可科学上网。</p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;5. 关闭透明代理，可结合 <b>switchyomega插件</b> 使用SOCKS5代理端口： <b>1080</b> ! 非大陆IP自动使用代理转发。</p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;6. 代理节点切换模式： </p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-<b>url-test</b>: 优先选择低延迟节点。定期验证可用性并进行延迟排序。<b>推荐选择此模式！默认使用此模式。</b> </p>
@@ -544,7 +544,7 @@
                         </tr>
                     </table>
                     <!--打开 Clash控制面板-->
-                    <div style="display: inline-table;">
+                    <div style="display: inline-table;padding-top: 15px;">
                         <a type="button" class="button_gen" onclick="get_proc_status();" href="javascript:void(0);">状态检查</a>
                     </div>
                     <div>
