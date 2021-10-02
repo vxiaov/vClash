@@ -1,10 +1,19 @@
 # clash项目说明
->这个项目仅用于斐讯K3路由器`KS梅林改版380固件`。
+>~~这个项目仅用于斐讯K3路由器`KS梅林改版380固件`。~~
+> 目前此项目支持路由器固件： 支持Koolshare开发的梅林改版、华硕官改版本(380、386)， 可执行程序编译的是`armv5`(大部分ARM平台可用，X86_64平台用不了(废话))。
+
+无论是`梅林改版`还是`华硕官改`固件，实际上主要的差异影响就是`软件中心插件开发的Web界面API接口`。
+
+- 380版本API版本: `v1.0`
+- 384/386版本API版本: `v1.5`
+
+理论上，支持了v1.5版本API后，386和384是可以通用的(没验证过`384`版本哦，懒的刷机啦，有`384`版本的朋友可以验证一下，用不了也没啥影响的)。
+
 
 ## 使用满足条件
 
-- CPU架构: Armv7l (能运行clash可执行程序)
-- 路由器固件： KS梅林改版380固件
+- CPU架构: Armv7l/Armv7/Armv8 (能运行clash可执行程序)
+- 路由器固件： KS梅林改版、KS官改的380/384/386版本固件
 
 ## 基本功能
 
@@ -21,34 +30,71 @@
 
 > 为了支持 ss/ssr/vmess URI后台解析，新增加了一个`uri_decoder`工具，目的是解析URI并生成新增加节点的yaml文件，最后使用`yq`命令合并两个文件，完成节点添加功能。
 
-## 怎么使用？
+## 怎么获取插件安装包？
 
+- 方式一: 通过源码使用方式：
 ```bash
 git clone https://github.com/learnhard-cn/clash.git
-rm -tr clash/.git
-tar zcvf clash.tar.gz clash
+
+# 用于 380版本固件 ：使用 main 分支
+cd clash && git checkout main && cd ../
+tar zcvf clash.tar.gz clash/bin  clash/clash  clash/images  clash/install.sh  clash/res  clash/scripts  clash/uninstall.sh  clash/version  clash/webs
+
+
+# 用于 384/386 版本固件 ：使用 ksmerlin386 分支
+cd clash && git checkout ksmerlin386 && cd ../
+tar zcvf clash.tar.gz clash/bin  clash/clash  clash/images  clash/install.sh  clash/res  clash/scripts  clash/uninstall.sh  clash/version  clash/webs clash/.valid
+
 ```
 
-或者， 到`Release`页面下载安装包 [https://github.com/learnhard-cn/clash/releases/latest](https://github.com/learnhard-cn/clash/releases/latest)
+- 方式二： 通过Release包下载获取
 
-选择最新版本下载到本地，重命名为： `clash.tar.gz` 。
 
-接下来就可以将这个安装包通过SSH传输到路由器上的`/tmp/`目录上，执行如下命令进行手动安装：
+| 适用于**380**固件| 适用于**384/386**固件|
+|:-------|:--------|
+| [clash插件下载地址](https://github.com/learnhard-cn/clash/releases/tag/latest380) | [clash插件下载地址](https://github.com/learnhard-cn/clash/releases/tag/latest386)
 
-```bash
-cd /tmp
-tar zxvf clash.tar.gz
-sh clash/install.sh
+
+选择最新版本下载到本地，文件名命名为： `clash.tar.gz` 。
+
+## 如何离线安装
+
+### 先关闭离线安装敏感词检测
+
+
+**离线安装**时，非法关键词检测是在`ks_tar_install.sh`脚本中设置的，检测关键词信息如下：
+```sh
+    local ILLEGAL_KEYWORDS="ss|ssr|shadowsocks|shadowsocksr|v2ray|trojan|clash|wireguard|koolss|brook|fuck"
 ```
+
+屏蔽它的方法就是将关键词替换个无意义的词，例如"xxxxxxxxx"。
+
+接下来，我们就来实现这个操作，在路由器控制台终端执行如下命令：
+```sh
+
+# 先检查关键词变量是否存在
+grep ILLEGAL_KEYWORDS /koolshare/scripts/ks_tar_install.sh
+
+# 替换掉非法关键词信息
+sed -i 's/local ILLEGAL_KEYWORDS=.*/local ILLEGAL_KEYWORDS="xxxxxxxxxxxxxxxxxxx"/g' /koolshare/scripts/ks_tar_install.sh
+
+```
+
+就这样，以后可以通过离线上传安装了。
+这样就可以正确的安装了。
+
+
 安装成功后，即可在`软件中心`里看到`clash`插件了。
 
 
 
 ## 为什么有这个项目
 
-由于种种原因，某些路由器的固件停留在了`梅林380改版`，但是现在很多插件开发都不再支持`梅林380改版`了，例如`Clash`没有找到一个支持版本。
+~~由于种种原因，某些路由器的固件停留在了`梅林380改版`，但是现在很多插件开发都不再支持`梅林380改版`了，例如`Clash`没有找到一个支持版本。因此，就产生了这个项目。~~
 
-因此，就产生了这个项目。
+本来之打算支持`380固件`的，但是写着写着，就支持了梅林`380/384/386`改版固件。
+
+希望可以帮助到你吧！
 
 ## 主界面
 
