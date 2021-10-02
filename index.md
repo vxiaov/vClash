@@ -31,9 +31,9 @@
 
 ## 怎么获取插件安装包？
 
-- 方式一: 通过源码使用方式：
+### 方式一: 通过源码使用方式：
 
-```bash
+```sh
 git clone https://github.com/learnhard-cn/clash.git
 
 # 用于 380版本固件 ：使用 main 分支
@@ -47,7 +47,7 @@ tar zcvf clash.tar.gz clash/bin  clash/clash  clash/images  clash/install.sh  cl
 
 ```
 
-- 方式二： 通过Release包下载获取
+### 方式二： 通过Release包下载获取
 
 
 | 适用于**380**固件| 适用于**384/386**固件|
