@@ -8,7 +8,7 @@
     <meta HTTP-EQUIV="Expires" CONTENT="-1">
     <link rel="shortcut icon" href="images/favicon.png">
     <link rel="icon" href="images/favicon.png">
-    <title>Aliddns</title>
+    <title>科学上网工具-Clash(支持免费订阅源)</title>
     <link rel="stylesheet" type="text/css" href="index_style.css"/>
     <link rel="stylesheet" type="text/css" href="form_style.css"/>
     <link rel="stylesheet" type="text/css" href="usp_style.css"/>
