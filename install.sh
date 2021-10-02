@@ -131,6 +131,7 @@ init_env() {
     dbus set clash_group_type="select"  # 默认组节点选择模式 select
     dbus set clash_trans="on"           # 默认开启透明代理模式
     dbus set clash_gfwlist_mode="on"    # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
+    dbus set clash_use_local_dns="on"   # 默认启用本地DNS解析
     
     CUR_VERSION=$(cat /koolshare/${app_name}/version)
     dbus set ${app_name}_version="$CUR_VERSION"

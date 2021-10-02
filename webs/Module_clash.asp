@@ -57,7 +57,7 @@
         }
         function conf2obj(){
             var params = ['clash_group_type', 'clash_provider_file' ];
-            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable' ];
+            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_dns' ];
             for (var i = 0; i < params_chk.length; i++) {
                 if(dbus[params_chk[i]]){
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -223,6 +223,15 @@
                 service_stop();
             }
         }
+        function swtich_localhost_dns() {
+            if (document.getElementById('clash_use_local_dns').checked) {
+                dbus["clash_use_local_dns"] = "on";
+            } else {
+                dbus["clash_use_local_dns"] = "off";
+            }
+            apply_action("swtich_localhost_dns");
+        }
+        
         function switch_gfwlist_mode(){// 切换gfwlist黑名单模式
             if (document.getElementById('clash_gfwlist_mode').checked) {
                 dbus["clash_gfwlist_mode"] = "on";
@@ -283,6 +292,9 @@
         function update_clash_bin() {// 按名称删除 DIY节点
             apply_action("update_clash_bin");
             document.getElementById("btn_update_ver").style.display = "none";
+        }
+        function show_router_info() {
+            apply_action("show_router_info");
         }
     </script>
 </head>
@@ -463,6 +475,20 @@
                             </tr>
                         </thead>
                         <tr>
+                            <th>切换本地DNS解析开关(<b>建议启用</b> ):</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_use_local_dns">
+                                        <input id="clash_use_local_dns" onclick="swtich_localhost_dns();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
                             <th>启用Dnsmasq黑名单(<b>建议启用</b> ):</th>
                             <td colspan="2">
                                 <div class="switch_field">
@@ -508,7 +534,14 @@
                                 <button type="button" class="button_gen" onclick="update_ruleset()" href="javascript:void(0);">更新</button>
                             </td>
                         </tr>
-                        
+                        <tr>
+                            <th>
+                                <label>路由器信息:</label>
+                            </th>
+                            <td colspan="2">
+                                <button type="button" class="button_gen" onclick="show_router_info()" href="javascript:void(0);">查看</button>
+                            </td>
+                        </tr>
                     </table>
                     <!--打开 Clash控制面板-->
                     <div style="display: inline-table;">

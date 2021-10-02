@@ -45,6 +45,7 @@ LOGGER() {
 
 if [ "$lan_ipaddr" = "" ]; then
     LOGGER "真糟糕！ nvram 命令没找到局域网路由器地址，这样防火墙规则配置不了啦！还是自己手动设置后再执行吧！"
+    echo "XU6J03M6"
     exit 1
 fi
 # 检测是否有 cru 命令
@@ -99,6 +100,7 @@ case $(uname -m) in
         ;;
     *)
         LOGGER "糟糕！平台类型不支持呀！赶紧通知开发者适配！或者自己动手丰衣足食！"
+        echo "XU6J03M6"
         exit 0
         ;;
 esac
@@ -250,6 +252,27 @@ update_gfwlist() {
     run_dnsmasq restart
 }
 
+# 解决路由器上执行 curl 或者 wget 等请求时出现DNS服务器污染问题！
+# 添加本地DNS服务进行DNS解析
+swtich_localhost_dns(){
+    if [ "$clash_use_local_dns" = "on" ] ; then
+        if grep 127.0.0.1 /etc/resolv.conf >/dev/null 2>&1 ; then
+            LOGGER "已经添加了本地DNS服务，不必重复添加了！"
+        else
+            LOGGER "添加本地DNS服务到第一行！这样路由器上的http(s)请求也会自动判断是否走代理啦!"
+            sed -i '1 i nameserver 127.0.0.1' /etc/resolv.conf
+        fi
+    else
+        if grep 127.0.0.1 /etc/resolv.conf >/dev/null 2>&1 ; then
+            sed -i '/127.0.0.1/d' /etc/resolv.conf
+            LOGGER "已经删除了本地DNS服务"
+            LOGGER "当前DNS配置：\n$(cat /etc/resolv.conf)"
+        else
+            LOGGER "您没添加过本地DNS服务，不用删除了！"
+        fi
+    fi
+}
+
 # Dnsmasq 配置
 start_dns() {
     if [ "$clash_gfwlist_mode" = "off" ] ; then
@@ -266,7 +289,9 @@ start_dns() {
             ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
         fi
     done
+    swtich_localhost_dns
     run_dnsmasq restart
+    
 }
 # 清理Dnsmasq配置
 stop_dns() {
@@ -562,6 +587,27 @@ update_clash_bin() {
     fi
 }
 
+show_router_info() {
+    echo "您的路由器基本信息(使用过程有问题时，粘贴以下内容，及问题现象说明)："
+    echo "==========================================================="
+    echo "路由器信息：$(nvram get productid)"
+    echo "路由器固件版本：$(nvram get buildno)"
+    echo "Linux内核版本：$(uname -mnor)"
+    echo "软件中心版本: $(dbus get softcenter_version)"
+    echo "==========================================================="
+    echo "使用的DNS(/etc/resolv.conf)："
+    echo "$(cat /etc/resolv.conf)"
+    echo "iptables中关于Clash的转发规则(iptables -t nat -S clash)："
+    echo "$(iptables -t nat -S clash)"
+    echo "==========================================================="
+    echo "Dnsmasq配置的gfwlist.conf信息:"
+    
+    confdir=`awk -F'=' '/^conf-dir/{ print $2 }' /etc/dnsmasq.conf`
+    echo "$(wc -l ${confdir}/*.conf)"
+    echo "==========================================================="
+    echo "服务运行状态-clash： $(pidof clash)"
+    echo "服务运行状态-dnsmasq: $(pidof dnsmasq)"
+}
 ######## 执行主要动作信息  ########
 do_action() {
     if [ "$#" = "2" ] ; then
@@ -587,16 +633,17 @@ do_action() {
         stop
         start
         ;;
-    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode)
+    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode|add_nodes)
         # 需要重启的操作分类
         $action_job
-        if [ "$?" != "0" ]; then
-            return $?
+        if [ "$?" = "0" ]; then
+            stop
+            start
+        else
+            LOGGER "$action_job 执行出错啦！"
         fi
-        stop
-        start
         ;;
-    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_ruleset|update_geoip)
+    get_proc_status|delete_one_node|delete_all_nodes|update_ruleset|update_geoip|swtich_localhost_dns|show_router_info)
         # 不需要重启操作
         $action_job
         ;;
