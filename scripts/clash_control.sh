@@ -39,10 +39,13 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 LOGFILE="/tmp/upload/clash_status.log"
 echo > $LOGFILE
 LOGGER() {
-    # logger -s -t "$(date +'%Y年%m月%d日%H:%M:%S'):clash" "$@"  >> $LOGFILE
+    
     echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
 }
 
+SYSLOG() {
+    logger -t "$(date +'%Y年%m月%d日%H:%M:%S'):clash" "$@"
+}
 if [ "$lan_ipaddr" = "" ]; then
     LOGGER "真糟糕！ nvram 命令没找到局域网路由器地址，这样防火墙规则配置不了啦！还是自己手动设置后再执行吧！"
     echo "XU6J03M6"
@@ -116,6 +119,9 @@ get_proc_status() {
     echo "----------------------------------------------------"
     echo "Clash版本信息： `clash -v`"
     echo "yq工具版本信息： `yq -V`"
+    echo "----------------------------------------------------"
+    echo "Clash服务最近的重启次数信息: "
+    echo "$(grep start_${app_name} /tmp/syslog.log)"
     echo "----------------------------------------------------"
 }
 
@@ -326,11 +332,14 @@ start() {
     fi
     echo "启动 $app_name"
     if status >/dev/null 2>&1; then
-        LOGGER "$app 已经运行了"
+        LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
+        return 0
     else
         LOGGER "开始启动 ${app_name} :"
         nohup ${CMD} >/dev/null 2>&1 &
         sleep 1
+        # 用于记录Clash服务稳定程度
+        SYSLOG "start_${app_name} : pid=$(pidof ${app_name})"
         dbus set ${app_name}_enable="on"
     fi
     if status >/dev/null 2>&1; then
