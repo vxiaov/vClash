@@ -523,6 +523,10 @@
                                 <label>GeoIP数据文件:</label>
                             </th>
                             <td colspan="2">
+                                <span>
+                                    全量GeoIP数据文件(6MB左右)<b>https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb</b><br>
+                                    精简只包含国内IP段GeoIP文件(200KB左右，默认值) <b>https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb</b><br>
+                                </span>
                                 <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
                             </td>
                         </tr>

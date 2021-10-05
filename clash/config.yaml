@@ -17,14 +17,15 @@ dns:
   fake-ip-range: 198.18.0.1/16 # Fake IP addresses pool CIDR
   use-hosts: true # lookup hosts and return IP record
   nameserver:
+    - tls://doh.pub:853 # DNSpod DoT
+    - https://doh.pub/dns-query # DNSpod DoH
     - 119.29.29.29 # DNSpod DNS 17ms
-    - 223.5.5.5 # 阿里 19ms
   # 提供 fallback 时，如果GEOIP非 CN 中国时使用 fallback 解析
   fallback:
     - tls://8.8.8.8:853 # Google DNS over TLS
-    - tls://8.8.4.4:853 # cloudflare DNS over TLS
-    - https://1.1.1.1/dns-query # cloudflare DNS over HTTPS
+    - tls://1.1.1.1:853 # cloudflare DNS over TLS
     - https://dns.google/dns-query # Google DNS over HTTPS
+    - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
   # 强制DNS解析使用`fallback`配置
   fallback-filter:
     # true: CN使用nameserver解析，非CN使用fallback
@@ -143,4 +144,5 @@ rules:
   - PROCESS-NAME,WebTorrent.exe,DIRECT
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
+  - GEOIP,CN,DIRECT
   - MATCH,PROXY

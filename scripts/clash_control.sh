@@ -496,7 +496,11 @@ update_geoip() {
     #
     geoip_file="${KSHOME}/clash/Country.mmdb"
     cp ${geoip_file} ${geoip_file}.bak
-    curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
+    # 精简中国IP列表生成MaxMind数据库： https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb
+    
+    # 全量MaxMind数据库文件： https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
+    # 全量MaxMind数据库文件（融合了ipip.net数据）： https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb
+    curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
     if [ "$?" != "0" ] ; then
         LOGGER "下载「$geoip_file」文件失败！"
         mv -f ${geoip_file}.bak ${geoip_file}
