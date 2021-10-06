@@ -456,7 +456,8 @@ update_geoip() {
     #
     geoip_file="${KSHOME}/clash/Country.mmdb"
     cp ${geoip_file} ${geoip_file}.bak
-    curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
+    # curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
+    curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
     if [ "$?" != "0" ] ; then
         LOGGER "下载「$geoip_file」文件失败！"
         mv -f ${geoip_file}.bak ${geoip_file}
