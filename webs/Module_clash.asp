@@ -439,6 +439,19 @@
                             </td>
                         </tr>
                         <tr>
+                            <td colspan="2" style="text-align: left;">                       
+                                <p style="text-align: left;color: burlywood;">温馨提示：添加新节点会<b style="color: chocolate;font-size: 20px;">覆盖</b> 已有节点。</p>
+                                <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">支持解析URI格式:</p>
+                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ss://</b>base64string@host:port/?plugin=xxx&obfs=xxx&obfs-host=xxx#notes</p>
+                                <p style="color:#FC0">其中，ss的base64string格式为：method:password</p>
+                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ss://</b>base64string</p>
+                                <p style="color:#FC0">其中，ss的base64string内容格式：method:password@host:port </p>
+                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ssr://</b>server:server_port:protocol:method:obfs:base64-encode-password/?obfsparam=base64-encode-string&protoparam=base64-encode-string&remarks=base64-encode-string&group=base64-encode-string</p>
+                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">vmess://</b>base64string</p>
+                                <p style="color:#FC0">其中，vmess的base64string内容为JSON配置格式： {"add":"server_ip","v":"2","ps":"name","port":158,"id":"683ec608-5af9-4f91-bd5b-ce493307fe56","aid":"0","net":"ws","type":"","host":"","path":"/path","tls":"tls"}</p>
+                            </td>
+                        </tr>
+                        <tr>
                             <td colspan="2">
                                 <button type="button" class="button_gen" onclick="add_nodes()" href="javascript:void(0);">添加</button>
                             </td>

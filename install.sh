@@ -140,7 +140,7 @@ init_env() {
     dbus set softcenter_module_${app_name}_install="1"
     dbus set softcenter_module_${app_name}_version="$CUR_VERSION"
     dbus set softcenter_module_${app_name}_title="Clash版科学上网"
-    dbus set softcenter_module_${app_name}_description="Clash版科学上网 for merlin armv7l 380"
+    dbus set softcenter_module_${app_name}_description="Clash版科学上网 for Koolshare"
     dbus set softcenter_module_${app_name}_home_url="Module_${app_name}.asp"
 }
 
