@@ -46,7 +46,7 @@ tar zcvf clash.tar.gz clash/bin  clash/clash  clash/images  clash/install.sh  cl
 
 | 适用于**380**固件| 适用于**384/386**固件|
 |:-------|:--------|
-| [clash插件下载地址](https://github.com/learnhard-cn/clash/releases/tag/v1.9) | [clash插件下载地址](https://github.com/learnhard-cn/clash/releases/tag/v2.0.3)
+| [clash插件最新版本下载地址](https://github.com/learnhard-cn/clash/releases/tag/v1.9) | [clash插件最新版本下载地址](https://github.com/learnhard-cn/clash/releases/tag/v2.0.6)
 
 
 选择最新版本下载到本地，文件名命名为： `clash.tar.gz` 。
