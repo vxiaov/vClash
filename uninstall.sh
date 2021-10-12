@@ -63,6 +63,16 @@ remove_env() {
     dbus remove ${app_name}_name_list
     dbus remove ${app_name}_delete_name
     dbus remove ${app_name}_gfwlist_mode
+    dbus remove ${app_name}_cfddns_enable
+    # 配置清理
+    dbus remove ${app_name}_cfddns_email
+    dbus remove ${app_name}_cfddns_apikey
+    dbus remove ${app_name}_cfddns_domain
+    dbus remove ${app_name}_cfddns_ttl
+    dbus remove ${app_name}_cfddns_ip
+    dbus remove ${app_name}_cfddns_zone
+    dbus remove ${app_name}_cfddns_zid
+    dbus remove ${app_name}_cfddns_recid
 }
 
 LOGGER "开始卸载插件啦！"

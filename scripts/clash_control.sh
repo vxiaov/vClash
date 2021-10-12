@@ -114,14 +114,19 @@ get_proc_status() {
     echo "$(echo_status $app_name)"
     echo "----------------------------------------------------"
     echo "服务守护调度： [$(cru l | grep ${cron_id})]"
-    echo "文件更新调度： [$(cru l| grep update_provider_local)]"
+    if [ "$clash_cfddns_enable" = "on" ] ; then
+        echo "DDNS调度： [$(cru l| grep clash_cfddns)]"
+    fi
+    echo "----------------------------------------------------"
     echo "订阅链接: $clash_provider_file"
+    echo "订阅更新调度： [$(cru l| grep update_provider_local)]"
     echo "----------------------------------------------------"
     echo "Clash版本信息： `clash -v`"
     echo "yq工具版本信息： `yq -V`"
     echo "----------------------------------------------------"
-    echo "Clash服务最近的重启次数信息: "
-    echo "$(grep start_${app_name} /tmp/syslog.log)"
+    echo "Clash服务最近重启次数：$(grep start_${app_name} /tmp/syslog.log|wc -l)"
+    echo "Clash服务最近重启时间(最近5次): "
+    echo "$(grep start_${app_name} /tmp/syslog.log|tail -5)"
     echo "----------------------------------------------------"
 }
 
@@ -265,7 +270,7 @@ swtich_localhost_dns(){
         if grep 127.0.0.1 /etc/resolv.conf >/dev/null 2>&1 ; then
             LOGGER "已经添加了本地DNS服务，不必重复添加了！"
         else
-            LOGGER "添加本地DNS服务到第一行！这样路由器上的http(s)请求也会自动判断是否走代理啦!"
+            LOGGER "添加本地DNS服务到 /etc/resolv.conf 文件中(临时生效)!"
             sed -i '1 i nameserver 127.0.0.1' /etc/resolv.conf
         fi
     else
@@ -330,7 +335,7 @@ start() {
         echo "Clash开关处于关闭状态，无法启动Clash"
         return 0
     fi
-    echo "启动 $app_name"
+    # echo "启动 $app_name"
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
         return 0
@@ -356,7 +361,7 @@ start() {
 stop() {
     # 1. 停止服务进程
     # 2. 清理iptables策略
-    echo "停止 $app_name"
+    #echo "停止 $app_name"
     if status >/dev/null 2>&1; then
         LOGGER "停止 ${app_name} ..."
         killall ${app_name}
@@ -395,8 +400,9 @@ add_nodes() {
 
     # 生成节点文件
     uri_decoder -uri "$node_list" -db "/koolshare/clash/Country.mmdb" > ${tmp_node_file}
-    if [ "$?" != "0" ] ; then
+    if [ "$?" != "0" -o ! -s "${tmp_node_file}" ] ; then
         LOGGER "抱歉！你添加的链接解析失败啦！给个正确的链接吧！"
+        return 2
     fi
     LOGGER "成功导入DIY代理节点"
 
@@ -496,18 +502,21 @@ update_geoip() {
     #
     geoip_file="${KSHOME}/clash/Country.mmdb"
     cp ${geoip_file} ${geoip_file}.bak
-    # 精简中国IP列表生成MaxMind数据库： https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb
-    
+    # 精简中国IP列表生成MaxMind数据库： https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
     # 全量MaxMind数据库文件： https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
-    # 全量MaxMind数据库文件（融合了ipip.net数据）： https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb
-    curl ${CURL_OPTS} -o ${geoip_file} -L  https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
+    # 全量MaxMind数据库文件（融合了ipip.net数据）： https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb
+    geoip_url="https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb"
+    if [ ! -z "$clash_geoip_url" ] ; then
+        geoip_uri="$clash_geoip_url"
+    fi
+    curl ${CURL_OPTS} -o ${geoip_file} -L  ${geoip_uri}
     if [ "$?" != "0" ] ; then
         LOGGER "下载「$geoip_file」文件失败！"
         mv -f ${geoip_file}.bak ${geoip_file}
         return 1
     fi
+    LOGGER "「$geoip_file」文件更新成功！，大小变化[`du -h ${geoip_file}.bak|cut -f1`]=>[`du -h ${geoip_file}|cut -f1`]"
     rm ${geoip_file}.bak
-    LOGGER "「$geoip_file」文件更新成功！"
 }
 
 all_ruleset() {
@@ -600,6 +609,54 @@ update_clash_bin() {
     fi
 }
 
+start_cfddns(){
+    # 配置检测
+    [[ -z "$clash_cfddns_email" ]]  && LOGGER "email 没填写！" && return 1
+    [[ -z "$clash_cfddns_apikey" ]]  && LOGGER "apikey 没填写！" && return 1
+    [[ -z "$clash_cfddns_domain" ]]  && LOGGER "domain 没填写！" && return 1
+    [[ -z "$clash_cfddns_ttl" ]]  && clash_cfddns_ttl="120"
+    [[ -z "$clash_cfddns_ip" ]]  && clash_cfddns_ip='curl https://httpbin.org/ip|grep origin|cut -d\" -f4'
+    [[ -z "$clash_cfddns_zone" ]] && clash_cfddns_zone=`echo $clash_cfddns_domain| cut -d. -f2,3`
+
+    [[ -z "$clash_cfddns_zid" ]] && clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
+    [[ -z "$clash_cfddns_recid" ]] && clash_cfddns_recid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?name=$clash_cfddns_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
+    dbus set clash_cfddns_zid=$clash_cfddns_zid
+    dbus set clash_cfddns_recid=$clash_cfddns_recid
+    real_ip=`echo ${clash_cfddns_ip}|sh 2>/dev/null`
+    if [ "$?" != "0" -o "$real_ip" = "" ] ; then
+        LOGGER "获取IP地址失败！ 执行命令：[$clash_cfddns_ip], 提取结果:[$real_ip]"
+        return 1
+    fi
+    update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_recid" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" --data "{\"id\":\"$clash_cfddns_zid\",\"type\":\"A\",\"name\":\"$clash_cfddns_domain\",\"content\":\"$real_ip\"}")
+    res=`echo $update| jq -r .success`
+    if [[ "$res" != "true" ]]; then
+        LOGGER "更新结果失败！"
+    else
+        LOGGER "更新DDNS成功！"
+        ttl=`expr $clash_cfddns_ttl / 60`
+        if [ "$ttl" -lt "2" -o "$ttl" -ge "1440" ] ; then
+            ttl="2"
+        fi
+        cru a clash_cfddns "*/${ttl} * * * * /koolshare/scripts/clash_control.sh start_cfddns"
+        clash_cfddns_lastmsg="`date +'%Y/%m/%d %H:%M:%S'`"
+        dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
+    fi
+    LOGGER "$clash_cfddns_lastmsg"
+}
+
+# 保存DDNS配置
+save_cfddns() {
+    if [ "$clash_cfddns_enable" != "on" ] ; then
+        LOGGER "正在关闭 Cloudflare DDNS功能："
+        cru d clash_cfddns
+        LOGGER "已经关闭 Cloudflare DDNS功能了."
+    else
+        LOGGER "正在启用 Cloudflare DDNS功能："
+        start_cfddns
+        LOGGER "启用 Cloudflare DDNS 成功！"
+    fi
+}
+
 show_router_info() {
     echo "您的路由器基本信息(使用过程有问题时，粘贴以下内容，及问题现象说明)："
     echo "==========================================================="
@@ -624,7 +681,7 @@ show_router_info() {
 ######## 执行主要动作信息  ########
 do_action() {
     if [ "$#" = "2" ] ; then
-        http_response "$1"
+        http_response "$1"  >/dev/null
         action_job="$2"
     else
         # web界面配置操作
@@ -634,7 +691,7 @@ do_action() {
             action_job="$1"
         fi
     fi
-    LOGGER "执行动作 ${action_job} ..."
+    # LOGGER "执行动作 ${action_job} ..."
     case "$action_job" in
     start)
         start
@@ -660,7 +717,7 @@ do_action() {
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|list_nodes)
+    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns)
         $action_job
         ;;
     *)
