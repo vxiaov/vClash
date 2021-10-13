@@ -130,8 +130,22 @@ get_proc_status() {
     echo "----------------------------------------------------"
 }
 
+add_ddns_cron(){
+    if [ "$clash_cfddns_enable" = "on"] ; then
+        if cru l | grep clash_cfddns > /dev/null ; then
+            echo "已经添加cfddns调度!"
+        else
+            ttl=`expr $clash_cfddns_ttl / 60`
+            if [ "$ttl" -lt "2" -o "$ttl" -ge "1440" ] ; then
+                ttl="2"
+            fi
+            cru a clash_cfddns "*/${ttl} * * * * /koolshare/scripts/clash_control.sh start_cfddns"
+        fi
+    fi
+}
 # 添加守护监控脚本
 add_cron() {
+    add_ddns_cron
     if cru l | grep ${cron_id} >/dev/null && cru l |grep update_provider_local >/dev/null; then
         LOGGER "进程守护脚本已经添加!不需要重复添加吧？！？"
         return 0
@@ -620,6 +634,8 @@ start_cfddns(){
 
     [[ -z "$clash_cfddns_zid" ]] && clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
     [[ -z "$clash_cfddns_recid" ]] && clash_cfddns_recid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?name=$clash_cfddns_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
+    #dbus set clash_cfddns_ip=$clash_cfddns_ip
+    dbus set clash_cfddns_ttl=$clash_cfddns_ttl
     dbus set clash_cfddns_zid=$clash_cfddns_zid
     dbus set clash_cfddns_recid=$clash_cfddns_recid
     real_ip=`echo ${clash_cfddns_ip}|sh 2>/dev/null`
@@ -633,11 +649,8 @@ start_cfddns(){
         LOGGER "更新结果失败！"
     else
         LOGGER "更新DDNS成功！"
-        ttl=`expr $clash_cfddns_ttl / 60`
-        if [ "$ttl" -lt "2" -o "$ttl" -ge "1440" ] ; then
-            ttl="2"
-        fi
-        cru a clash_cfddns "*/${ttl} * * * * /koolshare/scripts/clash_control.sh start_cfddns"
+        # 添加cron调度
+        add_ddns_cron
         clash_cfddns_lastmsg="`date +'%Y/%m/%d %H:%M:%S'`"
         dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
     fi
