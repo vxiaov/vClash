@@ -131,7 +131,7 @@ get_proc_status() {
 }
 
 add_ddns_cron(){
-    if [ "$clash_cfddns_enable" = "on"] ; then
+    if [ "$clash_cfddns_enable" = "on" ] ; then
         if cru l | grep clash_cfddns > /dev/null ; then
             echo "已经添加cfddns调度!"
         else
@@ -139,7 +139,14 @@ add_ddns_cron(){
             if [ "$ttl" -lt "2" -o "$ttl" -ge "1440" ] ; then
                 ttl="2"
             fi
+            
             cru a clash_cfddns "*/${ttl} * * * * /koolshare/scripts/clash_control.sh start_cfddns"
+            if [ "$?" = "0" ] ; then
+                echo "成功添加cfddns调度!"
+            else
+                echo "添加cfddns调度失败"
+                cru l| grep clash_cfddns
+            fi
         fi
     fi
 }
@@ -352,23 +359,23 @@ start() {
     # echo "启动 $app_name"
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
-        return 0
     else
         LOGGER "开始启动 ${app_name} :"
         nohup ${CMD} >/dev/null 2>&1 &
         sleep 1
+        if status >/dev/null 2>&1; then
+            LOGGER "启动 ${CMD} 成功！"
+        else
+            LOGGER "启动 ${CMD} 失败！ 请手工执行启动命令,查看一下失败原因."
+            return 1
+        fi
         # 用于记录Clash服务稳定程度
         SYSLOG "start_${app_name} : pid=$(pidof ${app_name})"
         dbus set ${app_name}_enable="on"
+        [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
+        start_dns
     fi
-    if status >/dev/null 2>&1; then
-        LOGGER "启动 ${CMD} 成功！"
-    else
-        LOGGER "启动 ${CMD} 失败！"
-    fi
-    [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
     add_iptables
-    start_dns
     add_cron
 }
 
@@ -630,31 +637,35 @@ start_cfddns(){
     [[ -z "$clash_cfddns_domain" ]]  && LOGGER "domain 没填写！" && return 1
     [[ -z "$clash_cfddns_ttl" ]]  && clash_cfddns_ttl="120"
     [[ -z "$clash_cfddns_ip" ]]  && clash_cfddns_ip='curl https://httpbin.org/ip|grep origin|cut -d\" -f4'
-    [[ -z "$clash_cfddns_zone" ]] && clash_cfddns_zone=`echo $clash_cfddns_domain| cut -d. -f2,3`
-
-    [[ -z "$clash_cfddns_zid" ]] && clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
-    [[ -z "$clash_cfddns_recid" ]] && clash_cfddns_recid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?name=$clash_cfddns_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
-    #dbus set clash_cfddns_ip=$clash_cfddns_ip
-    dbus set clash_cfddns_ttl=$clash_cfddns_ttl
-    dbus set clash_cfddns_zid=$clash_cfddns_zid
-    dbus set clash_cfddns_recid=$clash_cfddns_recid
-    real_ip=`echo ${clash_cfddns_ip}|sh 2>/dev/null`
-    if [ "$?" != "0" -o "$real_ip" = "" ] ; then
-        LOGGER "获取IP地址失败！ 执行命令：[$clash_cfddns_ip], 提取结果:[$real_ip]"
-        return 1
-    fi
-    update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_recid" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" --data "{\"id\":\"$clash_cfddns_zid\",\"type\":\"A\",\"name\":\"$clash_cfddns_domain\",\"content\":\"$real_ip\"}")
-    res=`echo $update| jq -r .success`
-    if [[ "$res" != "true" ]]; then
-        LOGGER "更新结果失败！"
-    else
-        LOGGER "更新DDNS成功！"
-        # 添加cron调度
-        add_ddns_cron
-        clash_cfddns_lastmsg="`date +'%Y/%m/%d %H:%M:%S'`"
-        dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
-    fi
-    LOGGER "$clash_cfddns_lastmsg"
+    # 支持多个域名更新
+    for current_domain in `echo $clash_cfddns_domain | sed 's/[,，]/ /g'`
+    do
+        echo "当前域名: $current_domain"
+        clash_cfddns_zone=`echo $current_domain| cut -d. -f2,3`
+        clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
+        clash_cfddns_recid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?name=$current_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
+        #dbus set clash_cfddns_ip=$clash_cfddns_ip
+        dbus set clash_cfddns_ttl=$clash_cfddns_ttl
+        real_ip=`echo ${clash_cfddns_ip}|sh 2>/dev/null`
+        if [ "$?" != "0" -o "$real_ip" = "" ] ; then
+            LOGGER "获取IP地址失败！ 执行命令：[$clash_cfddns_ip], 提取结果:[$real_ip]"
+            return 1
+        fi
+        update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_recid" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" --data "{\"id\":\"$clash_cfddns_zid\",\"type\":\"A\",\"name\":\"$current_domain\",\"content\":\"$real_ip\"}")
+        res=`echo $update| jq -r .success`
+        if [[ "$res" != "true" ]]; then
+            LOGGER "更新结果失败！"
+            echo "失败详细信息:"
+            echo "$update| jq ."
+        else
+            LOGGER "更新DDNS成功！"
+            # 添加cron调度
+            add_ddns_cron
+            clash_cfddns_lastmsg="`date +'%Y/%m/%d %H:%M:%S'`"
+            dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
+        fi
+        LOGGER "$clash_cfddns_lastmsg"
+    done
 }
 
 # 保存DDNS配置

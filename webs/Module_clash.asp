@@ -645,10 +645,10 @@
                         </tr>
                         <tr>
                             <th title="提前添加一条A记录（例如:home,IPv4地址可以写 127.0.0.1，添加成功后会更新，这里就填写 home.example.com,其中 example.com 是您的购买的域名）">
-                                <label>Domain域名地址：</label>
+                                <label>Domain(<b>多域名逗号分割</b>)：</label>
                             </th>
                             <td colspan="2">
-                                <input type="text" class="input_text" id="clash_cfddns_domain" placeholder="填写示例： home.example.com">
+                                <input type="text" class="input_text" id="clash_cfddns_domain" placeholder="示例：home.example.com,test.example.com">
                             </td>
                         </tr>
                         <tr>
