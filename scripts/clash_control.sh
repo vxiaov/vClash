@@ -265,22 +265,11 @@ get_filelist() {
     done
 }
 
-# 生成 gfwlist.conf # dnsmasq 服务使用
-update_gfwlist() {
-    gfwlist_file=${KSHOME}/$app_name/gfwlist.conf
+# 生成 netflix.conf # dnsmasq 服务使用
+update_netflix_dns() {
+    netflix_file=${KSHOME}/$app_name/netflix.conf
 
-    awk '!/^[a-z]/{
-        gsub(/\+|'\''/,"",$2);
-        rule[$2] += 1;
-    }END{
-        for( i in rule) {
-            printf("%s\n", i) | "sort"
-        }
-    }' $(get_filelist) | awk -v dnsport=${dns_port} '{
-        printf("server=/%s/%s#%s\n", $1, "127.0.0.1", dnsport);
-        printf("ipset=/%s/%s\n", $1, "gfwlist");
-    }' > ${gfwlist_file}
-    LOGGER "已生成 ${gfwlist_file} 文件！ 文件大小: $(du -sm ${gfwlist_file}|awk '{print $1}') MB ! 记录数: $(wc -l ${gfwlist_file}|awk '/^server/{ print $1}') 条."
+    sed -i "s/127.0.0.1#1053/${clash_netflix_dns}/g" ${netflix_file}
     run_dnsmasq restart
 }
 
@@ -315,7 +304,7 @@ start_dns() {
         LOGGER "透明代理模式已关闭！不启动DNS转发请求"
         return 0
     fi
-    for fn in wblist.conf gfwlist.conf; do
+    for fn in wblist.conf gfwlist.conf netflix.conf; do
         if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
             LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
             ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
@@ -329,7 +318,7 @@ start_dns() {
 stop_dns() {
     
     LOGGER "删除gfwlist.conf与wblist.conf文件:"
-    for fn in wblist.conf gfwlist.conf; do
+    for fn in wblist.conf gfwlist.conf netflix.conf; do
         rm -f /jffs/configs/dnsmasq.d/${fn}
     done
     LOGGER "开始重启dnsmasq,DNS解析"
@@ -559,23 +548,6 @@ END
 
 }
 
-# 更新规则集
-update_ruleset() {
-    outdir="${KSHOME}/clash/ruleset"
-    all_ruleset | while read dn_url
-    do
-        fn=`basename ${dn_url}|sed 's/txt/yaml/g'`
-        cp ${outdir}/$fn ${outdir}/${fn}.bak
-        curl ${CURL_OPTS} -o ${outdir}/$fn ${dn_url}
-        if [ "$?" != "0" ] ; then
-            mv -f ${outdir}/${fn}.bak ${outdir}/${fn}
-            LOGGER "更新[$fn]失败."
-        else
-            rm -f ${outdir}/${fn}.bak
-            LOGGER "更新[$fn]成功."
-        fi
-    done
-}
 
 # 切换gfwlist黑名单模式(使用dnsmasq过滤黑名单URL规则请求到代理处理)
 switch_gfwlist_mode(){
@@ -737,11 +709,11 @@ do_action() {
             LOGGER "$action_job 执行出错啦！"
         fi
         ;;
-    get_proc_status|delete_one_node|delete_all_nodes|update_ruleset|update_geoip|swtich_localhost_dns|show_router_info)
+    get_proc_status|delete_one_node|delete_all_nodes|update_geoip|swtich_localhost_dns|show_router_info)
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns)
+    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns|update_netflix_dns)
         $action_job
         ;;
     *)

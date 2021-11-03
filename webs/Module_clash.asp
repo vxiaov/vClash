@@ -301,8 +301,9 @@
             apply_action("update_geoip");
         }
 
-        function update_ruleset() { // 更新ruleset
-            apply_action("update_ruleset");
+        function update_netflix_dns() { // 更新Netflix地区解锁DNS地址
+            dbus["clash_netflix_dns"] = document.getElementById("clash_netflix_dns").value;
+            apply_action("update_netflix_dns");
         }
 
         function update_provider_file() { // 更新节点订阅源URL
@@ -590,10 +591,11 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>规则集ruleset文件:</label>
+                                <label>自定义Netflix解锁鸡的DNS:</label>
                             </th>
                             <td colspan="2">
-                                <button type="button" class="button_gen" onclick="update_ruleset()" href="javascript:void(0);">更新</button>
+                                <input type="text" class="input_text" id="clash_netflix_dns" placeholder="输入解锁Netflix地区影片的DNS服务器">
+                                <button type="button" class="button_gen" onclick="update_netflix_dns()" href="javascript:void(0);">更新DNS</button>
                             </td>
                         </tr>
                         <tr>
