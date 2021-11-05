@@ -96,6 +96,12 @@ proxy-groups:
       - DIY
     # strategy: consistent-hashing # or round-robin  # 负载均衡策略
 
+rule-providers:
+  proxyset:
+    # 固定使用代理的URL规则集
+    behavior: "domain"
+    type: file
+    path: ./ruleset/proxyset.yaml
 # 黑名单模式，命中规则使用代理
 rules:
   - PROCESS-NAME,v2ray,DIRECT
@@ -144,5 +150,6 @@ rules:
   - PROCESS-NAME,WebTorrent.exe,DIRECT
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
+  - RULESET,proxyset,PROXY
   - GEOIP,CN,DIRECT
   - MATCH,PROXY
