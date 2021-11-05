@@ -60,7 +60,7 @@
         }
 
         function conf2obj() {
-            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip'];
+            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_netflix_dns'];
             var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_dns', 'clash_cfddns_enable'];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
