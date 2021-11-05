@@ -355,7 +355,7 @@ start() {
         if status >/dev/null 2>&1; then
             LOGGER "启动 ${CMD} 成功！"
         else
-            LOGGER "启动 ${CMD} 失败！ 请手工执行启动命令,查看一下失败原因."
+            LOGGER "启动 ${CMD} 失败！请手工执行命令并将报错信息发给开发者帮助解决."
             return 1
         fi
         # 用于记录Clash服务稳定程度
@@ -519,7 +519,7 @@ update_geoip() {
     if [ ! -z "$clash_geoip_url" ] ; then
         geoip_uri="$clash_geoip_url"
     fi
-    curl ${CURL_OPTS} -o ${geoip_file} -L  ${geoip_uri}
+    curl ${CURL_OPTS} -o ${geoip_file} ${geoip_uri}
     if [ "$?" != "0" ] ; then
         LOGGER "下载「$geoip_file」文件失败！"
         mv -f ${geoip_file}.bak ${geoip_file}
@@ -527,25 +527,6 @@ update_geoip() {
     fi
     LOGGER "「$geoip_file」文件更新成功！，大小变化[`du -h ${geoip_file}.bak|cut -f1`]=>[`du -h ${geoip_file}|cut -f1`]"
     rm ${geoip_file}.bak
-}
-
-all_ruleset() {
-    cat <<END
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/icloud.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/greatfire.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/tld-not-cn.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt
-https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt
-END
-
 }
 
 
@@ -581,7 +562,7 @@ update_clash_bin() {
     LOGGER "新版本地址：${download_url}"
     # bin_file="clash-linux-${ARCH}-${new_ver}"
     # download_url="https://github.com/Dreamacro/clash/releases/download/${new_ver}/${bin_file}.gz"
-    curl ${CURL_OPTS} -o ${bin_file}.gz -L $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
+    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
         [[ -f /tmp/${app_name}.${old_version} ]] && mv /tmp/${app_name}.${old_version} ${KSHOME}/bin/${app_name}
@@ -667,7 +648,6 @@ show_router_info() {
     echo "$(iptables -t nat -S clash)"
     echo "==========================================================="
     echo "Dnsmasq配置的gfwlist.conf信息:"
-    
     confdir=`awk -F'=' '/^conf-dir/{ print $2 }' /etc/dnsmasq.conf`
     echo "$(wc -l ${confdir}/*.conf)"
     echo "==========================================================="

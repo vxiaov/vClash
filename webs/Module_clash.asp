@@ -581,9 +581,9 @@
                             </th>
                             <td colspan="2">
                                 <span>
-                                    1. 全量GeoIP版本(6MB左右) <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github项目地址</a> ，短地址下载： https://git.io/JKvJq <br>
-                                    2. 精简版(200KB左右，默认使用) <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github项目地址</a> , 短地址下载： https://git.io/JKvfW <br>
-                                    3. 全量多源合并版(6MB左右) <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github项目地址</a>，短地址下载： https://git.io/JKeh9 
+                                    1. 全量GeoIP版本(6MB左右) <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github项目地址</a> <br>
+                                    2. 精简版(200KB左右，默认使用) <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github项目地址</a><br>
+                                    3. 全量多源合并版(6MB左右) <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github项目地址</a> 
                                 </span>
                                 <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据URL地址(已经内置精简版地址)">
                                 <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
@@ -603,7 +603,7 @@
                                 <label>路由器信息:</label>
                             </th>
                             <td colspan="2">
-                                <button type="button" class="button_gen" onclick="show_router_info()" href="javascript:void(0);">查看</button>
+                                <button type="button" class="button_gen" onclick="show_router_info()" href="javascript:void(0);">查看路由信息</button>
                             </td>
                         </tr>
                     </table>
