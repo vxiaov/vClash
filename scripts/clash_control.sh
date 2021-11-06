@@ -269,7 +269,14 @@ get_filelist() {
 update_netflix_dns() {
     netflix_file=${KSHOME}/$app_name/netflix.conf
 
-    sed -i "s/127.0.0.1#1053/${clash_netflix_dns}/g" ${netflix_file}
+    if [ "$clash_netflix_dns" = "" ] ; then
+        LOGGER "清理Netflix的DNS配置规则"
+        rm -f /jffs/configs/dnsmasq.d/netflix.conf
+    else
+        LOGGER "更新Netflix的DNS为:${clash_netflix_dns}"
+        sed -i "s/127.0.0.1#1053/${clash_netflix_dns}/g" ${netflix_file}
+    fi
+    LOGGER "重启dnsmasq服务"
     run_dnsmasq restart
 }
 
@@ -424,6 +431,7 @@ add_nodes() {
         return 2
     fi
     LOGGER "添加DIY节点成功！"
+    rm -f ${tmp_node_file}
     list_nodes
 }
 
@@ -465,8 +473,9 @@ update_provider_file() {
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦！ clash_provider_file=[$clash_provider_file]!"
         return 1
     fi
-    curl --insecure ${CURL_OPTS} -o $temp_provider_file ${clash_provider_file} >/dev/null 2>&1
+    curl --insecure ${CURL_OPTS} -o $temp_provider_file -L ${clash_provider_file}
     if [ "$?" != "0" ]; then
+        echo "curl --insecure ${CURL_OPTS} -o $temp_provider_file -L ${clash_provider_file}"
         LOGGER "下载订阅源URL信息失败!可能原因：1.URL地址被屏蔽！2.使用代理不稳定. 重新尝试一次。"
         return 2
     fi

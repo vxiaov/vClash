@@ -150,6 +150,6 @@ rules:
   - PROCESS-NAME,WebTorrent.exe,DIRECT
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
-  - RULESET,proxyset,PROXY
+  - RULE-SET,proxyset,PROXY
   - GEOIP,CN,DIRECT
   - MATCH,PROXY

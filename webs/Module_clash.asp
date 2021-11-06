@@ -451,6 +451,20 @@
                             </tr>
                         </thead>
                         <tr>
+                            <th>切换本地DNS(<b>更新前启用</b>):</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_use_local_dns">
+                                        <input id="clash_use_local_dns" onclick="swtich_localhost_dns();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
                             <th>
                                 <label>订阅源URL链接:</label>
                             </th>
@@ -531,20 +545,7 @@
                                 <td colspan="2">Clash - 可选配置</td>
                             </tr>
                         </thead>
-                        <tr>
-                            <th>切换本地DNS解析开关(<b>建议启用</b> ):</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_use_local_dns">
-                                        <input id="clash_use_local_dns" onclick="swtich_localhost_dns();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
+                        
                         <tr>
                             <th>启用Dnsmasq黑名单(<b>建议启用</b> ):</th>
                             <td colspan="2">
