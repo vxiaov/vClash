@@ -102,6 +102,10 @@ rule-providers:
     behavior: "domain"
     type: file
     path: ./ruleset/proxyset.yaml
+  googleset:
+    behavior: "domain"
+    type: file
+    path: ./ruleset/google.yaml
 # 黑名单模式，命中规则使用代理
 rules:
   - PROCESS-NAME,v2ray,DIRECT
@@ -151,5 +155,6 @@ rules:
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
   - RULE-SET,proxyset,PROXY
+  - RULE-SET,googleset,PROXY
   - GEOIP,CN,DIRECT
   - MATCH,PROXY
