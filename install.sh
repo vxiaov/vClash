@@ -71,7 +71,7 @@ if [ "$ks_ver" = "" ] ; then
 fi
 LOGGER "软件中心版本: $ks_ver"
 
-bin_list="${app_name} yq uri_decoder"
+bin_list="${app_name} yq uri_decoder jq"
 
 # 清理旧文件，升级情况需要
 remove_files() {
