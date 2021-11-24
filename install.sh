@@ -127,11 +127,11 @@ init_env() {
     # 默认不启用
     [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
 
-    dbus set clash_provider_file="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml"
+    dbus set clash_provider_file="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
     dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
     dbus set clash_group_type="select"  # 默认组节点选择模式 select
     dbus set clash_trans="on"           # 默认开启透明代理模式
-    dbus set clash_gfwlist_mode="on"    # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
+    dbus set clash_gfwlist_mode="off"   # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
     dbus set clash_use_local_dns="on"   # 默认启用本地DNS解析
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     dbus set clash_relay_enable="off"   # 默认关闭中继代理支持

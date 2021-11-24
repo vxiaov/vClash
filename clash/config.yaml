@@ -35,8 +35,7 @@ dns:
       - 240.0.0.0/4
 
 # DIY组保留的个人节点
-proxies:
-  - null
+proxies: []
 
 # 配置规则参考文档： https://github.com/Dreamacro/clash/wiki/configuration
 # 设置代理提供者(远程订阅地址+本地订阅文件)

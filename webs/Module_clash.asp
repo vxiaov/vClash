@@ -60,8 +60,10 @@
         }
 
         function conf2obj() {
-
-            dbus['relay_option_list'] = dbus['clash_name_list'].trim() + " PROXY" ;
+            if(dbus['clash_name_list'])
+                dbus['relay_option_list'] = dbus['clash_name_list'].trim() + " PROXY DIY" ;
+            else
+                dbus['relay_option_list'] = "PROXY DIY";
             update_relay_list("clash_relay01");
             update_relay_list("clash_relay02");
 
@@ -507,6 +509,10 @@
                                 <label>订阅源URL链接:</label>
                             </th>
                             <td colspan="2">
+                                <span>
+                                    1. 分享免费订阅源(下载失败率较大) <a style="color:chartreuse" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" target="_blank" rel="noopener noreferrer">Github订阅源(原始链接)</a> <br>
+                                    2. 分享免费订阅源(CDN访问，成功率高) <a style="color:chartreuse" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" target="_blank" rel="noopener noreferrer">Github订阅源(CDN)</a> <br>
+                                </span>
                                 <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
                             </td>
                         </tr>
