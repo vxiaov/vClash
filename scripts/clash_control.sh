@@ -39,7 +39,6 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 LOGFILE="/tmp/upload/clash_status.log"
 echo > $LOGFILE
 LOGGER() {
-    
     echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
 }
 
@@ -127,6 +126,9 @@ get_proc_status() {
     echo "Clash服务最近重启次数：$(grep start_${app_name} /tmp/syslog.log|wc -l)"
     echo "Clash服务最近重启时间(最近5次): "
     echo "$(grep start_${app_name} /tmp/syslog.log|tail -5)"
+    echo "----------------------------------------------------"
+    echo "中继列表信息:"
+    yq e '.proxy-groups[2].proxies.[]' $config_file
     echo "----------------------------------------------------"
 }
 
@@ -270,14 +272,60 @@ update_netflix_dns() {
     netflix_file=${KSHOME}/$app_name/netflix.conf
 
     if [ "$clash_netflix_dns" = "" ] ; then
-        LOGGER "清理Netflix的DNS配置规则"
-        rm -f /jffs/configs/dnsmasq.d/netflix.conf
-    else
+        LOGGER "你的DNS地址为空！"
+        return 1
+    fi
+    if [ "$clash_netflixdns_enable" = "off" ] ; then
+        LOGGER "关闭Netflix的DNS解锁功能!"
+        sed -i "s/${clash_netflix_dns}/127.0.0.1#1053/g" ${netflix_file}
+        if [ "$clash_netflix_sniproxy" != "" ] ; then
+            LOGGER "清除 $clash_netflix_sniproxy 走代理规则"
+            sed -i "/IP-CIDR,${clash_netflix_sniproxy}/32,PROXY/d" ${config_file}
+        fi
+        return 0
+    fi
+    if [ "$clash_netflix_dns" != "" ] ; then
         LOGGER "更新Netflix的DNS为:${clash_netflix_dns}"
         sed -i "s/127.0.0.1#1053/${clash_netflix_dns}/g" ${netflix_file}
+        if [ "$clash_netflix_sniproxy" != "" ] ; then
+            LOGGER "添加 $clash_netflix_sniproxy 走代理规则"
+            sed -i "/DOMAIN,yacd.haishan.me,DIRECT/a\  - IP-CIDR,${clash_netflix_sniproxy}/32,PROXY" ${config_file}
+        fi
     fi
     LOGGER "重启dnsmasq服务"
     run_dnsmasq restart
+}
+
+# 更新中继代理列表
+update_netflix_relay() {
+
+    if [ "$clash_relay_enable" = "off" ] ; then
+        LOGGER "关闭中继代理支持"
+        sed -i '/RULE-SET,relayset,RELAY_PROXY/d' $config_file
+        return 0
+    fi
+    # 两个变量： clash_relay01/clash_relay02
+    LOGGER "==============更新中继代理列表===================="
+    echo "中继列表： 内网 <=> $clash_relay01 <=> $clash_relay02 <=> netflix"
+    cp -f $config_file $config_file.bak.`date +%Y%m%d`
+
+    # 固定代理组顺序 0: DIY组，1： PROXY组， 2： RELAY_PROXY组
+    yq e -i ".proxy-groups[2].proxies = [ \"${clash_relay01}\", \"${clash_relay02}\" ]" $config_file
+    if [ "$?" != "0" ] ; then
+        LOGGER "糟糕更新失败了！"
+        cp -f $config_file.bak.`date +%Y%m%d` $config_file
+        exit 1
+    fi
+    if ! grep "RULE-SET,relayset,RELAY_PROXY" ${config_file} > /dev/null 2>&1 ; then
+        LOGGER "添加中继规则到配置文件中:"
+        sed -i "/DOMAIN,yacd.haishan.me,DIRECT/a\  - RULE-SET,relayset,RELAY_PROXY" ${config_file}
+    fi
+    LOGGER "更新中继代理成功!"
+    LOGGER "当前中继代理列表为："
+    yq e '.proxy-groups[2].proxies' $config_file
+    LOGGER "当前使用中继代理的规则为："
+    yq e '.rules[]' $config_file |grep "RELAY_PROXY" 
+    LOGGER "=============================================="
 }
 
 # 解决路由器上执行 curl 或者 wget 等请求时出现DNS服务器污染问题！
@@ -566,7 +614,7 @@ update_clash_bin() {
     old_version=$clash_version
     
     # 专业版更新
-    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium| awk '/premium.clash-linux-armv5/{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
+    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium| grep "premium.clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
     bin_file=$(basename $download_url)
     LOGGER "新版本地址：${download_url}"
     # bin_file="clash-linux-${ARCH}-${new_ver}"
@@ -698,7 +746,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦！"
         fi
         ;;
-    get_proc_status|delete_one_node|delete_all_nodes|update_geoip|swtich_localhost_dns|show_router_info)
+    get_proc_status|delete_one_node|delete_all_nodes|update_geoip|swtich_localhost_dns|show_router_info|update_netflix_relay)
         # 不需要重启操作
         $action_job
         ;;

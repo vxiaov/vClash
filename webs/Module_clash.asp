@@ -60,8 +60,13 @@
         }
 
         function conf2obj() {
-            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_netflix_dns'];
-            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_dns', 'clash_cfddns_enable'];
+
+            dbus['relay_option_list'] = dbus['clash_name_list'].trim() + " PROXY" ;
+            update_relay_list("clash_relay01");
+            update_relay_list("clash_relay02");
+
+            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_netflix_dns', 'clash_relay01', 'clash_relay02', 'clash_netflix_sniproxy'];
+            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_dns', 'clash_cfddns_enable', 'clash_relay_enable', 'clash_netflixdns_enable'];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -81,6 +86,28 @@
             var obj = document.getElementById("proxy_node_name");
             obj.options.length = 0;
             const node_arr = dbus["clash_name_list"].trim().split(" ");
+            for (let index = 0; index < node_arr.length; index++) {
+                const element = node_arr[index];
+                obj.options.add(new Option(element, element));
+            }
+        }
+        function update_relay_list(relay_id) {
+            //更新显示的代理列表信息: dbus['relay_option_list']
+            var obj = document.getElementById(relay_id);
+            obj.options.length = 0;
+            const node_arr = dbus["relay_option_list"].trim().split(/ +/);
+            for (let index = 0; index < node_arr.length; index++) {
+                const element = node_arr[index];
+                obj.options.add(new Option(element, element));
+            }
+        }
+        function update_relay01() {
+            //更新显示的代理列表信息: dbus['relay_option_list']
+            var obj = document.getElementById("clash_relay02");
+            obj.options.length = 0;
+            var relay01 = document.getElementById("clash_relay01").value;
+            var relay_node_list = dbus["relay_option_list"].replace( relay01,""); //清理已经选择的relay01
+            const node_arr = relay_node_list.trim().split(/ +/);
             for (let index = 0; index < node_arr.length; index++) {
                 const element = node_arr[index];
                 obj.options.add(new Option(element, element));
@@ -302,8 +329,17 @@
         }
 
         function update_netflix_dns() { // 更新Netflix地区解锁DNS地址
+            dbus["clash_netflixdns_enable"] = document.getElementById("clash_netflix_dns").checked? "on" : "off";
             dbus["clash_netflix_dns"] = document.getElementById("clash_netflix_dns").value;
+            dbus["clash_netflix_sniproxy"] = document.getElementById("clash_netflix_sniproxy").value;
             apply_action("update_netflix_dns");
+        }
+
+        function update_netflix_relay() { // 更新Netflix地区解锁中继代理列表
+            dbus["clash_relay_enable"] = document.getElementById("clash_relay_enable").checked? "on" : "off";
+            dbus["clash_relay01"] = document.getElementById("clash_relay01").value;
+            dbus["clash_relay02"] = document.getElementById("clash_relay02").value;
+            apply_action("update_netflix_relay");
         }
 
         function update_provider_file() { // 更新节点订阅源URL
@@ -383,11 +419,13 @@
                     <!-- Tab菜单 -->
                     <div id="tabs">
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_provider_update')">订阅源管理</button>
+                        <button class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
                         <button class="tab" onclick="switch_tabs(event, 'menu_group_add')">添加节点</button>
                         <button class="tab" onclick="switch_tabs(event, 'menu_group_delete');update_node_list();">删除节点</button>
                         <button class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
+                        <button class="tab" onclick="switch_tabs(event, 'menu_netflix');">解锁Netflix</button>
+                        
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -447,7 +485,7 @@
                     <table id="menu_provider_update" class="FormTable">
                         <thead>
                             <tr>
-                                <td colspan="2">Clash - 订阅源更新</td>
+                                <td colspan="2">Clash -更新管理</td>
                             </tr>
                         </thead>
                         <tr>
@@ -480,6 +518,24 @@
                         <tr>
                             <td colspan="2">
                                 <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>GeoIP数据文件:</label>
+                            </th>
+                            <td colspan="2">
+                                <span>
+                                    1. 全量GeoIP版本(6MB左右) <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github项目地址</a> <br>
+                                    2. 精简版(200KB左右，默认使用) <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github项目地址</a><br>
+                                    3. 全量多源合并版(6MB左右) <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github项目地址</a> 
+                                </span>
+                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据URL地址(已经内置精简版地址)">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新Country.mmdb</button>
                             </td>
                         </tr>
                     </table>
@@ -538,6 +594,106 @@
                             </td>
                         </tr>
                     </table>
+                    <!-- netflix解锁配置信息 -->
+                    <table id="menu_netflix" class="FormTable">
+                        <thead>
+                            <td colspan="2">使用前说明</td>
+                        </thead>
+                        <tr>
+                            <td colspan="2">
+                                解锁Netflix方式只能<b style="color: #FC0;">选择其中一个</b>有效的方式即可!
+                            </td>
+                        </tr>
+                        <thead>
+                            <td colspan="2">Clash-中继代理解锁Netflix配置</td>
+                        </thead>
+                        <tr>
+                            <td colspan="2">中继解锁适用于解锁机<b>无法直连</b>或<b>直连速度慢</b>等情况，如需更多中继节点可自己修改配置。</td>
+                        </tr>
+                        <tr>
+                            <th>中继代理开关:</th>
+                            <td>
+                                <div class="switch_field">
+                                    <label for="clash_relay_enable">
+                                        <input id="clash_relay_enable" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>中继代理入口(代理机):</label>
+                            </th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <select id="clash_relay01" onchange="update_relay01();" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
+                                    </select>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>中继代理出口(解锁机):</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <select id="clash_relay02" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
+                                    </select>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <button type="button" class="button_gen" onclick="update_netflix_relay()" href="javascript:void(0);">更新中继列表</button>
+                            </td>
+                        </tr>
+                        <thead>
+                            <td colspan="2">Clash-DNS解锁Netflix配置</td>
+                        </thead>
+                        <tr>
+                            <td colspan="2">
+                                <b>DNS解锁Netflix方式</b>简单，只需要<b>使用特定DNS</b>解析netflix相关域名就可以实现解锁Netflix。<br>
+                                <b style="color: #FC0;">注意:</b>确定<b>DNS地址</b>可以访问(能ping通)。
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>DNS解锁Netflix开关:</th>
+                            <td>
+                                <div class="switch_field">
+                                    <label for="clash_netflixdns_enable">
+                                        <input id="clash_netflixdns_enable" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>解锁Netflix的<b>DNS地址</b>:</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="text" class="input_text" id="clash_netflix_dns" placeholder="输入解锁Netflix地区影片的DNS服务器">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label><b>解锁机</b>IP(被墙需要走代理时配置):</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="text" class="input_text" id="clash_netflix_sniproxy" placeholder="可为空，输入Netflix解锁sniproxy服务器地址(解锁机)">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <button type="button" class="button_gen" onclick="update_netflix_dns()" href="javascript:void(0);">更新解锁DNS</button>
+                            </td>
+                        </tr>
+                    </table>
                     <!-- 可选配置信息 -->
                     <table id="menu_options" class="FormTable">
                         <thead>
@@ -547,7 +703,7 @@
                         </thead>
                         
                         <tr>
-                            <th>启用Dnsmasq黑名单(<b>建议启用</b> ):</th>
+                            <th>启用黑名单模式(<b>建议开启</b> ):</th>
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_gfwlist_mode">
@@ -574,29 +730,6 @@
                                         </div>
                                     </label>
                                 </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>GeoIP数据文件:</label>
-                            </th>
-                            <td colspan="2">
-                                <span>
-                                    1. 全量GeoIP版本(6MB左右) <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github项目地址</a> <br>
-                                    2. 精简版(200KB左右，默认使用) <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github项目地址</a><br>
-                                    3. 全量多源合并版(6MB左右) <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github项目地址</a> 
-                                </span>
-                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据URL地址(已经内置精简版地址)">
-                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>自定义Netflix解锁鸡的DNS:</label>
-                            </th>
-                            <td colspan="2">
-                                <input type="text" class="input_text" id="clash_netflix_dns" placeholder="输入解锁Netflix地区影片的DNS服务器">
-                                <button type="button" class="button_gen" onclick="update_netflix_dns()" href="javascript:void(0);">更新DNS</button>
                             </td>
                         </tr>
                         <tr>
