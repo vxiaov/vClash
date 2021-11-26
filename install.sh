@@ -44,7 +44,7 @@ esac
 
 # 固件版本检测
 build_ver="$(nvram get buildno| cut -d '.' -f1)"
-if [ "$build_ver" != "380" -a "$build_ver" != "386" ]; then
+if [ "$build_ver" != "380" -a "$build_ver" != "386" -a "$build_ver" != "384" ]; then
     LOGGER "很抱歉！本插件只支持 KS梅林固件的380和386版本!而您的固件版本为: $build_ver"
     exit 2
 fi
