@@ -17,6 +17,41 @@
 
 1. 挂载虚拟内存: 支持**USB接口路由器**可以插入一个1GB以上的优盘作为虚拟内存挂载，当然速度越快越好了。[阅读挂载虚拟内存教程文章](https://vlike.work/VPS/router-mount-swap.html)。
 
+## 挂载虚拟内存快捷方法
+> 分区方式挂虚拟内存需要重建U盘文件系统，使用`文件方式`挂载虚拟内存更加方便简单。
+ 
+`文件方式挂载虚拟内存`示例：
+```bash
+
+# U盘插入后自动挂载的目录(!!!修改自己实际优盘目录!!!)
+usb_path=/tmp/mnt/sdb1
+
+# 第一步： 创建交互区文件, 1GB
+dd if=/dev/zero of=${usb_path}/swapfile bs=1MB count=1024
+
+# 第二步：  在一个文件里创建linux交换区
+mkswap ${usb_path}/swapfile
+
+# 第三步： 激活使用交换区
+swapon ${usb_path}/swapfile
+
+# 添加开机自动挂载脚本
+cat <<END > /koolshare/init.d/S01MountSwap.sh
+#!/bin/sh
+# 挂载虚拟内存开启脚本
+
+res="失败"
+
+# 文件方式挂载
+/sbin/swapon ${usb_path}/swapfile
+
+[ "\$?" = "0" ] && res="成功"
+logger -st "\$(date +'%Y年%m月%d日%H:%M:%S'):S01MountSwap" "挂载虚拟内存: \${res}"
+
+END
+```
+
+执行上面命令后即可自动挂载虚拟内存文件啦！
 
 
 ## 为什么有这个项目

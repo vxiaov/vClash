@@ -1,6 +1,6 @@
 #! /bin/sh
 #########################################################
-# Clash Process Control script for AM380 merlin firmware
+# Clash Process Control script for ASUS/merlin firmware compiled by Koolshare
 # Writen by Awkee (next4nextjob(at)gmail.com)
 # Website: https://vlike.work
 #########################################################
@@ -13,81 +13,139 @@ app_name="clash"
 DIR=$(cd $(dirname $0); pwd)
 module=${DIR##*/}
 
+# 软硬件基本信息 #
+MODEL=""            # 路由器设备型号
+ARCH=""             # CPU架构
+FW_TYPE_NAME=""     # 固件类型名称
+BUILD_VERSION=""    # 固件版本信息
+
+BIN_LIST="${app_name} yq uri_decoder jq"
+
+# 反馈问题链接
+open_issue="给开发者反馈一下这个问题吧！ https://github.com/learnhard-cn/vClash/issues/"
+
 LOGGER() {
-    # Magic number for Log 9977
-    logger -s -t "$(date +%Y年%m月%d日%H:%M:%S):clash" "$@"
+    logger -s -t "`date +%Y年%m月%d日%H:%M:%S`:clash" "$@"
 }
 
 # ================================== INSTALL_CHECK 安装前的系统信息检查 =========================
 
-ARCH=""
-# 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
-case $(uname -m) in
-    armv7l)     # ARM平台
-        if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1 ; then
-            ARCH="armv7"
-        elif grep -i vfpv1 /proc/cpuinfo >/dev/null 2>&1 ; then
-            ARCH="armv6"
-        else
-            ARCH="armv5"
-        fi
-    ;;
-    aarch64)    # hnd(High end)平台
-        ARCH="armv8"  # hnd 平台 可以使用 armv5/v6/v7/v8 可执行程序
-    ;;
-
-    *)
-        LOGGER "糟糕！平台类型不支持呀！赶紧通知开发者适配！或者自己动手丰衣足食！"
+exit_install() {
+    case "$1" in
+    0)
+        LOGGER "恭喜您!安装完成！"
         exit 0
     ;;
-esac
+    *)
+        LOGGER "糟糕！ 不支持 `uname -m` 平台呀！ 您的路由器型号:$MODEL ,固件类型： $FW_TYPE_NAME ,固件版本：$BUILD_VERSION ,$open_issue"
+        exit $1
+    ;;
+    esac
+}
 
-# 固件版本检测
-build_ver="$(nvram get buildno| cut -d '.' -f1)"
-if [ "$build_ver" != "380" -a "$build_ver" != "386" -a "$build_ver" != "384" ]; then
-    LOGGER "很抱歉！本插件只支持 KS梅林固件的380和386版本!而您的固件版本为: $build_ver"
-    exit 2
-fi
-LOGGER "梅林固件版本： $build_ver"
+get_arch(){
+    # 暂时支持ARM芯片，这将决定使用哪个编译版本可执行程序
+    case `uname -m` in
+        armv7l)     # ARM平台
+            if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1 ; then
+                ARCH="armv7"
+            elif grep -i vfpv1 /proc/cpuinfo >/dev/null 2>&1 ; then
+                ARCH="armv6"
+            else
+                ARCH="armv5"
+            fi
+        ;;
+        aarch64)    # hnd(High end)平台
+            ARCH="armv8"  # hnd 平台 可以使用 armv5/v6/v7/v8 可执行程序
+        ;;
 
-ODMPID=$(nvram get odmpid)
-MODEL=$(nvram get productid)
+        *)
+            exit_install 1
+            exit 0
+        ;;
+    esac
+}
 
-if [ "$build_ver" != "380" ] ; then
-	# LINUX_VER=$(uname -r|awk -F"." '{print $1$2}')
-    # "${LINUX_VER}" -ge "41" 
-	if [ -d "/koolshare" -a -f "/usr/bin/skipd" ];then
-		LOGGER "机型：${MODEL} ${FW_TYPE_NAME} 符合安装要求，开始安装插件！"
+get_model(){
+	local ODMPID=$(nvram get odmpid)
+	local PRODUCTID=$(nvram get productid)
+	if [ -n "${ODMPID}" ];then
+		MODEL="${ODMPID}"
 	else
-        LOGGER "您当前固件版本: $build_ver , Linux内核版本:$(uname -r)"
-		exit 3
+		MODEL="${PRODUCTID}"
 	fi
-fi
+}
 
-ks_ver=$(dbus get softcenter_version)
-if [ "$ks_ver" = "" ] ; then
-    LOGGER "找不到软件中心版本信息！你确定这是KS梅林固件?"
-    exit 3
-fi
-LOGGER "软件中心版本: $ks_ver"
+get_fw_type() {
+	local KS_TAG=$(nvram get extendno|grep koolshare)
+	if [ -d "$KSHOME" ];then
+		if [ -n "${KS_TAG}" ];then
+			FW_TYPE_CODE="2"
+			FW_TYPE_NAME="koolshare官改固件"
+		else
+			FW_TYPE_CODE="4"
+			FW_TYPE_NAME="koolshare梅林改版固件"
+		fi
+	else
+		if [ "$(uname -o|grep Merlin)" ];then
+			FW_TYPE_CODE="3"
+			FW_TYPE_NAME="梅林原版固件"
+		else
+			FW_TYPE_CODE="1"
+			FW_TYPE_NAME="华硕官方固件"
+		fi
+	fi
+}
 
-bin_list="${app_name} yq uri_decoder jq"
+# 固件平台支撑检测
+platform_test() {
+    # 固件平台支撑检测
+    #   原则： 最少的条件，做大的容错性(白话：能用就让安装)
+    #
+    # 检测最基本的支撑条件：
+    #   1. 固件版本检测
+    #   2. 基础依赖环境： koolshare软件中心、skipdb(数据库)
+    get_model
+    
+    # 固件版本检测
+    get_fw_type
+    get_arch
+    BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
+    if [ "$BUILD_VERSION" != "380" -a "$BUILD_VERSION" != "386" -a "$BUILD_VERSION" != "384" ]; then
+        LOGGER "本插件仅支持华硕官改/梅林改版固件的380、384和386版本!而您的固件版本为: $BUILD_VERSION"
+        exit_install 2
+    fi
+
+    if [ -d "/koolshare" -a -f "/usr/bin/skipd" ];then
+        ks_ver=$(dbus get softcenter_version)
+        if [ "$ks_ver" = "" ] ; then
+            LOGGER "找不到 软件中心版本 信息！"
+            exit_install 3
+        fi
+        LOGGER "软件中心版本: $ks_ver (大于v1.5即可),机型：${MODEL} ${FW_TYPE_NAME} 符合安装要求！"
+    else
+        LOGGER "/koolshare目录与skipd检测失败!"
+        exit_install 4
+    fi
+}
 
 # 清理旧文件，升级情况需要
 remove_files() {
-    LOGGER 清理旧文件
-    rm -rf /koolshare/${app_name}
-    rm -rf /koolshare/scripts/${app_name}_*
-    rm -rf /koolshare/webs/Module_${app_name}.asp
-    for fn in ${bin_list}; do
-        rm -f /koolshare/bin/${fn}
-    done
-    rm -rf /koolshare/res/icon-${app_name}.png
-    rm -rf /koolshare/res/${app_name}_*
-    rm -rf /koolshare/init.d/S??${app_name}.sh
+    
+    if [ -d "/koolshare/${app_name}" ] ; then
+        LOGGER 开始 清理旧文件
+        rm -rf /koolshare/${app_name}
+        rm -rf /koolshare/scripts/${app_name}_*
+        rm -rf /koolshare/webs/Module_${app_name}.asp
+        for fn in ${BIN_LIST}; do
+            rm -f /koolshare/bin/${fn}
+        done
+        rm -rf /koolshare/res/icon-${app_name}.png
+        rm -rf /koolshare/res/${app_name}_*
+        rm -rf /koolshare/init.d/S??${app_name}.sh
+        LOGGER 完成 清理旧文件
+    fi
 }
-
-# ================================== INSTALL_START 开始安装 =========================
 
 copy_files() {
     LOGGER 开始复制文件！
@@ -95,7 +153,7 @@ copy_files() {
     mkdir -p /koolshare/${app_name}
 
     LOGGER 复制相关二进制文件！此步时间可能较长！
-    for fn in ${bin_list}; do
+    for fn in ${BIN_LIST}; do
 
         cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
         chmod +x /koolshare/bin/${fn}
@@ -165,15 +223,22 @@ clean() {
     rm -rf /tmp/${app_name}  /tmp/${app_name}.tar.gz >/dev/null 2>&1
 }
 
-## main 安装流程
+# ================================== INSTALL_START 开始安装 =========================
 
-LOGGER Clash版科学上网插件开始安装！
+main() {
+    LOGGER Clash版科学上网插件开始安装！
 
-need_action stop    # 安装前，停止已安装应用
-remove_files        # 清理历史遗留文件，如果有
-copy_files          # 安装需要的所有文件
-init_env            # 初始化环境变量信息,设置插件信息
-need_action restart # 是否需要重启服务
-clean               # 清理安装包
+    platform_test       # 安装前平台支撑检测(只有符合条件才会继续安装)
+    need_action stop    # 安装前，停止已安装应用
+    remove_files        # 清理历史遗留文件，如果有
+    copy_files          # 安装需要的所有文件
+    init_env            # 初始化环境变量信息,设置插件信息
+    need_action restart # 是否需要重启服务
+    clean               # 清理安装包
 
-LOGGER Clash版科学上网插件安装成功！
+    LOGGER Clash版科学上网插件安装成功！
+    LOGGER "忠告: Clash运行时分配很大虚拟内存，可能在700MB左右, 如果你的内存很小，那么启动失败的概率很大！解决办法是：用U盘挂个1GB的虚拟内存!切记！"
+    LOGGER "如何挂载虚拟内存： 软件中心自带 虚拟内存 插件，安装即用！"
+}
+
+main
