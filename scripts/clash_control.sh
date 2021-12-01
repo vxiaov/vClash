@@ -16,7 +16,13 @@ ulimit -s unlimited
 eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
-CURL_OPTS="--proxy socks5://127.0.0.1:1080 -sSL "
+
+CURL_OPTS="-sSL "
+
+if [ "$clash_use_local_proxy" == "on" ] ; then
+    CURL_OPTS="--proxy socks5://127.0.0.1:1080 $CURL_OPTS"
+fi
+
 bin_list="${app_name} yq"
 
 dns_port="1053"         # Clash DNS端口
@@ -112,24 +118,24 @@ get_proc_status() {
     echo "$(echo_status head)"
     echo "$(echo_status $app_name)"
     echo "----------------------------------------------------"
-    echo "服务守护调度： [$(cru l | grep ${cron_id})]"
+    echo "守护调度：$(cru l | grep ${cron_id})"
     if [ "$clash_cfddns_enable" = "on" ] ; then
         echo "DDNS调度： [$(cru l| grep clash_cfddns)]"
     fi
     echo "----------------------------------------------------"
-    echo "订阅链接: $clash_provider_file"
-    echo "订阅更新调度： [$(cru l| grep update_provider_local)]"
+    echo "代理订阅: $clash_provider_file"
+    echo "订阅更新：$(cru l| grep update_provider_local)"
     echo "----------------------------------------------------"
-    echo "Clash版本信息： `clash -v`"
-    echo "yq工具版本信息： `yq -V`"
-    echo "----------------------------------------------------"
+    # echo "Clash版本信息： `clash -v`"
+    # echo "yq工具版本信息： `yq -V`"
+    # echo "----------------------------------------------------"
     echo "Clash服务最近重启次数：$(grep start_${app_name} /tmp/syslog.log|wc -l)"
-    echo "Clash服务最近重启时间(最近5次): "
-    echo "$(grep start_${app_name} /tmp/syslog.log|tail -5)"
+    echo "Clash服务最近重启时间(最近3次): "
+    echo "$(grep start_${app_name} /tmp/syslog.log|tail -3)"
     echo "----------------------------------------------------"
-    echo "中继列表信息:"
-    yq e '.proxy-groups[2].proxies.[]' $config_file
-    echo "----------------------------------------------------"
+    #echo "中继列表信息:"
+    #yq e '.proxy-groups[2].proxies.[]' $config_file
+    #echo "----------------------------------------------------"
 }
 
 add_ddns_cron(){
@@ -298,10 +304,8 @@ update_netflix_dns() {
 
 # 更新中继代理列表
 update_netflix_relay() {
-
     if [ "$clash_relay_enable" = "off" ] ; then
-        LOGGER "关闭中继代理支持"
-        sed -i '/RULE-SET,relayset,RELAY_PROXY/d' $config_file
+        LOGGER "中继代理支持已关闭!"
         return 0
     fi
     # 两个变量： clash_relay01/clash_relay02
@@ -310,21 +314,15 @@ update_netflix_relay() {
     cp -f $config_file $config_file.bak.`date +%Y%m%d`
 
     # 固定代理组顺序 0: DIY组，1： PROXY组， 2： RELAY_PROXY组
-    yq e -i ".proxy-groups[2].proxies = [ \"${clash_relay01}\", \"${clash_relay02}\" ]" $config_file
+    yq e -i "(.proxy-groups[]|select(.name == \"RELAY_PROXY\")).proxies = [ \"${clash_relay01}\", \"${clash_relay02}\" ]" $config_file
     if [ "$?" != "0" ] ; then
         LOGGER "糟糕更新失败了！"
         cp -f $config_file.bak.`date +%Y%m%d` $config_file
         exit 1
     fi
-    if ! grep "RULE-SET,relayset,RELAY_PROXY" ${config_file} > /dev/null 2>&1 ; then
-        LOGGER "添加中继规则到配置文件中:"
-        sed -i "/DOMAIN,yacd.haishan.me,DIRECT/a\  - RULE-SET,relayset,RELAY_PROXY" ${config_file}
-    fi
     LOGGER "更新中继代理成功!"
     LOGGER "当前中继代理列表为："
-    yq e '.proxy-groups[2].proxies' $config_file
-    LOGGER "当前使用中继代理的规则为："
-    yq e '.rules[]' $config_file |grep "RELAY_PROXY" 
+    yq e '.proxy-groups[]|select(.name == "RELAY_PROXY").proxies' $config_file
     LOGGER "=============================================="
 }
 
@@ -447,7 +445,7 @@ stop() {
 # DIY节点 列表
 list_nodes() {
     filename="$config_file"
-    node_list=$(yq e '.proxies[].name' $filename| awk '!/test/{ printf("%s ", $0)}')
+    node_list=`yq e '.proxy-groups[]|select(.name == "DIY组")|.proxies[]' $filename| awk '{ printf("%s ", $0)}'`
     LOGGER "DIY节点列表: [${node_list}]"
     dbus set clash_name_list="$node_list"
 }
@@ -472,8 +470,8 @@ add_nodes() {
     LOGGER "成功导入DIY代理节点"
 
     cp $config_file $config_file.old
-    # d : 深度合并数组
-    yq ea -i 'select(fi==0) *d select(fi==1)' ${config_file} ${tmp_node_file}
+    yq_expr='select(fi==1).proxies as $plist | select(fi==1).proxies[].name as $nlist | select(fi==0)|.proxies += $plist | (.proxy-groups[]|select(.name == "DIY组")).proxies += [$nlist]'
+    yq ea -iP "$yq_expr" ${config_file} ${tmp_node_file}
     if [ "$?" != "0" ] ; then
         LOGGER "怎么会这样! 添加DIY代理节点失败啦！"
         return 2
@@ -521,9 +519,9 @@ update_provider_file() {
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦！ clash_provider_file=[$clash_provider_file]!"
         return 1
     fi
-    curl --insecure ${CURL_OPTS} -o $temp_provider_file -L ${clash_provider_file}
+    curl ${CURL_OPTS} -o $temp_provider_file ${clash_provider_file}
     if [ "$?" != "0" ]; then
-        echo "curl --insecure ${CURL_OPTS} -o $temp_provider_file -L ${clash_provider_file}"
+        echo "curl ${CURL_OPTS} -o $temp_provider_file ${clash_provider_file}"
         LOGGER "下载订阅源URL信息失败!可能原因：1.URL地址被屏蔽！2.使用代理不稳定. 重新尝试一次。"
         return 2
     fi
@@ -736,7 +734,7 @@ do_action() {
         stop
         start
         ;;
-    update_provider_url | update_provider_file | update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode|add_nodes)
+    update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode|add_nodes)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -746,7 +744,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦！"
         fi
         ;;
-    get_proc_status|delete_one_node|delete_all_nodes|update_geoip|swtich_localhost_dns|show_router_info|update_netflix_relay)
+    get_proc_status|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|swtich_localhost_dns|show_router_info|update_netflix_relay)
         # 不需要重启操作
         $action_job
         ;;

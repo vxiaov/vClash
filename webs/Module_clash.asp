@@ -61,14 +61,14 @@
 
         function conf2obj() {
             if(dbus['clash_name_list'])
-                dbus['relay_option_list'] = dbus['clash_name_list'].trim() + " PROXY DIY" ;
+                dbus['relay_option_list'] = dbus['clash_name_list'].trim() + " PROXY DIY组 被墙代理组" ;
             else
-                dbus['relay_option_list'] = "PROXY DIY";
+                dbus['relay_option_list'] = "PROXY DIY组 被墙代理组";
             update_relay_list("clash_relay01");
             update_relay_list("clash_relay02");
 
             var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_netflix_dns', 'clash_relay01', 'clash_relay02', 'clash_netflix_sniproxy'];
-            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_dns', 'clash_cfddns_enable', 'clash_relay_enable', 'clash_netflixdns_enable'];
+            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', 'clash_relay_enable', 'clash_netflixdns_enable'];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -267,13 +267,13 @@
             }
         }
 
-        function swtich_localhost_dns() {
-            if (document.getElementById('clash_use_local_dns').checked) {
-                dbus["clash_use_local_dns"] = "on";
+        function swtich_use_localhost_proxy() {
+            if (document.getElementById('clash_use_local_proxy').checked) {
+                dbus["clash_use_local_proxy"] = "on";
             } else {
-                dbus["clash_use_local_dns"] = "off";
+                dbus["clash_use_local_proxy"] = "off";
             }
-            apply_action("swtich_localhost_dns");
+            //apply_action("swtich_use_localhost_proxy");
         }
 
         function switch_gfwlist_mode() { // 切换gfwlist黑名单模式
@@ -327,6 +327,11 @@
 
         function update_geoip() { // 更新GeoIP
             dbus["clash_geoip_url"] = document.getElementById("clash_geoip_url").value;
+            if (document.getElementById('clash_use_local_proxy').checked) {
+                dbus["clash_use_local_proxy"] = "on";
+            } else {
+                dbus["clash_use_local_proxy"] = "off";
+            }
             apply_action("update_geoip");
         }
 
@@ -346,6 +351,11 @@
 
         function update_provider_file() { // 更新节点订阅源URL
             dbus["clash_provider_file"] = document.getElementById("clash_provider_file").value;
+            if (document.getElementById('clash_use_local_proxy').checked) {
+                dbus["clash_use_local_proxy"] = "on";
+            } else {
+                dbus["clash_use_local_proxy"] = "off";
+            }
             apply_action("update_provider_file");
         }
 
@@ -491,11 +501,11 @@
                             </tr>
                         </thead>
                         <tr>
-                            <th>切换本地DNS(<b>更新前启用</b>):</th>
+                            <th>走Clash代理(URL被墙时使用):</th>
                             <td colspan="2">
                                 <div class="switch_field">
-                                    <label for="clash_use_local_dns">
-                                        <input id="clash_use_local_dns" onclick="swtich_localhost_dns();" class="switch" type="checkbox" style="display: none;">
+                                    <label for="clash_use_local_proxy">
+                                        <input id="clash_use_local_proxy" onclick="swtich_use_localhost_proxy();" class="switch" type="checkbox" style="display: none;">
                                         <div class="switch_container">
                                             <div class="switch_bar"></div>
                                             <div class="switch_circle transition_style"></div>
