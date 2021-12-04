@@ -36,11 +36,14 @@ temp_provider_file="/tmp/clash_provider.yaml"
 # provider_url_bak="${KSHOME}/${app_name}/provider_url.yaml"        # URL订阅源配置信息
 # provider_file_bak="${KSHOME}/${app_name}/provider_file.yaml"      # FILE订阅源配置信息
 
-update_file="${KSHOME}/${app_name}/provider_remote.yaml"          # 远程URL更新文件
+provider_remote_file="${KSHOME}/${app_name}/providers/provider_remote.yaml"    # 远程URL更新文件
+provider_diy_file="${KSHOME}/${app_name}/providers/provider_diy.yaml"          # 远程URL更新文件
 
 CMD="${app_name} -d ${KSHOME}/${app_name}/"
 lan_ipaddr=$(nvram get lan_ipaddr)
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
+FW_TYPE_CODE=""     # 固件类型代码
+FW_TYPE_NAME=""     # 固件类型名称
 
 LOGFILE="/tmp/upload/clash_status.log"
 echo > $LOGFILE
@@ -273,44 +276,11 @@ get_filelist() {
     done
 }
 
-# 生成 netflix.conf # dnsmasq 服务使用
-update_netflix_dns() {
-    netflix_file=${KSHOME}/$app_name/netflix.conf
-
-    if [ "$clash_netflix_dns" = "" ] ; then
-        LOGGER "你的DNS地址为空！"
-        return 1
-    fi
-    if [ "$clash_netflixdns_enable" = "off" ] ; then
-        LOGGER "关闭Netflix的DNS解锁功能!"
-        sed -i "s/${clash_netflix_dns}/127.0.0.1#1053/g" ${netflix_file}
-        if [ "$clash_netflix_sniproxy" != "" ] ; then
-            LOGGER "清除 $clash_netflix_sniproxy 走代理规则"
-            sed -i "/IP-CIDR,${clash_netflix_sniproxy}/32,PROXY/d" ${config_file}
-        fi
-        return 0
-    fi
-    if [ "$clash_netflix_dns" != "" ] ; then
-        LOGGER "更新Netflix的DNS为:${clash_netflix_dns}"
-        sed -i "s/127.0.0.1#1053/${clash_netflix_dns}/g" ${netflix_file}
-        if [ "$clash_netflix_sniproxy" != "" ] ; then
-            LOGGER "添加 $clash_netflix_sniproxy 走代理规则"
-            sed -i "/DOMAIN,yacd.haishan.me,DIRECT/a\  - IP-CIDR,${clash_netflix_sniproxy}/32,PROXY" ${config_file}
-        fi
-    fi
-    LOGGER "重启dnsmasq服务"
-    run_dnsmasq restart
-}
-
 # 更新中继代理列表
-update_netflix_relay() {
-    if [ "$clash_relay_enable" = "off" ] ; then
-        LOGGER "中继代理支持已关闭!"
-        return 0
-    fi
+update_relay_group() {
     # 两个变量： clash_relay01/clash_relay02
     LOGGER "==============更新中继代理列表===================="
-    echo "中继列表： 内网 <=> $clash_relay01 <=> $clash_relay02 <=> netflix"
+    echo "中继列表： 内网 <=> $clash_relay01 <=> $clash_relay02 <=> Internet"
     cp -f $config_file $config_file.bak.`date +%Y%m%d`
 
     # 固定代理组顺序 0: DIY组，1： PROXY组， 2： RELAY_PROXY组
@@ -357,7 +327,7 @@ start_dns() {
         LOGGER "透明代理模式已关闭！不启动DNS转发请求"
         return 0
     fi
-    for fn in wblist.conf gfwlist.conf netflix.conf; do
+    for fn in gfwlist.conf netflix.conf; do
         if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
             LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
             ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
@@ -370,8 +340,8 @@ start_dns() {
 # 清理Dnsmasq配置
 stop_dns() {
     
-    LOGGER "删除gfwlist.conf与wblist.conf文件:"
-    for fn in wblist.conf gfwlist.conf netflix.conf; do
+    LOGGER "删除gfwlist.conf文件:"
+    for fn in gfwlist.conf netflix.conf; do
         rm -f /jffs/configs/dnsmasq.d/${fn}
     done
     LOGGER "开始重启dnsmasq,DNS解析"
@@ -444,8 +414,8 @@ stop() {
 
 # DIY节点 列表
 list_nodes() {
-    filename="$config_file"
-    node_list=`yq e '.proxy-groups[]|select(.name == "DIY组")|.proxies[]' $filename| awk '{ printf("%s ", $0)}'`
+    filename="$provider_diy_file"
+    node_list=`yq e '.proxies[].name' $filename| awk '!/test/{ printf("%s ", $0)}'`
     LOGGER "DIY节点列表: [${node_list}]"
     dbus set clash_name_list="$node_list"
 }
@@ -469,9 +439,10 @@ add_nodes() {
     fi
     LOGGER "成功导入DIY代理节点"
 
-    cp $config_file $config_file.old
-    yq_expr='select(fi==1).proxies as $plist | select(fi==1).proxies[].name as $nlist | select(fi==0)|.proxies += $plist | (.proxy-groups[]|select(.name == "DIY组")).proxies += [$nlist]'
-    yq ea -iP "$yq_expr" ${config_file} ${tmp_node_file}
+    cp $provider_diy_file $provider_diy_file.old
+    # yq_expr='select(fi==1).proxies as $plist | select(fi==1).proxies[].name as $nlist | select(fi==0)|.proxies += $plist | (.proxy-groups[]|select(.name == "DIY组")).proxies += [$nlist]'
+    yq_expr='select(fi==1).proxies as $plist | select(fi==0)|.proxies += $plist'
+    yq ea -iP "$yq_expr" ${provider_diy_file} ${tmp_node_file}
     if [ "$?" != "0" ] ; then
         LOGGER "怎么会这样! 添加DIY代理节点失败啦！"
         return 2
@@ -483,19 +454,19 @@ add_nodes() {
 
 # DIY节点 删除一个节点
 delete_one_node() {
-    filename="$config_file"
-    cp $config_file $config_file.old
+    filename="$provider_diy_file"
+    cp $filename $filename.old
     LOGGER "开始删除DIY节点 (${clash_delete_name})："
     f=${clash_delete_name} yq e -i 'del(.proxies[]|select(.name == strenv(f)))' $filename
-    f=${clash_delete_name} yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
+    # f=${clash_delete_name} yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
     LOGGER "节点删除完成!"
     list_nodes
 }
 
 # DIY节点 全部删除
 delete_all_nodes() {
-    filename="$config_file"
-    cp $config_file $config_file.old
+    filename="$provider_diy_file"
+    cp $filename $filename.old
     LOGGER "开始清理所有DIY节点："
     # for fn in `yq e '.proxies[].name' $filename|grep -v test`
     for fn in ${clash_name_list}
@@ -503,7 +474,7 @@ delete_all_nodes() {
         # 保留 test 节点，删掉后添加节点会很出问题的哦！
         if [ $fn != "test" ] ; then
             f="$fn" yq e -i 'del(.proxies[]|select(.name == strenv(f)))' $filename
-            f="$fn" yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
+            # f="$fn" yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
         fi
     done
     LOGGER "清理DIY节点完毕！让世界回归平静！"
@@ -536,14 +507,14 @@ update_provider_file() {
         return 3
     fi
 
-    yq e '{ "proxies": .proxies}' $temp_provider_file > ${update_file}.new
+    yq e '{ "proxies": .proxies}' $temp_provider_file > ${provider_remote_file}.new
     if [ "$?" != "0" ] ; then
         LOGGER "更新节点错误！[$?]！订阅源配置可能存在问题！"
-        rm -f ${update_file}.new
+        rm -f ${provider_remote_file}.new
         return 4
     else
-        mv ${update_file} ${update_file}.old
-        mv ${update_file}.new  ${update_file}
+        mv ${provider_remote_file} ${provider_remote_file}.old
+        mv ${provider_remote_file}.new  ${provider_remote_file}
     fi
 
     if cru l | grep update_provider_local >/dev/null; then
@@ -559,7 +530,7 @@ update_provider_file() {
     fi
 
     LOGGER "还不错！更新订阅源成功了！"
-    LOGGER "成功导入代理节点：$(yq e '.proxies[].type' ${update_file} | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')"
+    LOGGER "成功导入代理节点：$(yq e '.proxies[].type' ${provider_remote_file} | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')"
     rm -f $temp_provider_file
 }
 
@@ -597,7 +568,7 @@ switch_gfwlist_mode(){
 # 切换模式： 组节点切换开关
 switch_group_type() {
     LOGGER 切换了组节点模式为: "$clash_group_type"
-    yq e -i '.proxy-groups[1].type = strenv(clash_group_type)' $config_file
+    yq e -i '(.proxy-groups[] | select(.name == "PROXY")).type = strenv(clash_group_type)' $config_file
 }
 
 # 透明代理开关
@@ -689,22 +660,46 @@ save_cfddns() {
     fi
 }
 
+get_fw_type() {
+    local KS_TAG=$(nvram get extendno|grep koolshare)
+    if [ -d "$KSHOME" ];then
+        if [ -n "${KS_TAG}" ];then
+            FW_TYPE_CODE="2"
+            FW_TYPE_NAME="koolshare官改固件"
+        else
+            FW_TYPE_CODE="4"
+            FW_TYPE_NAME="koolshare梅林改版固件"
+        fi
+    else
+        if [ "$(uname -o|grep Merlin)" ];then
+            FW_TYPE_CODE="3"
+            FW_TYPE_NAME="梅林原版固件"
+        else
+            FW_TYPE_CODE="1"
+            FW_TYPE_NAME="华硕官方固件"
+        fi
+    fi
+}
+
 show_router_info() {
+    get_fw_type
     echo "您的路由器基本信息(使用过程有问题时，粘贴以下内容，及问题现象说明)："
     echo "==========================================================="
-    echo "路由器信息：$(nvram get productid)"
-    echo "路由器固件版本：$(nvram get buildno)"
+    echo "路由器型号信息：$(nvram get productid)"
+    echo "路由器固件信息：${FW_TYPE_NAME} $(nvram get buildno)"
     echo "Linux内核版本：$(uname -mnor)"
     echo "软件中心版本: $(dbus get softcenter_version)"
     echo "==========================================================="
-    echo "使用的DNS(/etc/resolv.conf)："
+    echo "默认DNS配置(/etc/resolv.conf)："
     echo "$(cat /etc/resolv.conf)"
     echo "iptables中关于Clash的转发规则(iptables -t nat -S clash)："
     echo "$(iptables -t nat -S clash)"
-    echo "==========================================================="
-    echo "Dnsmasq配置的gfwlist.conf信息:"
-    confdir=`awk -F'=' '/^conf-dir/{ print $2 }' /etc/dnsmasq.conf`
-    echo "$(wc -l ${confdir}/*.conf)"
+    if [ "$clash_gfwlist_mode" = "on" ] ; then
+        echo "==========================================================="
+        echo "Dnsmasq配置的gfwlist.conf信息:"
+        confdir=`awk -F'=' '/^conf-dir/{ print $2 }' /etc/dnsmasq.conf`
+        echo "$(wc -l ${confdir}/*.conf)"
+    fi
     echo "==========================================================="
     echo "服务运行状态-clash： $(pidof clash)"
     echo "服务运行状态-dnsmasq: $(pidof dnsmasq)"
@@ -734,7 +729,7 @@ do_action() {
         stop
         start
         ;;
-    update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode|add_nodes)
+    update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -744,11 +739,11 @@ do_action() {
             LOGGER "$action_job 执行出错啦！"
         fi
         ;;
-    get_proc_status|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|swtich_localhost_dns|show_router_info|update_netflix_relay)
+    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|swtich_localhost_dns|show_router_info|update_relay_group)
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns|update_netflix_dns)
+    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns)
         $action_job
         ;;
     *)

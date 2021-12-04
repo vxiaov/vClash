@@ -77,24 +77,24 @@ get_model(){
 }
 
 get_fw_type() {
-	local KS_TAG=$(nvram get extendno|grep koolshare)
-	if [ -d "$KSHOME" ];then
-		if [ -n "${KS_TAG}" ];then
-			FW_TYPE_CODE="2"
-			FW_TYPE_NAME="koolshare官改固件"
-		else
-			FW_TYPE_CODE="4"
-			FW_TYPE_NAME="koolshare梅林改版固件"
-		fi
-	else
-		if [ "$(uname -o|grep Merlin)" ];then
-			FW_TYPE_CODE="3"
-			FW_TYPE_NAME="梅林原版固件"
-		else
-			FW_TYPE_CODE="1"
-			FW_TYPE_NAME="华硕官方固件"
-		fi
-	fi
+    local KS_TAG=$(nvram get extendno|grep koolshare)
+    if [ -d "$KSHOME" ];then
+        if [ -n "${KS_TAG}" ];then
+            FW_TYPE_CODE="2"
+            FW_TYPE_NAME="koolshare官改固件"
+        else
+            FW_TYPE_CODE="4"
+            FW_TYPE_NAME="koolshare梅林改版固件"
+        fi
+    else
+        if [ "$(uname -o|grep Merlin)" ];then
+            FW_TYPE_CODE="3"
+            FW_TYPE_NAME="梅林原版固件"
+        else
+            FW_TYPE_CODE="1"
+            FW_TYPE_NAME="华硕官方固件"
+        fi
+    fi
 }
 
 # 固件平台支撑检测
@@ -192,8 +192,6 @@ init_env() {
     dbus set clash_gfwlist_mode="off"   # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
     dbus set clash_use_local_dns="on"   # 默认启用本地DNS解析
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
-    dbus set clash_relay_enable="off"   # 默认关闭中继代理支持
-    dbus set clash_netflixdns_enable="off" # 默认关闭netflix使用DNS解锁支持
     
     CUR_VERSION=$(cat /koolshare/${app_name}/version)
     dbus set ${app_name}_version="$CUR_VERSION"
