@@ -3,7 +3,7 @@ socks-port: 1080 # SOCKS5代理端口，DNS请求会中转
 redir-port: 3333 # 透明代理端口
 allow-lan: true
 mode: Rule
-log-level: info
+log-level: info # 日志显示级别： debug-问题调试，info-基本信息
 external-controller: 0.0.0.0:9090
 secret: route
 hosts:
@@ -17,15 +17,15 @@ dns:
   fake-ip-range: 198.18.0.1/16 # Fake IP addresses pool CIDR
   use-hosts: false # lookup hosts and return IP record
   nameserver:
-    - 223.5.5.5 # DNSpod DoT
-    - https://doh.pub/dns-query # DNSpod DoH
-    - 119.29.29.29 # DNSpod DNS 17ms
+    - 114.114.114.114
   # 提供 fallback 时，如果GEOIP非 CN 中国时使用 fallback 解析
   fallback:
-    - tls://1.1.1.1:853 # cloudflare DNS over TLS
-    - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
+    - 8.8.8.8 # Google DNS over TCP
+    - 1.1.1.1 # cloudflare DNS over TCP
     - tls://8.8.8.8:853 # Google DNS over TLS
+    - tls://1.1.1.1:853 # cloudflare DNS over TLS
     - https://dns.google/dns-query # Google DNS over HTTPS
+    - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
   # 强制DNS解析使用`fallback`配置
   fallback-filter:
     # true: CN使用nameserver解析，非CN使用fallback
@@ -39,8 +39,49 @@ proxies: []
 # 设置代理提供者(远程订阅地址+本地订阅文件)
 proxy-providers:
   provider_url:
+    # 免费订阅源代理组
     type: file
-    path: ./provider_remote.yaml
+    path: ./providers/provider_remote.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+  provider_diy:
+    # 个人VPS代理组
+    type: file
+    path: ./providers/provider_diy.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+  provider_free:
+    # 墙内可用代理组
+    type: file
+    path: ./providers/provider_free.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+  provider_outwall:
+    # 被墙代理组
+    type: file
+    path: ./providers/provider_outwall.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+  provider_netflix:
+    # 解锁Netflix代理组
+    type: file
+    path: ./providers/provider_netflix.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+  provider_home_netflix:
+    # 解锁Netflix代理组
+    type: file
+    path: ./providers/provider_home_netflix.yaml
     health-check:
       enable: true
       interval: 600
@@ -59,14 +100,15 @@ proxy-groups:
   # 保留的自定义节点
   - name: DIY组
     type: select # load-balance, select, relay, fallback, url-test
+    use: # 引入 proxy-provider 使用 use 关键字
+      - provider_diy  # 个人自定义的代理文件
     url: http://www.gstatic.com/generate_204
     interval: 300
-    proxies:
-      - DIRECT
   - name: PROXY
     type: select # load-balance, select, relay, fallback, url-test
     use: # 引入 proxy-provider 使用 use 关键字
-      - provider_url # URL地址更新的代理文件
+      - provider_url
+      - provider_free
     url: http://www.gstatic.com/generate_204
     interval: 300
     # strategy: consistent-hashing # or round-robin  # 负载均衡策略
@@ -75,6 +117,8 @@ proxy-groups:
       - DIRECT
   - name: 被墙代理组
     type: select
+    use: # 引入 proxy-provider 使用 use 关键字
+      - provider_outwall # 墙外订阅源代理组
     url: http://www.gstatic.com/generate_204
     interval: 300
     proxies:
@@ -89,12 +133,16 @@ proxy-groups:
       - 被墙代理组
   - name: 仅支持Netflix自制剧
     type: select
+    use:
+      - provider_home_netflix
     url: http://www.gstatic.com/generate_204
     interval: 300
     proxies:
       - DIRECT
   - name: 解锁Netflix非自制剧
     type: select
+    use:
+      - provider_netflix
     url: http://www.gstatic.com/generate_204
     interval: 300
     proxies:
@@ -234,9 +282,45 @@ rules:
   - DOMAIN,yacd.haishan.me,DIRECT
   - RULE-SET,private,DIRECT
   - RULE-SET,reject,REJECT
-  - RULE-SET,video_netflix,NETFLIX_PROXY
-  - RULE-SET,video_tiktok,Tiktok_PROXY
-  - RULE-SET,video_iqiyi,IQiyi_PROXY
+  # > Netflix
+  - DOMAIN-SUFFIX,netflix.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflix.net,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,nflxext.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,nflximg.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,nflximg.net,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,nflxso.net,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,nflxvideo.net,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest0.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest1.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest2.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest3.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest4.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest5.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest6.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest7.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest8.com,NETFLIX_PROXY
+  - DOMAIN-SUFFIX,netflixdnstest9.com,NETFLIX_PROXY
+  # Netflix测速网站
+  - DOMAIN-SUFFIX,fast.com,NETFLIX_PROXY
+  # - RULE-SET,video_netflix,NETFLIX_PROXY
+  # > TikTok
+  - PROCESS-NAME,com.ss.android.ugc.trill,Tiktok_PROXY
+  - DOMAIN-SUFFIX,byteoversea.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,ibytedtos.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,ipstatp.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,muscdn.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,musical.ly,Tiktok_PROXY
+  - DOMAIN-SUFFIX,tiktok.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,tik-tokapi.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,tiktokcdn.com,Tiktok_PROXY
+  - DOMAIN-SUFFIX,tiktokv.com,Tiktok_PROXY
+  # - RULE-SET,video_tiktok,Tiktok_PROXY
+  # > iQIYI
+  - DOMAIN-SUFFIX,iq.com,IQiyi_PROXY
+  - DOMAIN,intl.iqiyi.com,IQiyi_PROXY
+  - DOMAIN,intl-rcd.iqiyi.com,IQiyi_PROXY
+  - DOMAIN,intl-subscription.iqiyi.com,IQiyi_PROXY
+  # - RULE-SET,video_iqiyi,IQiyi_PROXY
   # > Bilibili
   - PROCESS-NAME,com.bilibili.app.in,Bili_PROXY
   - PROCESS-NAME,tv.danmaku.bili,Bili_PROXY
@@ -259,4 +343,5 @@ rules:
   - RULE-SET,proxy,PROXY
   - RULE-SET,greatfire,PROXY
   - RULE-SET,telegramcidr,PROXY
+  # - GEOIP,CN,DIRECT,no-resolve
   - MATCH,DIRECT
