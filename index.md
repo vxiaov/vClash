@@ -14,42 +14,30 @@
 - CPU架构: Armv7l/Armv7/Armv8 (能运行clash可执行程序)
 - 路由器固件： KS梅林改版、KS官改的380/384/386版本固件
 
-## 基本功能
 
-- [x] Clash服务启动开关
-- [x] 透明代理启用开关: 感觉不到自己使用了代理，内网应用不做任何配置即可访问Google
-- [x] 支持订阅节点更新:支持provider(url)更新配置。
-- [x] 无污染DNS：使用无污染的DNS解析国外域名。
-- [x] 支持添加和删除个人代理节点(单独分组：命名为DIY)。
+## 功能特点介绍
+
+- <b style="color:red">安装即用</b>，只需要更新内部提供的`代理节点订阅源`即可使用(即不需要自己搭建梯子就能用)。
+- Clash启动配置文件规划好了两级、三级中继代理组，<b style="color:red">免费解锁奈</b>飞变得更加容易了。
+- 内置Cloudflare的DDNS功能，支持<b style="color:red">同时更新多个域名</b>。
+
+## 使用前说明
+> 由于GoLang版本Clash启动时分配内存空间较大，对于小内存路由器最容易出现**启动失败问题**,以`RT-AC86U`为例，启动时分配虚拟内存(VIRT)有600-700MB左右，对于512MB物理内存路由器直接起不来。
+
+启动失败问题解决：
+
+1. 挂载虚拟内存: 支持**USB接口路由器**可以插入一个1GB以上的优盘作为虚拟内存挂载，可以使用路由器自带了虚拟内存插件。[阅读挂载虚拟内存教程文章](https://vlike.work/VPS/router-mount-swap.html)。
+
 
 
 ## 怎么获取插件安装包？
 
-### 方式一: 通过源码使用方式：
-
-```sh
-git clone https://github.com/learnhard-cn/clash.git
-
-# 用于 380版本固件 ：使用 main 分支
-cd clash && git checkout main && cd ../
-tar zcvf clash.tar.gz clash/bin  clash/clash  clash/images  clash/install.sh  clash/res  clash/scripts  clash/uninstall.sh  clash/version  clash/webs
+| Github分支    | 支持Koolshare路由器固件版本 | Github下载链接                                                                                                                                                                        | 国内CDN下载链接                                                                                             |
+| ----------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| main        | 华硕380版本(停止更新)            | [斐迅K3梅林380版本](https://github.com/learnhard-cn/vClash/raw/main/release/clash.tar.gz)                     | [斐迅K3梅林380版本](https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@main/release/clash.tar.gz)              |
+| ksmerlin386 | 华硕官改、梅林386版本(持续更新)       | [华硕RT-AC86U梅林386版本](https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz) | [华硕RT-AC86U梅林386版本](https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz) |
 
 
-# 用于 384/386 版本固件 ：使用 ksmerlin386 分支
-cd clash && git checkout ksmerlin386 && cd ../
-tar zcvf clash.tar.gz clash/bin  clash/clash  clash/images  clash/install.sh  clash/res  clash/scripts  clash/uninstall.sh  clash/version  clash/webs clash/.valid
-
-```
-
-### 方式二： 通过Release包下载获取
-
-
-| 适用于**380**固件| 适用于**384/386**固件|
-|:-------|:--------|
-| [clash插件最新版本下载地址](https://github.com/learnhard-cn/clash/releases/tag/v1.9) | [clash插件最新版本下载地址](https://github.com/learnhard-cn/clash/releases/tag/v2.1.1)
-
-
-选择最新版本下载到本地，文件名命名为： `clash.tar.gz` 。
 
 ## 如何离线安装
 
