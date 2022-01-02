@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://github.com/learnhard-cn/clash/raw/main/res/icon-clash.png" alt="Clash" width="200">
+  <img src="https://github.com/learnhard-cn/clash/raw/main/clash/res/icon-clash.png" alt="Clash" width="200">
   <br>vClash科学上网插件<br>
 </h1>
 
