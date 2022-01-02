@@ -9,8 +9,8 @@
 
 | Github分支    | 支持Koolshare路由器固件版本 | Github下载链接                                                                                                                                                                        | 国内CDN下载链接                                                                                             |
 | ----------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| main        | 华硕380版本(停止更新)            | [](https://github.com/learnhard-cn/vClash/raw/main/release/clash.tar.gz)[斐迅K3梅林380版本](https://github.com/learnhard-cn/vClash/blob/main/release/clash.tar.gz)                     | [斐迅K3梅林380版本](https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@main/release/clash.tar.gz)              |
-| ksmerlin386 | 华硕官改、梅林386版本(持续更新)       | [](https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz)[华硕RT-AC86U梅林386版本](https://github.com/learnhard-cn/vClash/blob/ksmerlin386/release/clash.tar.gz) | [华硕RT-AC86U梅林386版本](https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz) |
+| main        | 华硕380版本(停止更新)            | [斐迅K3梅林380版本](https://github.com/learnhard-cn/vClash/raw/main/release/clash.tar.gz)                     | [斐迅K3梅林380版本](https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@main/release/clash.tar.gz)              |
+| ksmerlin386 | 华硕官改、梅林386版本(持续更新)       | [华硕RT-AC86U梅林386版本](https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz) | [华硕RT-AC86U梅林386版本](https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz) |
 
 
 
