@@ -17,10 +17,10 @@ eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
 
-CURL_OPTS="-sSL "
+CURL_OPTS="-L "
 
 if [ "$clash_use_local_proxy" == "on" ] ; then
-    CURL_OPTS="--proxy socks5://127.0.0.1:1080 $CURL_OPTS"
+    CURL_OPTS="--proxy socks5h://127.0.0.1:1080 $CURL_OPTS"
 fi
 
 bin_list="${app_name} yq"
@@ -169,7 +169,7 @@ add_cron() {
         return 0
     fi
 
-    cru a "${cron_id}" "*/2 * * * * /koolshare/scripts/clash_control.sh start"
+    cru a "${cron_id}" "*/5 * * * * /koolshare/scripts/clash_control.sh start"
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "添加进程守护脚本成功!"
     else
@@ -564,9 +564,13 @@ update_clash_bin() {
     old_version=$clash_version
     
     # 专业版更新
-    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium| grep "premium.clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
-    bin_file=$(basename $download_url)
-    LOGGER "新版本地址:${download_url}"
+    # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
+    # https://github.com/Dreamacro/clash/releases/tag/premium
+    LOGGER "CURL_OPTS:${CURL_OPTS}"
+    LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
+    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium | grep "clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
+    bin_file="new_$app_name"
+    LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
     # bin_file="clash-linux-${ARCH}-${new_ver}"
     # download_url="https://github.com/Dreamacro/clash/releases/download/${new_ver}/${bin_file}.gz"
     curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
