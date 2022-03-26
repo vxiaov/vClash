@@ -375,5 +375,5 @@ rules:
   - RULE-SET,proxy,默认代理组
   - RULE-SET,greatfire,默认代理组
   - RULE-SET,telegramcidr,默认代理组
-  # - GEOIP,CN,DIRECT,no-resolve
+  - GEOIP,CN,DIRECT,no-resolve
   - MATCH,DIRECT

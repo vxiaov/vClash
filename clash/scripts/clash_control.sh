@@ -280,7 +280,9 @@ get_filelist() {
 # 解决路由器上执行 curl 或者 wget 等请求时出现DNS服务器污染问题!
 # 添加本地DNS服务进行DNS解析
 swtich_localhost_dns(){
-    if [ "$clash_use_local_dns" = "on" ] ; then
+    # clash_use_local_proxy
+    # 取消变量:clash_use_local_dns
+    if [ "$clash_use_local_proxy" = "on" ] ; then
         if grep 127.0.0.1 /etc/resolv.conf >/dev/null 2>&1 ; then
             LOGGER "已经添加了本地DNS服务，不必重复添加了!"
         else
@@ -466,7 +468,9 @@ delete_all_nodes() {
 
 # 更新订阅源:文件类型
 update_provider_file() {
-    
+    # 切换使用代理dns转发
+    swtich_localhost_dns
+
     if [ "$clash_provider_file" = "" ]; then
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦! clash_provider_file=[$clash_provider_file]!"
         return 1
@@ -522,6 +526,9 @@ update_geoip() {
     # 精简中国IP列表生成MaxMind数据库: https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
     # 全量MaxMind数据库文件: https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
     # 全量MaxMind数据库文件（融合了ipip.net数据）: https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb
+    # 切换使用代理dns转发
+    swtich_localhost_dns
+
     geoip_url="https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb"
     if [ ! -z "$clash_geoip_url" ] ; then
         geoip_uri="$clash_geoip_url"
@@ -563,6 +570,9 @@ update_clash_bin() {
     new_ver=$clash_new_version
     old_version=$clash_version
     
+    # 切换使用代理dns转发
+    swtich_localhost_dns
+
     # 专业版更新
     # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
     # https://github.com/Dreamacro/clash/releases/tag/premium
@@ -600,7 +610,8 @@ start_cfddns(){
     [[ -z "$clash_cfddns_apikey" ]]  && LOGGER "apikey 没填写!" && return 1
     [[ -z "$clash_cfddns_domain" ]]  && LOGGER "domain 没填写!" && return 1
     [[ -z "$clash_cfddns_ttl" ]]  && clash_cfddns_ttl="120"
-    [[ -z "$clash_cfddns_ip" ]]  && clash_cfddns_ip='curl https://httpbin.org/ip|grep origin|cut -d\" -f4'
+    [[ -z "$clash_cfddns_ip" ]]  && clash_cfddns_ip='curl https://httpbin.org/ip 2>/dev/null |grep origin|cut -d\" -f4'
+    [[ -z "$clash_cfddns_ip" ]]  && LOGGER "可能网络链接有问题，暂时无法访问外网,稍后再试!" && return 1
     # 支持多个域名更新
     for current_domain in `echo $clash_cfddns_domain | sed 's/[,，]/ /g'`
     do
