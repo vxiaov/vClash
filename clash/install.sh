@@ -176,7 +176,7 @@ copy_files() {
     [ ! -L "/koolshare/init.d/S99${app_name}.sh" ] && ln -sf /koolshare/scripts/${app_name}_control.sh /koolshare/init.d/S99${app_name}.sh
     
     LOGGER 添加Clash面板页面软链接
-    [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
+    # [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
 }
 
 # 设置初始化环境变量信息 #

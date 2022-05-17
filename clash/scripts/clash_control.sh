@@ -13,6 +13,11 @@ source ${KSHOME}/scripts/base.sh
 # 避免出现 out of memory 问题
 ulimit -s unlimited
 
+# 路由器IP地址
+lan_ipaddr="$(nvram get lan_ipaddr)"
+
+dbus set clash_lan_ipaddr=$lan_ipaddr
+
 eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
@@ -27,11 +32,31 @@ bin_list="${app_name} yq"
 
 dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
-
+yacd_port="9090"        # Yacd 端口
 # 存放规则文件目录#
 rule_src_dir="${KSHOME}/clash/ruleset"
 config_file="${KSHOME}/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
+
+
+
+
+
+check_config_file() {
+    # 检查 config.yaml 文件配置信息
+    clash_yacd_secret=$(yq e '.secret' $config_file)
+    clash_yacd_ui="${lan_ipaddr}:${yacd_port}"
+    tmp_port=$redir_port yq e -iP '.redir-port=env(tmp_port)' $config_file
+    tmp_yacd="0.0.0.0:$yacd_port" yq e -iP '.external-controller=strenv(tmp_yacd)' $config_file
+    tmp_dns="0.0.0.0:$dns_port" yq e -iP '.dns.listen=strenv(tmp_dns)' $config_file
+    yq e -iP '.external-ui="/koolshare/clash/dashboard/yacd"' $config_file
+    yq e -iP '.dns.enhanced-mode="redir-host"' $config_file
+    dbus set clash_yacd_ui=$clash_yacd_ui
+    dbus set clash_yacd_secret=$clash_yacd_secret
+}
+
+# 开启对旁路由IP自动化监控脚本
+main_script="${KSHOME}/scripts/clash_control.sh"
 
 # provider_url_bak="${KSHOME}/${app_name}/provider_url.yaml"        # URL订阅源配置信息
 # provider_file_bak="${KSHOME}/${app_name}/provider_file.yaml"      # FILE订阅源配置信息
@@ -40,7 +65,6 @@ provider_remote_file="${KSHOME}/${app_name}/providers/provider_remote.yaml"    #
 provider_diy_file="${KSHOME}/${app_name}/providers/provider_diy.yaml"          # 远程URL更新文件
 
 CMD="${app_name} -d ${KSHOME}/${app_name}/"
-lan_ipaddr=$(nvram get lan_ipaddr)
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
@@ -125,6 +149,9 @@ get_proc_status() {
     if [ "$clash_cfddns_enable" = "on" ] ; then
         echo "DDNS调度: [$(cru l| grep clash_cfddns)]"
     fi
+    if [ "$clash_watchdog_enable" = "on" ] ; then
+        echo "旁路由Watchdog调度: [$(cru l| grep soft_route_check)]"
+    fi
     echo "----------------------------------------------------"
     echo "代理订阅: $clash_provider_file"
     echo "订阅更新:$(cru l| grep update_provider_local)"
@@ -151,7 +178,7 @@ add_ddns_cron(){
                 ttl="2"
             fi
             
-            cru a clash_cfddns "*/${ttl} * * * * /koolshare/scripts/clash_control.sh start_cfddns"
+            cru a clash_cfddns "*/${ttl} * * * * $main_script start_cfddns"
             if [ "$?" = "0" ] ; then
                 echo "成功添加cfddns调度!"
             else
@@ -169,7 +196,7 @@ add_cron() {
         return 0
     fi
 
-    cru a "${cron_id}" "*/5 * * * * /koolshare/scripts/clash_control.sh start"
+    cru a "${cron_id}" "*/5 * * * * $main_script start"
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "添加进程守护脚本成功!"
     else
@@ -177,7 +204,7 @@ add_cron() {
         return 1
     fi
 
-    cru a "update_provider_local" "0 * * * * /koolshare/scripts/clash_control.sh update_provider_file >/dev/null 2>&1"
+    cru a "update_provider_local" "0 * * * * $main_script update_provider_file >/dev/null 2>&1"
     if cru l | grep update_provider_local >/dev/null; then
         LOGGER "添加订阅源更新调度脚本成功!"
     else
@@ -505,7 +532,7 @@ update_provider_file() {
     if cru l | grep update_provider_local >/dev/null; then
         LOGGER "已经添加了调度! $(cru l | grep update_provider_local)"
     else
-        cru a "update_provider_local" "0 * * * * /koolshare/scripts/clash_control.sh update_provider_file >/dev/null 2>&1"
+        cru a "update_provider_local" "0 * * * * $main_script update_provider_file >/dev/null 2>&1"
         LOGGER "成功添加更新调度配置: $(cru l| grep update_provider_local)"
     fi
     
@@ -656,6 +683,59 @@ save_cfddns() {
     fi
 }
 
+# 修改网关和DNS服务器IP地址
+change_gateway() {
+    gateway_ip="$1"
+    nvram set dhcp_dns1_x=${gateway_ip}
+    nvram set dhcp_gateway_x=${gateway_ip}
+    nvram commit
+    echo "重启网卡!!!"
+    service restart_net_and_phy
+}
+
+# 软路由监控状态
+soft_route_check() {
+
+    cur_gateway=$(nvram get  dhcp_gateway_x)
+    
+    ping -c 2 -W 1 -q $clash_watchdog_soft_ip
+    if [ "$?" != "0" ] ; then
+        if [ "${cur_gateway}" == "${lan_ipaddr}" ]; then
+            echo "软路由已下线,DHCP配置已经添加,不用重复添加"
+        else
+            echo "软路由已下线,开始配置软路由DHCP信息"
+
+            if [ "$clash_watchdog_start_clash" == "on" ] ; then
+                LOGGER "设置自动开启Clash服务"
+                dbus set clash_enable="on"
+            fi
+            change_gateway ${lan_ipaddr}
+        fi
+    else
+        # 软路由上线: 检测配置文件是否已添加
+        if [ "${cur_gateway}" == "${clash_watchdog_soft_ip}" ]; then
+            echo "软路由的DHCP配置已经添加"
+        else
+            echo "软路由的DHCP配置没添加, 开始配置软路由DHCP信息"
+            change_gateway ${clash_watchdog_soft_ip}
+            LOGGER "关闭Clash服务"
+            stop
+        fi
+    fi
+}
+
+# 启用旁路由监控工具
+switch_route_watchdog() {
+
+    if [ "$clash_watchdog_enable" == "on" ] ; then 
+        LOGGER "开启旁路由watchdog自动监控服务"
+        LOGGER "添加cron调度脚本"
+        cru a soft_route_ctl "*/2 * * * * $main_script soft_route_check >/dev/null"
+    else
+        LOGGER "关闭旁路由watchdog自动监控服务"
+        cru d soft_route_ctl
+    fi
+}
 get_fw_type() {
     local KS_TAG=$(nvram get extendno|grep koolshare)
     if [ -d "$KSHOME" ];then
@@ -743,7 +823,7 @@ do_action() {
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns)
+    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check)
         $action_job
         ;;
     *)

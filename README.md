@@ -4,7 +4,7 @@
 </h1>
 
 # vClash项目说明
->这个项目插件适用于`Koolshare的华硕官改、梅林改版 380/384/386固件`。会不会有openwrt版本呢？有时间再考虑吧。
+>这个项目插件适用于`Koolshare的华硕官改、梅林改版 380/384/386固件`。会不会有openwrt版本呢？~~有时间再考虑吧~~，最近有空就编写了一个**Openwrt**版本，不过是运行在X86_64架构上并且是支持Koolshare的固件才能运行，有想尝试的可以访问这个项目[Koolshare-Clash-openwrt-amd64](https://github.com/learnhard-cn/Koolshare-Clash-openwrt-amd64)，内置了启动配置文件(安装即用!)
 
 
 | Github分支    | 支持Koolshare路由器固件版本 | Github下载链接                                                                                                                                                                        | 国内CDN下载链接                                                                                             |

@@ -61,8 +61,8 @@
 
         function conf2obj() {
 
-            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip'];
-            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable'];
+            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip'];
+            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', "clash_watchdog_enable", "clash_watchdog_start_clash"];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -293,6 +293,22 @@
             document.getElementById("clash_cfddns_enable").disabled = false;
         }
 
+        function switch_route_watchdog() { //启用旁路由监控工具
+            if (document.getElementById('clash_watchdog_enable').checked) {
+                dbus["clash_watchdog_enable"] = "on";
+            } else {
+                dbus["clash_watchdog_enable"] = "off";
+            }if (document.getElementById('clash_watchdog_start_clash').checked) {
+                dbus["clash_watchdog_start_clash"] = "on";
+            } else {
+                dbus["clash_watchdog_start_clash"] = "off";
+            }
+            document.getElementById("clash_watchdog_enable").disabled = true;
+            dbus["clash_watchdog_soft_ip"] = document.getElementById("clash_watchdog_soft_ip").value;
+            apply_action("switch_route_watchdog");
+            document.getElementById("clash_watchdog_enable").disabled = false;
+        }
+
         function get_proc_status() { // 查看服务运行状态
             apply_action("get_proc_status");
         }
@@ -395,6 +411,7 @@
                         <button class="tab" onclick="switch_tabs(event, 'menu_group_delete');update_node_list();">删除节点</button>
                         <button class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
+                        <button class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
                         
                     </div>
 
@@ -446,7 +463,7 @@
                         <tr>
                             <th>Web控制面板:</th>
                             <td colspan="2">
-                                <span>默认URL地址: <b>http://192.168.50.1:9090</b> 默认密码：<b>route</b></span><br>
+                                <span>默认URL地址: <b id="yacd_ui">http://192.168.50.1:9090</b> 默认密码：<b id="yacd_secret"></b></span><br>
                                 <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
                             </td>
                         </tr>
@@ -678,6 +695,50 @@
                                     <div style="color: chartreuse;font-size: 18px;" id="clash_cfddns_lastmsg"></div>
                                 </p>
 
+                            </td>
+                        </tr>
+                    </table>
+                    <!-- 配置DDNS信息 -->
+                    <table id="menu_watchdog" class="FormTable">
+                        <thead>
+                            <tr>
+                                <td colspan="2">配置监控旁路由状态(当前路由器为主路由哦)</td>
+                            </tr>
+                        </thead>
+                        <tr>
+                            <th>自动开启Clash功能:</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_watchdog_start_clash">
+                                        <input id="clash_watchdog_start_clash" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>旁路由IP地址：</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="text" class="input_text" name="route_soft_ip" id="clash_watchdog_soft_ip" placeholder="旁路由IP地址： 192.168.50.1">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>启用旁路由Watchdog(立即生效):</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_watchdog_enable">
+                                        <input id="clash_watchdog_enable" onclick="switch_route_watchdog();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
                             </td>
                         </tr>
                     </table>
