@@ -37,6 +37,7 @@ yacd_port="9090"        # Yacd 端口
 rule_src_dir="${KSHOME}/clash/ruleset"
 config_file="${KSHOME}/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
+default_test_node="proxies:\n- name:  "testtest代理分享站(别选我):https://vlike.work"\n    type:  ss\n    server:  127.0.0.1\n    port:  9999\n    password:  123456\n    cipher:  aes-256-gcm"
 
 
 check_config_file() {
@@ -478,18 +479,16 @@ delete_one_node() {
 # DIY节点 全部删除
 delete_all_nodes() {
     filename="$provider_diy_file"
-    cp $filename $filename.old
-    LOGGER "开始清理所有DIY节点:"
-    # for fn in `yq e '.proxies[].name' $filename|grep -v test`
-    for fn in ${clash_name_list}
-    do
-        # 保留 test 节点，删掉后添加节点会很出问题的哦!
-        if [ $fn != "test" ] ; then
-            f="$fn" yq e -i 'del(.proxies[]|select(.name == strenv(f)))' $filename
-            # f="$fn" yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
-        fi
-    done
-    LOGGER "清理DIY节点完毕!让世界回归平静!"
+    node_num="$(yq e '.proxies[].name' $filename |grep -v "test"|wc -l)"
+    if [ "$node_num" = "0" ] ; then
+        LOGGER "已经清理过了，不用再清理了"
+    else
+        cp $filename $filename.old
+        LOGGER "开始清理所有DIY节点:"
+        # 偷个懒: 重置DIY配置文件只包含 test节点 就可以了。
+        echo "$default_test_node" > filename
+        LOGGER "清理DIY节点完毕!让世界回归平静!"
+    fi
     list_nodes
 }
 
