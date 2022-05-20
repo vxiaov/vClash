@@ -61,8 +61,17 @@
 
         function conf2obj() {
 
-            var params = ['clash_group_type', 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey', 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip'];
-            var params_chk = ['clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', "clash_watchdog_enable", "clash_watchdog_start_clash"];
+            var params = [
+                'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
+                'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 
+            ];
+            var params_chk = [
+                'clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', 
+                'clash_watchdog_enable', 'clash_watchdog_start_clash'
+            ];
+            var params_txt = [
+                'clash_yacd_secret', 'clash_yacd_url'
+            ]
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -70,7 +79,16 @@
             }
             for (var i = 0; i < params.length; i++) {
                 if (dbus[params[i]]) {
-                    E(params[i]).value = dbus[params[i]];
+                    if( params[i] == 'clash_yacd_ui') {
+                        E(params[i]).href = dbus[params[i]];
+                    } else {
+                        E(params[i]).value = dbus[params[i]];
+                    }
+                }
+            }
+            for (var i = 0; i < params_txt.length; i++) {
+                if (dbus[params_txt[i]]) {
+                    E(params_txt[i]).innerHTML = dbus[params_txt[i]];
                 }
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
@@ -266,17 +284,6 @@
             apply_action("switch_trans_mode");
         }
 
-        function switch_group_type() { // 更新代理组类型: select/url-test/...
-            val_new = document.getElementById("clash_group_type").value;
-            val_old = dbus["clash_group_type"];
-            id = "btn_switch_trans";
-            if (val_new != val_old) {
-                dbus["clash_group_type"] = val_new;
-                apply_action("switch_group_type");
-            }
-
-        }
-
         function switch_cfddns_mode() { //启用cfddns
             if (document.getElementById('clash_cfddns_enable').checked) {
                 dbus["clash_cfddns_enable"] = "on";
@@ -335,7 +342,7 @@
         }
 
         function add_nodes() { // 添加DIY节点
-            dbus["clash_node_list"] = document.getElementById("proxy_node_list").value.replaceAll("\n", " ");
+            dbus["clash_node_list"] = Base64.encode(document.getElementById("proxy_node_list").value.replaceAll("\n", " "));
             apply_action("add_nodes");
         }
 
@@ -344,12 +351,19 @@
             apply_action("delete_one_node");
             var obj = document.getElementById("proxy_node_name");
             obj.options.remove(obj.selectedIndex);
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000)
         }
 
         function delete_all_nodes() { // 按名称删除 DIY节点
             apply_action("delete_all_nodes");
             var obj = document.getElementById("proxy_node_name");
             obj.options.length = 0;
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000)
         }
 
         function update_clash_bin() { // 按名称删除 DIY节点
@@ -444,27 +458,11 @@
                                 </div>
                             </td>
                         </tr>
-                        <!-- 节点切换模式 -->
-                        <tr>
-                            <th>
-                                <label>节点组切换模式:</label>
-                            </th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <select id="clash_group_type" onchange="switch_group_type();" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
-                                        <option value="select">【1】 select模式</option>
-                                        <option value="url-test">【2】 url-test模式</option>
-                                        <option value="fallback">【3】 fallback模式</option>
-                                        <option value="load-balance">【4】 LB负载均衡模式</option>
-                                    </select>
-                                </div>
-                            </td>
-                        </tr>
                         <tr>
                             <th>Web控制面板:</th>
                             <td colspan="2">
-                                <span>默认URL地址: <b id="yacd_ui">http://192.168.50.1:9090</b> 默认密码：<b id="yacd_secret"></b></span><br>
-                                <a type="button" class="button_gen" href="/ext/dashboard/yacd/index.html" target="_blank">Clash面板</a>
+                                RESTful API地址: <b id="clash_yacd_url"></b> <br>默认密码：<b id="clash_yacd_secret"></b><br>
+                                <a type="button" class="button_gen" id="clash_yacd_ui" href="#" target="_blank">Yacd面板</a>
                             </td>
                         </tr>
                     </table>
@@ -545,14 +543,15 @@
                         </tr>
                         <tr>
                             <td colspan="2" style="text-align: left;">
-                                <p style="text-align: left;color: burlywood;">温馨提示：添加新节点会<b style="color: chocolate;font-size: 20px;">覆盖</b> 已有节点。</p>
+                                <p style="text-align: left;color: burlywood;">温馨提示：添加重复节点<b style="color: chocolate;font-size: 20px;">不会覆盖</b> 已有节点。</p>
                                 <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">支持解析URI格式:</p>
                                 <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ss://</b>base64string@host:port/?plugin=xxx&obfs=xxx&obfs-host=xxx#notes</p>
                                 <p style="color:#FC0">其中，ss的base64string格式为：method:password</p>
                                 <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ss://</b>base64string</p>
                                 <p style="color:#FC0">其中，ss的base64string内容格式：method:password@host:port </p>
-                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ssr://</b>server:server_port:protocol:method:obfs:base64-encode-password/?obfsparam=base64-encode-string&protoparam=base64-encode-string&remarks=base64-encode-string&group=base64-encode-string</p>
+                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ssr://</b>base64string</p>
                                 <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">vmess://</b>base64string</p>
+                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: rgb(200, 19, 50);">(新增)http(s)://</b>yaml格式代理订阅源或ss/ssr/vmess链接节点列表</p>
                                 <p style="color:#FC0">其中，vmess的base64string内容为JSON配置格式： {"add":"server_ip","v":"2","ps":"name","port":158,"id":"683ec608-5af9-4f91-bd5b-ce493307fe56","aid":"0","net":"ws","type":"","host":"","path":"/path","tls":"tls"}</p>
                             </td>
                         </tr>

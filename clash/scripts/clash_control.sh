@@ -39,19 +39,18 @@ config_file="${KSHOME}/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
 
 
-
-
-
 check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
-    clash_yacd_ui="${lan_ipaddr}:${yacd_port}"
+    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd"
+    clash_yacd_url="http://${lan_ipaddr}:${yacd_port}"
     tmp_port=$redir_port yq e -iP '.redir-port=env(tmp_port)' $config_file
     tmp_yacd="0.0.0.0:$yacd_port" yq e -iP '.external-controller=strenv(tmp_yacd)' $config_file
     tmp_dns="0.0.0.0:$dns_port" yq e -iP '.dns.listen=strenv(tmp_dns)' $config_file
-    yq e -iP '.external-ui="/koolshare/clash/dashboard/yacd"' $config_file
+    yq e -iP '.external-ui="/koolshare/clash/dashboard"' $config_file
     yq e -iP '.dns.enhanced-mode="redir-host"' $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
+    dbus set clash_yacd_url=$clash_yacd_url
     dbus set clash_yacd_secret=$clash_yacd_secret
 }
 
@@ -382,6 +381,8 @@ start() {
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
     else
+        LOGGER "检测启动配置文件: ${config_file} :"
+        check_config_file
         LOGGER "开始启动 ${app_name} :"
         nohup ${CMD} >/dev/null 2>&1 &
         sleep 1
@@ -394,7 +395,7 @@ start() {
         # 用于记录Clash服务稳定程度
         SYSLOG "start_${app_name} : pid=$(pidof ${app_name})"
         dbus set ${app_name}_enable="on"
-        [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
+        # [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
         start_dns
     fi
     add_iptables
@@ -434,7 +435,7 @@ list_nodes() {
 add_nodes() {
     tmp_node_file="/koolshare/clash/tmp_node.yaml"
     # 替换掉回车、多行文本变量页面加载时会出错!
-    dbus set clash_node_list="$(echo "$clash_node_list" | sed 's/\n/\t/g')"
+
     node_list="$clash_node_list"
     if [ "$node_list" = "" ] ; then
         LOGGER "想啥呢!节点可不会凭空产生!你得传入 ss:// 或 ssr:// 或者 vmess:// 前缀的URI链接!"
@@ -459,6 +460,7 @@ add_nodes() {
     fi
     LOGGER "添加DIY节点成功!"
     rm -f ${tmp_node_file}
+    dbus remove clash_node_list
     list_nodes
 }
 
