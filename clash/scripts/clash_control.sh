@@ -37,8 +37,7 @@ yacd_port="9090"        # Yacd 端口
 rule_src_dir="${KSHOME}/clash/ruleset"
 config_file="${KSHOME}/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
-default_test_node="proxies:\n- name:  "testtest代理分享站(别选我):https://vlike.work"\n    type:  ss\n    server:  127.0.0.1\n    port:  9999\n    password:  123456\n    cipher:  aes-256-gcm"
-
+default_test_node="proxies:\n  - name:  test代理分享站(别选我):https://vlike.work\n    type:  ss\n    server:  127.0.0.1\n    port:  9999\n    password:  123456\n    cipher:  aes-256-gcm"
 
 check_config_file() {
     # 检查 config.yaml 文件配置信息
@@ -444,7 +443,8 @@ add_nodes() {
     fi
 
     # 生成节点文件
-    uri_decoder -uri "$node_list" -db "/koolshare/clash/Country.mmdb" > ${tmp_node_file}
+    socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
+    uri_decoder -proxy "$socks5_proxy" -uri "$node_list" -db "/koolshare/clash/Country.mmdb" > ${tmp_node_file}
     if [ "$?" != "0" -o ! -s "${tmp_node_file}" ] ; then
         LOGGER "抱歉!你添加的链接解析失败啦!给个正确的链接吧!"
         return 2
