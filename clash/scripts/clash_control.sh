@@ -10,9 +10,6 @@ app_name="clash"
 
 source ${KSHOME}/scripts/base.sh
 
-# 避免出现 out of memory 问题
-ulimit -s unlimited
-
 # 路由器IP地址
 lan_ipaddr="$(nvram get lan_ipaddr)"
 
@@ -20,9 +17,9 @@ dbus set clash_lan_ipaddr=$lan_ipaddr
 
 eval $(dbus export ${app_name}_)
 
-alias curl="curl --connect-timeout 300"
+alias curl="curl --connect-timeout 300 -sSL"
 
-CURL_OPTS="-L "
+CURL_OPTS=" "
 
 if [ "$clash_use_local_proxy" == "on" ] ; then
     CURL_OPTS="--proxy socks5h://127.0.0.1:1080 $CURL_OPTS"
@@ -42,7 +39,8 @@ default_test_node="proxies:\n  - name:  test代理分享站(别选我):https://v
 check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
-    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd"
+    # clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd"
+    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     clash_yacd_url="http://${lan_ipaddr}:${yacd_port}"
     tmp_port=$redir_port yq e -iP '.redir-port=env(tmp_port)' $config_file
     tmp_yacd="0.0.0.0:$yacd_port" yq e -iP '.external-controller=strenv(tmp_yacd)' $config_file
@@ -50,8 +48,8 @@ check_config_file() {
     yq e -iP '.external-ui="/koolshare/clash/dashboard"' $config_file
     yq e -iP '.dns.enhanced-mode="redir-host"' $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
-    dbus set clash_yacd_url=$clash_yacd_url
-    dbus set clash_yacd_secret=$clash_yacd_secret
+    # dbus set clash_yacd_url=$clash_yacd_url
+    # dbus set clash_yacd_secret=$clash_yacd_secret
 }
 
 # 开启对旁路由IP自动化监控脚本
@@ -68,8 +66,7 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
 
-LOGFILE="/tmp/upload/clash_status.log"
-echo > $LOGFILE
+
 LOGGER() {
     echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
 }
@@ -90,18 +87,6 @@ if [ ! -x "$(which cru)" ]; then
         LOGGER "糟糕!没有找到 cru 命令! 这样配置不了调度啦!"
     fi
 fi
-
-usage() {
-    cat <<END
- 使用帮助:
-    ${app_name} <start|stop|status|restart>
- 参数介绍:
-    start   启动服务
-    stop    停止服务
-    status  状态检查
-    restart 重启服务
-END
-}
 
 echo_status() {
     if [ "$1" = "head" ]; then
@@ -170,7 +155,7 @@ get_proc_status() {
 add_ddns_cron(){
     if [ "$clash_cfddns_enable" = "on" ] ; then
         if cru l | grep clash_cfddns > /dev/null ; then
-            echo "已经添加cfddns调度!"
+            LOGGER "已经添加cfddns调度!"
         else
             ttl=`expr $clash_cfddns_ttl / 60`
             if [ "$ttl" -lt "2" -o "$ttl" -ge "1440" ] ; then
@@ -179,9 +164,9 @@ add_ddns_cron(){
             
             cru a clash_cfddns "*/${ttl} * * * * $main_script start_cfddns"
             if [ "$?" = "0" ] ; then
-                echo "成功添加cfddns调度!"
+                LOGGER "成功添加cfddns调度!"
             else
-                echo "添加cfddns调度失败"
+                LOGGER "添加cfddns调度失败"
                 cru l| grep clash_cfddns
             fi
         fi
@@ -292,29 +277,6 @@ get_filelist() {
 }
 
 
-# 解决路由器上执行 curl 或者 wget 等请求时出现DNS服务器污染问题!
-# 添加本地DNS服务进行DNS解析
-swtich_localhost_dns(){
-    # clash_use_local_proxy
-    # 取消变量:clash_use_local_dns
-    if [ "$clash_use_local_proxy" = "on" ] ; then
-        if grep 127.0.0.1 /etc/resolv.conf >/dev/null 2>&1 ; then
-            LOGGER "已经添加了本地DNS服务，不必重复添加了!"
-        else
-            LOGGER "添加本地DNS服务到 /etc/resolv.conf 文件中(临时生效)!"
-            sed -i '1 i nameserver 127.0.0.1' /etc/resolv.conf
-        fi
-    else
-        if grep 127.0.0.1 /etc/resolv.conf >/dev/null 2>&1 ; then
-            sed -i '/127.0.0.1/d' /etc/resolv.conf
-            LOGGER "已经删除了本地DNS服务"
-            LOGGER "当前DNS配置:\n$(cat /etc/resolv.conf)"
-        else
-            LOGGER "您没添加过本地DNS服务，不用删除了!"
-        fi
-    fi
-}
-
 start() {
     # 1. 启动服务进程
     # 2. 配置iptables策略
@@ -343,6 +305,7 @@ start() {
     fi
     add_iptables
     add_cron
+    list_nodes
 }
 
 stop() {
@@ -438,8 +401,6 @@ delete_all_nodes() {
 
 # 更新订阅源:文件类型
 update_provider_file() {
-    # 切换使用代理dns转发
-    swtich_localhost_dns
 
     if [ "$clash_provider_file" = "" ]; then
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦! clash_provider_file=[$clash_provider_file]!"
@@ -497,7 +458,6 @@ update_geoip() {
     # 全量MaxMind数据库文件: https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
     # 全量MaxMind数据库文件（融合了ipip.net数据）: https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb
     # 切换使用代理dns转发
-    swtich_localhost_dns
 
     geoip_url="https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb"
     if [ ! -z "$clash_geoip_url" ] ; then
@@ -513,16 +473,6 @@ update_geoip() {
     rm ${geoip_file}.bak
 }
 
-
-# 切换gfwlist黑名单模式(使用dnsmasq过滤黑名单URL规则请求到代理处理)
-switch_gfwlist_mode(){
-    gfw_status="关闭"
-    if [ "$clash_gfwlist_mode" = "on" ] ; then
-        gfw_status="启用"
-    fi
-    LOGGER "${gfw_status} 黑名单模式: dnsmasq过滤黑名单URL规则请求到代理中!"
-}
-
 # 切换模式: 组节点切换开关
 switch_group_type() {
     LOGGER 切换了组节点模式为: "$clash_group_type"
@@ -534,15 +484,18 @@ switch_trans_mode(){
     LOGGER "切换透明代理模式:$clash_trans"
 }
 
+# 忽略clash新版本提醒
+ignore_new_version() {
+    dbus set clash_version=$clash_new_version
+    LOGGER "已忽略当前版本:$clash_new_version"
+}
+
 # 更新新版本clash客户端可执行程序
 update_clash_bin() {
     cd /tmp
     new_ver=$clash_new_version
     old_version=$clash_version
     
-    # 切换使用代理dns转发
-    swtich_localhost_dns
-
     # 专业版更新
     # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
     # https://github.com/Dreamacro/clash/releases/tag/premium
@@ -700,6 +653,7 @@ get_fw_type() {
     fi
 }
 
+# DEBUG 路由器信息
 show_router_info() {
     get_fw_type
     echo "您的路由器基本信息(使用过程有问题时，粘贴以下内容，及问题现象说明):"
@@ -709,31 +663,60 @@ show_router_info() {
     echo "Linux内核版本:$(uname -mnor)"
     echo "软件中心版本: $(dbus get softcenter_version)"
     echo "==========================================================="
-    echo "默认DNS配置(/etc/resolv.conf):"
-    echo "$(cat /etc/resolv.conf)"
-    echo "iptables中关于Clash的转发规则(iptables -t nat -S clash):"
-    echo "$(iptables -t nat -S clash)"
+    echo "vClash版本信息:$(dbus get softcenter_module_${app_name}_version)"
+    echo "clash版本号:$(clash -v|head -n1)"
+    echo "yq版本号:$(yq -V)"
+    echo "jq版本号:$(jq -V)"
+    echo "vClash安装包携带的软件版本信息列表(如与上面不一致,可能其他插件修改过版本,可能导致无法运行):"
+    echo "$(cat /koolshare/${app_name}/version)"
     echo "==========================================================="
-    echo "服务运行状态-clash: $(pidof clash)"
-    echo "服务运行状态-dnsmasq: $(pidof dnsmasq)"
+    echo "vClash的转发规则(iptables -t nat -S ${app_name}):"
+    echo "$(iptables -t nat -S ${app_name})"
     echo "==========================================================="
-    echo "Clash服务连接数量:$(netstat -anp|grep clash|grep ESTAB|wc -l)"
-    echo "Clash监听端口信息:"
-    echo "$(netstat -anp|head -2;netstat -anp|grep clash|grep LISTEN)"
+    echo "vClash服务进程:[$(pidof ${app_name})]"
+    echo "vClash服务端口:"
+    echo "$(netstat -anp|head -2;netstat -anp|grep ${app_name}|grep LISTEN)"
 }
+
+# 使用帮助信息
+usage() {
+    cat <<END
+ ======================================================
+ 使用帮助:
+    ${app_name} <start|stop|restart>
+    ${app_name} start_cfddns|stop_cfddns
+    ${app_name} update_provider_file
+
+ 参数介绍:
+    start   启动服务
+    stop    停止服务
+    restart 重启服务
+    start_cfddns  启动自动更新DNS
+    stop_cfddns   停止自动更新DNS
+    update_provider_file 更新provider_free.yaml文件
+
+ ======================================================
+END
+    exit 0
+}
+
+
 ######## 执行主要动作信息  ########
 do_action() {
     if [ "$#" = "2" ] ; then
+        # web界面配置操作
         http_response "$1"  >/dev/null
         action_job="$2"
+
     else
-        # web界面配置操作
+        # 后台执行脚本
         if [ "$1" = "" ] ; then
-            action_job="$clash_action"
+            action_job="help"
         else
             action_job="$1"
         fi
     fi
+    echo > $LOGFILE
     # LOGGER "执行动作 ${action_job} ..."
     case "$action_job" in
     start)
@@ -746,7 +729,7 @@ do_action() {
         stop
         start
         ;;
-    update_clash_bin | switch_trans_mode|switch_group_type|switch_gfwlist_mode)
+    update_clash_bin | switch_trans_mode|switch_group_type)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -756,12 +739,15 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|swtich_localhost_dns|show_router_info)
+    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|show_router_info|ignore_new_version)
         # 不需要重启操作
         $action_job
         ;;
     add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check)
         $action_job
+        ;;
+    help)
+        usage
         ;;
     *)
         LOGGER "无效的操作! clash_action:[$action_job]"
@@ -773,5 +759,13 @@ do_action() {
     echo "XU6J03M6"
 }
 
-do_action $@ 2>&1 >> $LOGFILE
+LOGFILE="/tmp/upload/clash_status.log"
+if [ "$#" = "1" ] ; then
+    # 后台执行脚本: 输出结果不保存
+    LOGFILE=/dev/null
+fi
+
+echo > $LOGFILE
+
+do_action $@ 2>&1 | tee -a $LOGFILE
 

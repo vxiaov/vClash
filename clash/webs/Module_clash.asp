@@ -69,9 +69,6 @@
                 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', 
                 'clash_watchdog_enable', 'clash_watchdog_start_clash'
             ];
-            var params_txt = [
-                'clash_yacd_secret', 'clash_yacd_url'
-            ]
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -84,11 +81,6 @@
                     } else {
                         E(params[i]).value = dbus[params[i]];
                     }
-                }
-            }
-            for (var i = 0; i < params_txt.length; i++) {
-                if (dbus[params_txt[i]]) {
-                    E(params_txt[i]).innerHTML = dbus[params_txt[i]];
                 }
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
@@ -214,7 +206,7 @@
                         if (obj.name != dbus["clash_version"]) {
                             $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，<i>有新版本：" + obj.name);
                             dbus["clash_new_version"] = obj.name;
-                            document.getElementById("btn_update_ver").style.display = "";
+                            document.getElementById("clash_install_show").style.display = "";
                         } else {
                             $j("#clash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
                         }
@@ -358,14 +350,61 @@
             }, 1000)
         }
 
+        // 更新 clash 新版本
         function update_clash_bin() { // 按名称删除 DIY节点
             apply_action("update_clash_bin");
-            document.getElementById("btn_update_ver").style.display = "none";
+            document.getElementById("clash_install_show").style.display = "none";
+        }
+
+        // 忽略新版本提示
+        function ignore_new_version() {
+            apply_action("ignore_new_version");
         }
 
         function show_router_info() {
             apply_action("show_router_info");
         }
+
+        function fallbackCopyTextToClipboard(text) {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                var successful = document.execCommand('copy');
+                var msg = successful ? 'successful' : 'unsuccessful';
+                console.log('Fallback: Copying text command was ' + msg);
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+        function copyTextToClipboard(text) {
+            if (!navigator.clipboard) {
+                fallbackCopyTextToClipboard(text);
+                return;
+            }
+            navigator.clipboard.writeText(text).then(function() {
+                console.log('Async: Copying to clipboard was successful!');
+            }, function(err) {
+                console.error('Async: Could not copy text: ', err);
+            });
+        }
+
+        function copyURI(evt) {
+            evt.preventDefault();
+            copyTextToClipboard(evt.target.getAttribute('href'))
+        }
+
     </script>
 </head>
 
@@ -438,18 +477,14 @@
                                     </label>
                                 </div>
                                 <div id="clash_version_status">
-                                    <i>当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
+                                    <i style="color:rgb(7, 234, 7)">当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
                                 </div>
-                                <div id="clash_install_show" style="padding-top:5px;margin-left:330px;margin-top:-25px;">
-                                    <button id="btn_update_ver" style="display: none;" type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新版本</button>
+                                
+                                <div id="clash_install_show" style="display: none;" >
+                                    <a type="button" class="button_gen" onclick="ignore_new_version()" href="javascript:void(0);">忽略新版本</a>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <a type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新最新版</a>
                                 </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Web控制面板:</th>
-                            <td colspan="2">
-                                RESTful API地址: <b id="clash_yacd_url"></b> <br>默认密码：<b id="clash_yacd_secret"></b><br>
-                                <a type="button" class="button_gen" id="clash_yacd_ui" href="#" target="_blank">Yacd面板</a>
                             </td>
                         </tr>
                     </table>
@@ -461,7 +496,7 @@
                             </tr>
                         </thead>
                         <tr>
-                            <th>走Clash代理(URL被墙时使用):</th>
+                            <th>使用Clash代理(<i>被墙时用</i>):</th>
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_use_local_proxy">
@@ -480,8 +515,8 @@
                             </th>
                             <td colspan="2">
                                 <span>
-                                    1. 分享免费订阅源(下载失败率较大) <a style="color:chartreuse" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml" target="_blank" rel="noopener noreferrer">Github订阅源(原始链接)</a> <br>
-                                    2. 分享免费订阅源(CDN访问，成功率高) <a style="color:chartreuse" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" target="_blank" rel="noopener noreferrer">Github订阅源(CDN)</a> <br>
+                                    1. Github订阅源(原始链接)免费订阅源<a style="color:chartreuse" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a style="color:chartreuse" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
                                 </span>
                                 <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
                             </td>
@@ -501,12 +536,12 @@
                                 <label>GeoIP数据文件:</label>
                             </th>
                             <td colspan="2">
-                                <span>
-                                    1. 全量GeoIP版本(6MB左右) <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github项目地址</a> <br>
-                                    2. 精简版(200KB左右，默认使用) <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github项目地址</a><br>
-                                    3. 全量多源合并版(6MB左右) <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github项目地址</a> 
+                                <span style="text-align:left;">
+                                    1. 全量GeoIP版本(6MB左右)<a style="color:red ;" href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
+                                    2. 精简版(200KB左右，默认使用)<a style="color:red ;" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
+                                    3. 全量多源合并版(6MB左右)<a style="color:red ;" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
                                 </span>
-                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据URL地址(已经内置精简版地址)">
+                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据下载地址">
                             </td>
                         </tr>
                         <tr>
@@ -718,6 +753,7 @@
                     <div style="display: inline-table;padding-top: 15px;">
                         <a type="button" class="button_gen" onclick="get_proc_status();" href="javascript:void(0);">状态检查</a>
                         &nbsp;&nbsp;&nbsp;<a type="button" class="button_gen" onclick="show_router_info();" href="javascript:void(0);">路由信息</a>
+                        &nbsp;&nbsp;&nbsp;<a type="button" class="button_gen" id="clash_yacd_ui" href="javascript:void(0);" target="_blank">Yacd控制面板</a>
                     </div>
                     <div>
                         <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
@@ -729,11 +765,9 @@
                     </div>
 
                     <div class="KoolshareBottom" style="margin-top:10px;">
-                        技术支持： <a href="https://t.me/share_proxy_001" target="_blank" rel="noopener noreferrer">电报群:@share_proxy_001</a>
-                        <a href="http://vlike.work/" target="_blank">
-                            <i><u>http://vlike.work</u></i> </a> <br /> Github项目：
-                        <a href="https://github.com/learnhard-cn/clash" target="_blank">
-                            <i><u>https://github.com/learnhard-cn/clash</u></i> </a> <br /> Shell by： <i>Awkee</i> , Web by： <i>Awkee</i>
+                        TG讨论群:<a href="https://t.me/share_proxy_001" target="_blank" rel="noopener noreferrer"><i><u>@share_proxy_001</u></i></a><br />
+                        博客地址:<a href="https://vlike.work/" target="_blank"><i><u>https://vlike.work/</u></i> </a> <br />
+                        项目地址:<a href="https://github.com/learnhard-cn/vclash" target="_blank"><i><u>vClash</u></i> </a> <br />
                     </div>
                 </div>
             </td>

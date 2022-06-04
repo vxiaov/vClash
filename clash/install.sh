@@ -24,7 +24,7 @@ BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
 BIN_LIST="${app_name} yq uri_decoder jq"
 
 # 反馈问题链接
-open_issue="给开发者反馈一下这个问题吧！ https://github.com/learnhard-cn/vClash/issues/"
+open_issue="请将安装过程日志内容(上面的所有内容)复制好后反馈给开发者,以便于帮您找到安装失败原因！反馈地址: https://github.com/learnhard-cn/vClash/issues/"
 
 LOGGER() {
     logger -s -t "`date +%Y年%m月%d日%H:%M:%S`:clash" "$@"
@@ -225,18 +225,19 @@ init_env() {
 
     dbus set clash_provider_file="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
     dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
+    dbus set clash_geoip_url="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb"
     dbus set clash_group_type="select"  # 默认组节点选择模式 select
     dbus set clash_trans="on"           # 默认开启透明代理模式
     dbus set clash_gfwlist_mode="off"   # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
-    # dbus set clash_use_local_dns="on"   # 默认启用本地DNS解析
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     
-    CUR_VERSION=$(cat /koolshare/${app_name}/version)
-    dbus set ${app_name}_version="$CUR_VERSION"
+    vClash_VERSION=$(sed -n '1p' /koolshare/${app_name}/version| cut -d: -f2)
+    CLASH_VERSION=$(sed -n '2p' /koolshare/${app_name}/version| cut -d: -f2)
+    dbus set ${app_name}_version="$CLASH_VERSION"
 
     # 离线安装时设置软件中心内储存的版本号和连接
     dbus set softcenter_module_${app_name}_install="1"
-    dbus set softcenter_module_${app_name}_version="$CUR_VERSION"
+    dbus set softcenter_module_${app_name}_version="$vClash_VERSION"
     dbus set softcenter_module_${app_name}_title="Clash版科学上网"
     dbus set softcenter_module_${app_name}_description="Clash版科学上网 for Koolshare"
     dbus set softcenter_module_${app_name}_home_url="Module_${app_name}.asp"

@@ -5,7 +5,7 @@ allow-lan: true
 mode: Rule
 log-level: info # 日志显示级别： debug-问题调试，info-基本信息
 external-controller: 0.0.0.0:9090
-external-ui: /koolshare/clash/dashboard/
+external-ui: /koolshare/clash/dashboard
 secret: route
 # 透明代理开启DNS
 dns:
@@ -14,36 +14,27 @@ dns:
   listen: 0.0.0.0:1053
   enhanced-mode: redir-host # redir-host or fake-ip
   fake-ip-range: 198.18.0.1/16 # Fake IP addresses pool CIDR
-  use-hosts: false # lookup hosts and return IP record
+  use-hosts: true # lookup hosts and return IP record
   nameserver:
     # - 114.114.114.114
     - https://dns.alidns.com/dns-query
   # 提供 fallback 时，如果GEOIP非 CN 中国时使用 fallback 解析
   fallback:
-    - 8.8.8.8 # Google DNS over TCP
-    - 1.1.1.1 # cloudflare DNS over TCP
-    - tls://8.8.8.8:853 # Google DNS over TLS
-    - tls://1.1.1.1:853 # cloudflare DNS over TLS
-    - https://dns.google/dns-query # Google DNS over HTTPS
-    - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
+    - 1.1.1.1 # cloudflare DNS UDP
+    - 8.8.8.8 # Google DNS UDP
+    # - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
+    # - https://dns.google/dns-query # Google DNS over HTTPS
+    # - tls://1.1.1.1:853 # cloudflare DNS over TLS
+    # - tls://8.8.8.8:853 # Google DNS over TLS
   # 强制DNS解析使用`fallback`配置
   fallback-filter:
     # true: CN使用nameserver解析，非CN使用fallback
     geoip: true
-    geoip-code: CN
     # geoip设置为false时有效： 不匹配`ipcidr`地址时会使用`nameserver`结果，匹配`ipcidr`地址时使用`fallback`结果。
     ipcidr:
       - 240.0.0.0/4
-    domain:
-      - '+.google.com'
-      - '+.facebook.com'
-      - '+.youtube.com'
-      - '+.duckduckgo.com'
-      - '+.startpage.com'
-
-# 保留的proxy节点列表(启动配置文件不包含任何节点信息,节点信息通过 proxy-provider 提供)
+# DIY组保留的个人节点
 proxies: []
-
 # 配置规则参考文档： https://github.com/Dreamacro/clash/wiki/configuration
 # 设置代理提供者(远程订阅地址+本地订阅文件)
 proxy-providers:
@@ -223,25 +214,12 @@ proxy-groups:
       - 中继组-解锁奈飞
       - DIRECT
 
-rule-providers:
-  google:
-    type: http
-    behavior: domain
-    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt
-    path: ./ruleset/google.yaml
-    interval: 86400
-  gfw:
-    type: http
-    behavior: domain
-    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt
-    path: ./ruleset/gfw.yaml
-    interval: 86400
 # 黑名单模式，命中规则使用代理
 rules:
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
-  - DOMAIN-SUFFIX,vlike.work,默认代理组
-  # - DOMAIN-SUFFIX,vlike.work,DIRECT
+  - DOMAIN-KEYWORD,weibo,DIRECT
+  - DOMAIN-KEYWORD,vlike,DIRECT
   # > Netflix
   - DOMAIN-SUFFIX,netflix.com,NETFLIX_PROXY
   - DOMAIN-SUFFIX,netflix.net,NETFLIX_PROXY
@@ -262,7 +240,6 @@ rules:
   - DOMAIN-SUFFIX,netflixdnstest9.com,NETFLIX_PROXY
   # Netflix测速网站
   - DOMAIN-SUFFIX,fast.com,NETFLIX_PROXY
-  # - RULE-SET,video_netflix,NETFLIX_PROXY
   # > TikTok
   - PROCESS-NAME,com.ss.android.ugc.trill,Tiktok_PROXY
   - DOMAIN-SUFFIX,byteoversea.com,Tiktok_PROXY
@@ -274,13 +251,11 @@ rules:
   - DOMAIN-SUFFIX,tik-tokapi.com,Tiktok_PROXY
   - DOMAIN-SUFFIX,tiktokcdn.com,Tiktok_PROXY
   - DOMAIN-SUFFIX,tiktokv.com,Tiktok_PROXY
-  # - RULE-SET,video_tiktok,Tiktok_PROXY
   # > iQIYI
   - DOMAIN-SUFFIX,iq.com,IQiyi_PROXY
   - DOMAIN,intl.iqiyi.com,IQiyi_PROXY
   - DOMAIN,intl-rcd.iqiyi.com,IQiyi_PROXY
   - DOMAIN,intl-subscription.iqiyi.com,IQiyi_PROXY
-  # - RULE-SET,video_iqiyi,IQiyi_PROXY
   # > Bilibili
   - PROCESS-NAME,com.bilibili.app.in,Bili_PROXY
   - PROCESS-NAME,tv.danmaku.bili,Bili_PROXY
@@ -296,10 +271,9 @@ rules:
   - DOMAIN-SUFFIX,hdslb.com,Bili_PROXY
   - DOMAIN-SUFFIX,im9.com,Bili_PROXY
   - DOMAIN-SUFFIX,smtcdns.net,Bili_PROXY
-  #
-  # - RULE-SET,reject,REJECT
-  # - RULE-SET,direct,DIRECT
-  # - RULE-SET,google,默认代理组
-  - RULE-SET,gfw,默认代理组
-  # - GEOIP,CN,DIRECT,no-resolve
-  - MATCH,DIRECT
+  # default rule
+  - DOMAIN-KEYWORD,github,默认代理组
+  - DOMAIN-KEYWORD,gstatic,默认代理组
+  - DOMAIN-KEYWORD,google,默认代理组
+  - GEOIP,CN,DIRECT,no-resolve
+  - MATCH,默认代理组
