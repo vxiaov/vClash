@@ -473,12 +473,6 @@ update_geoip() {
     rm ${geoip_file}.bak
 }
 
-# 切换模式: 组节点切换开关
-switch_group_type() {
-    LOGGER 切换了组节点模式为: "$clash_group_type"
-    yq e -i '(.proxy-groups[] | select(.name == "PROXY")).type = strenv(clash_group_type)' $config_file
-}
-
 # 透明代理开关
 switch_trans_mode(){
     LOGGER "切换透明代理模式:$clash_trans"

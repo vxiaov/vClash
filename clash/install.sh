@@ -226,9 +226,7 @@ init_env() {
     dbus set clash_provider_file="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
     dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
     dbus set clash_geoip_url="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb"
-    dbus set clash_group_type="select"  # 默认组节点选择模式 select
     dbus set clash_trans="on"           # 默认开启透明代理模式
-    dbus set clash_gfwlist_mode="off"   # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     
     vClash_VERSION=$(sed -n '1p' /koolshare/${app_name}/version| cut -d: -f2)
@@ -246,7 +244,7 @@ init_env() {
 # 判断是否需要重启，对于升级插件时需要
 need_action() {
     action=$1
-    if [ "$(eval echo '$'$app_name}_enable)" == "1" ]; then
+    if [ "$(eval echo '$'$app_name}_enable)" == "on" ]; then
         LOGGER 安装前需要的执行操作: ${action} ！
         sh /koolshare/scripts/${app_name}_control.sh ${action}
     fi
@@ -263,7 +261,7 @@ clean() {
 # ================================== INSTALL_START 开始安装 =========================
 
 main() {
-    LOGGER Clash版科学上网插件开始安装！
+    LOGGER "Clash版科学上网插件开始安装！"
 
     platform_test       # 安装前平台支撑检测(只有符合条件才会继续安装)
     dir_test            # 安装前目录检测
@@ -277,8 +275,9 @@ main() {
     clean               # 清理安装包
 
     LOGGER Clash版科学上网插件安装成功！
-    LOGGER "忠告: Clash运行时分配很大虚拟内存，可能在700MB左右, 如果你的内存很小，那么启动失败的概率很大！解决办法是：用U盘挂个1GB的虚拟内存!切记！"
-    LOGGER "如何挂载虚拟内存： 软件中心自带 虚拟内存 插件，安装即用！"
+    LOGGER "忠告: Clash运行时分配很大虚拟内存，可能在700MB左右, 如果你的内存很小，那么启动失败的概率很大！"
+    LOGGER "解决办法是：用U盘挂个1GB的虚拟内存!切记！"
+    LOGGER "如何挂载虚拟内存? 软件中心自带 虚拟内存 插件，安装即用！"
 }
 
 main
