@@ -238,34 +238,23 @@ add_iptables() {
     # Fake-IP 规则添加
     iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
 
-    
-    if [ "$clash_gfwlist_mode" = "on" ] ; then
-        # 根据dnsmasq的ipset规则识别流量代理
-        LOGGER "创建ipset规则集"
-        ipset -! create gfwlist nethash && ipset flush gfwlist
-        # ipset -! create router nethash && ipset flush router
-        iptables -t nat -N ${app_name}
-        iptables -t nat -A ${app_name} -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports ${redir_port}
-        iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16 -m set --match-set gfwlist dst -j ${app_name}
-    else
-        iptables -t nat -N ${app_name}
-        iptables -t nat -F ${app_name}
-        iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16  -j ${app_name}
-        # 本地地址请求不转发
-        iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
-        iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
-        iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
-        iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
-        iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
-        # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-        iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
-        # 转发DNS请求到端口 dns_port 解析
-        iptables -t nat -N ${app_name}_dns
-        iptables -t nat -F ${app_name}_dns
-        iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-        iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
-        iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
-    fi
+    iptables -t nat -N ${app_name}
+    iptables -t nat -F ${app_name}
+    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16  -j ${app_name}
+    # 本地地址请求不转发
+    iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
+    iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
+    iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
+    iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
+    iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
+    # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
+    # 转发DNS请求到端口 dns_port 解析
+    iptables -t nat -N ${app_name}_dns
+    iptables -t nat -F ${app_name}_dns
+    iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
+    iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
 }
 
 # 清理iptables规则
@@ -326,50 +315,6 @@ swtich_localhost_dns(){
     fi
 }
 
-# Dnsmasq 配置
-start_dns() {
-    if [ "$clash_gfwlist_mode" = "off" ] ; then
-        LOGGER "未启用DNSMASQ黑名单列表，不需要设置gfwlist.conf配置!"
-        return 0
-    fi
-    if [ "$clash_trans" = "off" ]; then
-        LOGGER "透明代理模式已关闭!不启动DNS转发请求"
-        return 0
-    fi
-    for fn in gfwlist.conf netflix.conf; do
-        if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
-            LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
-            ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
-        fi
-    done
-    swtich_localhost_dns
-    run_dnsmasq restart
-    
-}
-# 清理Dnsmasq配置
-stop_dns() {
-    
-    LOGGER "删除gfwlist.conf文件:"
-    for fn in gfwlist.conf netflix.conf; do
-        rm -f /jffs/configs/dnsmasq.d/${fn}
-    done
-    LOGGER "开始重启dnsmasq,DNS解析"
-    run_dnsmasq restart
-}
-
-# dnsmasq 管理
-run_dnsmasq() {
-    case "$1" in
-    start | stop | restart)
-        LOGGER "执行 $1 dnsmasq 操作"
-        service $1_dnsmasq
-        ;;
-    *)
-        LOGGER "无效的 dnsmasq 操作"
-        ;;
-    esac
-}
-
 start() {
     # 1. 启动服务进程
     # 2. 配置iptables策略
@@ -395,8 +340,6 @@ start() {
         # 用于记录Clash服务稳定程度
         SYSLOG "start_${app_name} : pid=$(pidof ${app_name})"
         dbus set ${app_name}_enable="on"
-        # [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
-        start_dns
     fi
     add_iptables
     add_cron
@@ -417,7 +360,6 @@ stop() {
     else
         LOGGER "停止 ${CMD} 成功!"
     fi
-    stop_dns
     del_cron
 }
 
@@ -771,12 +713,6 @@ show_router_info() {
     echo "$(cat /etc/resolv.conf)"
     echo "iptables中关于Clash的转发规则(iptables -t nat -S clash):"
     echo "$(iptables -t nat -S clash)"
-    if [ "$clash_gfwlist_mode" = "on" ] ; then
-        echo "==========================================================="
-        echo "Dnsmasq配置的gfwlist.conf信息:"
-        confdir=`awk -F'=' '/^conf-dir/{ print $2 }' /etc/dnsmasq.conf`
-        echo "$(wc -l ${confdir}/*.conf)"
-    fi
     echo "==========================================================="
     echo "服务运行状态-clash: $(pidof clash)"
     echo "服务运行状态-dnsmasq: $(pidof dnsmasq)"

@@ -66,7 +66,7 @@
                 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 
             ];
             var params_chk = [
-                'clash_gfwlist_mode', 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', 
+                'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', 
                 'clash_watchdog_enable', 'clash_watchdog_start_clash'
             ];
             var params_txt = [
@@ -266,14 +266,6 @@
             //apply_action("swtich_use_localhost_proxy");
         }
 
-        function switch_gfwlist_mode() { // 切换gfwlist黑名单模式
-            if (document.getElementById('clash_gfwlist_mode').checked) {
-                dbus["clash_gfwlist_mode"] = "on";
-            } else {
-                dbus["clash_gfwlist_mode"] = "off";
-            }
-            apply_action("switch_gfwlist_mode");
-        }
 
         function switch_trans_mode() { //切换透明代理模式，开关
             if (document.getElementById('clash_trans').checked) {
@@ -587,20 +579,6 @@
                             </tr>
                         </thead>
                         
-                        <tr>
-                            <th>启用黑名单模式(<b>建议关闭</b>):</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_gfwlist_mode">
-                                        <input id="clash_gfwlist_mode" onclick="switch_gfwlist_mode();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
                         <tr>
                             <th>
                                 <label>透明代理模式开关(<b>建议启用</b> ):</label>

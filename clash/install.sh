@@ -10,14 +10,16 @@ KSHOME="/koolshare"
 source ${KSHOME}/scripts/base.sh
 
 app_name="clash"
-DIR=$(cd $(dirname $0); pwd)
-module=${DIR##*/}
+WKDIR="$(dirname $0)"    # 获取脚本所在目录
+
 
 # 软硬件基本信息 #
 MODEL=""            # 路由器设备型号
 ARCH=""             # CPU架构
 FW_TYPE_NAME=""     # 固件类型名称
-BUILD_VERSION=""    # 固件版本信息
+# BUILD_VERSION=""    # 固件版本信息
+
+BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
 
 BIN_LIST="${app_name} yq uri_decoder jq"
 
@@ -110,7 +112,6 @@ platform_test() {
     # 固件版本检测
     get_fw_type
     get_arch
-    BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
     if [ "$BUILD_VERSION" != "380" -a "$BUILD_VERSION" != "386" -a "$BUILD_VERSION" != "384" ]; then
         LOGGER "本插件仅支持华硕官改/梅林改版固件的380、384和386版本!而您的固件版本为: $BUILD_VERSION"
         exit_install 2
@@ -144,19 +145,58 @@ remove_files() {
         rm -rf /koolshare/res/${app_name}_*
         rm -rf /koolshare/init.d/S??${app_name}.sh
         LOGGER 完成 清理旧文件
+    else
+        LOGGER "没有找到旧文件，跳过清理旧文件"
+    fi
+}
+
+# 安装前的目录检查工作 
+dir_test() {
+
+    if [ ! -d "/koolshare" ]; then
+        LOGGER "错误: 找不到 /koolshare 目录！"
+        exit_install 1
+    fi
+    if [ ! -d "/koolshare/init.d" ]; then
+        echo "错误: 找不到 /koolshare/init.d 目录！"
+        exit_install 2
+    fi
+    if [ ! -d "/koolshare/scripts" ]; then
+        echo "错误: 找不到 /koolshare/scripts 目录！"
+        exit_install 3
+    fi
+    if [ ! -d "/koolshare/webs" ]; then
+        echo "错误: 找不到 /koolshare/webs 目录！"
+        exit_install 4
+    fi
+    if [ ! -d "/koolshare/res" ]; then
+        echo "错误: 找不到 /koolshare/res 目录！"
+        exit_install 5
+    fi
+    if [ ! -d "/koolshare/bin" ]; then
+        echo "错误: 找不到 /koolshare/bin 目录！"
+        exit_install 6
     fi
 }
 
 copy_files() {
     LOGGER 开始复制文件！
-    cd /tmp/${module}/
+    # 确保进入的目录是当前文件所在目录
+    cd ${WKDIR}
     mkdir -p /koolshare/${app_name}
 
     LOGGER 复制相关二进制文件！此步时间可能较长！
     for fn in ${BIN_LIST}; do
 
-        cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
-        chmod +x /koolshare/bin/${fn}
+        # cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
+        if [ -f "./bin/${fn}_for_${ARCH}" ]; then
+            cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
+        else
+            LOGGER "错误: 找不到 ./bin/${fn}_for_${ARCH} 文件！"
+            exit_install 1
+        fi
+        
+        chmod +x /koolshare/bin/${fn}   # 设置可执行权限
         LOGGER "安装可执行程序: ${fn} 完成."
     done
 
@@ -173,10 +213,8 @@ copy_files() {
     cp -rf ./res/icon-${app_name}.png /koolshare/res/
 
     LOGGER 添加自启动脚本软链接
-    [ ! -L "/koolshare/init.d/S99${app_name}.sh" ] && ln -sf /koolshare/scripts/${app_name}_control.sh /koolshare/init.d/S99${app_name}.sh
-    
-    LOGGER 添加Clash面板页面软链接
-    # [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
+    ln -sf /koolshare/scripts/${app_name}_control.sh /koolshare/init.d/S99${app_name}.sh
+    LOGGER 完成复制所有文件工作！
 }
 
 # 设置初始化环境变量信息 #
@@ -190,7 +228,7 @@ init_env() {
     dbus set clash_group_type="select"  # 默认组节点选择模式 select
     dbus set clash_trans="on"           # 默认开启透明代理模式
     dbus set clash_gfwlist_mode="off"   # 默认启用DNSMASQ黑名单列表(使用Dnsmasq的URL列表生成需要代理的ipset,并在iptables中作为使用代理判断规则)
-    dbus set clash_use_local_dns="on"   # 默认启用本地DNS解析
+    # dbus set clash_use_local_dns="on"   # 默认启用本地DNS解析
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     
     CUR_VERSION=$(cat /koolshare/${app_name}/version)
@@ -227,7 +265,10 @@ main() {
     LOGGER Clash版科学上网插件开始安装！
 
     platform_test       # 安装前平台支撑检测(只有符合条件才会继续安装)
+    dir_test            # 安装前目录检测
     need_action stop    # 安装前，停止已安装应用
+    
+    cd ${WKDIR}
     remove_files        # 清理历史遗留文件，如果有
     copy_files          # 安装需要的所有文件
     init_env            # 初始化环境变量信息,设置插件信息
