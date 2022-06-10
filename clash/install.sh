@@ -21,6 +21,8 @@ FW_TYPE_NAME=""     # 固件类型名称
 
 BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
 
+LINUX_VER=$(uname -r|awk -F"." '{print $1$2}')  # Linux内核版本
+
 BIN_LIST="${app_name} yq uri_decoder jq"
 
 # 反馈问题链接
@@ -46,26 +48,42 @@ exit_install() {
 }
 
 get_arch(){
-    # 暂时支持ARM芯片，这将决定使用哪个编译版本可执行程序
+    # CPU架构,决定使用哪个编译版本的可执行程序
+    # 路由器机型及固件类型参考: https://github.com/koolshare/rogsoft
+
     case `uname -m` in
         armv7l)     # ARM平台
-            if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1 ; then
-                ARCH="armv7"
-            elif grep -i vfpv1 /proc/cpuinfo >/dev/null 2>&1 ; then
-                ARCH="armv6"
-            else
-                ARCH="armv5"
-            fi
+            ARCH="armv5"
         ;;
         aarch64)    # hnd(High end)平台
             ARCH="armv8"  # hnd 平台 可以使用 armv5/v6/v7/v8 可执行程序
         ;;
-
         *)
             exit_install 1
             exit 0
         ;;
     esac
+    LOGGER "CPU架构: $ARCH 符合安装要求!"
+}
+
+# 固件平台支撑检测
+platform_test(){
+    # 判断CPU架构
+    get_arch
+
+    # 判断KoolShare支持的固件平台
+    if [ -d "/koolshare" -a -x "/koolshare/bin/httpdb" -a -x "/usr/bin/skipd" ];then
+        LOGGER "KoolShare支持的固件平台!"
+    else
+        exit_install 1
+    fi
+    
+    ks_ver=$(dbus get softcenter_version | awk -F'.' '{ print $1$2 }')
+    if [ "$ks_ver" -lt "15" ];then
+        LOGGER "很遗憾! 软件中心版本: $ks_ver (v1.5版本及以上即可) 不符合安装要求！"
+        exit_install 2
+    fi
+    LOGGER "软件中心版本: $ks_ver (v1.5版本及以上即可) 符合安装要求！"
 }
 
 get_model(){
@@ -96,37 +114,6 @@ get_fw_type() {
             FW_TYPE_CODE="1"
             FW_TYPE_NAME="华硕官方固件"
         fi
-    fi
-}
-
-# 固件平台支撑检测
-platform_test() {
-    # 固件平台支撑检测
-    #   原则： 最少的条件，做大的容错性(白话：能用就让安装)
-    #
-    # 检测最基本的支撑条件：
-    #   1. 固件版本检测
-    #   2. 基础依赖环境： koolshare软件中心、skipdb(数据库)
-    get_model
-    
-    # 固件版本检测
-    get_fw_type
-    get_arch
-    if [ "$BUILD_VERSION" != "380" -a "$BUILD_VERSION" != "386" -a "$BUILD_VERSION" != "384" ]; then
-        LOGGER "本插件仅支持华硕官改/梅林改版固件的380、384和386版本!而您的固件版本为: $BUILD_VERSION"
-        exit_install 2
-    fi
-
-    if [ -d "/koolshare" -a -f "/usr/bin/skipd" ];then
-        ks_ver=$(dbus get softcenter_version)
-        if [ "$ks_ver" = "" ] ; then
-            LOGGER "找不到 软件中心版本 信息！"
-            exit_install 3
-        fi
-        LOGGER "软件中心版本: $ks_ver (大于v1.5即可),机型：${MODEL} ${FW_TYPE_NAME} 符合安装要求！"
-    else
-        LOGGER "/koolshare目录与skipd检测失败!"
-        exit_install 4
     fi
 }
 
@@ -227,6 +214,7 @@ init_env() {
     dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
     dbus set clash_geoip_url="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb"
     dbus set clash_trans="on"           # 默认开启透明代理模式
+    dbus set clash_rule_mode="blacklist" # 默认为黑名单模式
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     
     vClash_VERSION=$(sed -n '1p' /koolshare/${app_name}/version| cut -d: -f2)
@@ -276,7 +264,7 @@ main() {
 
     LOGGER Clash版科学上网插件安装成功！
     LOGGER "忠告: Clash运行时分配很大虚拟内存，可能在700MB左右, 如果你的内存很小，那么启动失败的概率很大！"
-    LOGGER "解决办法是：用U盘挂个1GB的虚拟内存!切记！"
+    LOGGER "解决办法是：用U盘挂载1GB的虚拟内存!切记！"
     LOGGER "如何挂载虚拟内存? 软件中心自带 虚拟内存 插件，安装即用！"
 }
 

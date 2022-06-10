@@ -1,0 +1,9 @@
+rules:
+  - DOMAIN,clash.razord.top,DIRECT
+  - DOMAIN,yacd.haishan.me,DIRECT
+  - RULE-SET,video_netflix,NETFLIX_PROXY
+  - RULE-SET,video_tiktok,Tiktok_PROXY
+  - RULE-SET,video_iqiyi,IQiyi_PROXY
+  - RULE-SET,video_ibilibili,Bili_PROXY
+  - RULE-SET,whitelist_rules,DIRECT
+  - RULE-SET,blacklist_rules,默认代理组

@@ -39,13 +39,111 @@
             show_menu(menu_hook);
             get_dbus_data();
             version_show();
-            document.getElementById("btn_default_tab").click();
+            load_blacklist_rule();
+            load_whitelist_rule();
+            register_event();
+
+            if (dbus["clash_current_tab"] == "" || dbus["clash_current_tab"] == undefined) {
+                dbus["clash_current_tab"] = "btn_default_tab";
+            }
+            document.getElementById(dbus["clash_current_tab"]).click();
+
         }
 
         function menu_hook(title, tab) {
             tabtitle[tabtitle.length - 1] = new Array("", "软件中心", "离线安装", "Clash版代理工具");
             tablink[tablink.length - 1] = new Array("", "Module_Softcenter.asp", "Module_Softsetting.asp", "Module_clash.asp");
         }
+
+        // 加载页面时注册事件
+        function register_event() {
+
+            function bind_whitelist_keydown() {
+                // 先解除已有绑定事件
+                $j(this).unbind("keydown");
+                $j(this).bind("keydown", function(e) {
+                    if (e.ctrlKey && e.keyCode == 83) {
+                        save_whitelist_rule();
+                        return false;
+                    }
+                    // 绑定 ctrl+e 快捷键
+                    if (e.ctrlKey && e.keyCode == 69) {
+                        edit_whitelist_rule();
+                        return false;
+                    }
+                    // 绑定 ctrl+r 快捷键
+                    if (e.ctrlKey && e.keyCode == 82) {
+                        load_whitelist_rule();
+                        return false;
+                    }
+                });
+            }
+            // 当 #rule_diy_whitelist focus时，绑定ctrl+s快捷键
+            $j("#rule_diy_whitelist").bind("focus", bind_whitelist_keydown);
+
+            function bind_blacklist_keydown() {
+                // 先解除已有绑定事件
+                $j(this).unbind("keydown");
+                $j(this).bind("keydown", function(e) {
+                    if (e.ctrlKey && e.keyCode == 83) {
+                        save_blacklist_rule();
+                        return false;
+                    }
+                    // 绑定 ctrl+e 快捷键
+                    if (e.ctrlKey && e.keyCode == 69) {
+                        edit_blacklist_rule();
+                        return false;
+                    }
+                    // 绑定 ctrl+r 快捷键
+                    if (e.ctrlKey && e.keyCode == 82) {
+                        load_blacklist_rule();
+                        return false;
+                    }
+                });
+            }
+            // 当 #rule_diy_blacklist focus时，绑定ctrl+s快捷键
+            $j("#rule_diy_blacklist").bind("focus", bind_blacklist_keydown);
+
+            function unbind_whitelist_keydown() {
+                // 先保存规则
+                save_whitelist_rule();
+                $j(this).unbind("keydown");
+                // 设置当前textarea的readonly属性
+                $j(this).attr("readonly", true);
+            }
+            // 当 #rule_diy_whitelist 离开焦点时， 取消绑定的keydown快捷键
+            $j("#rule_diy_whitelist").bind("blur", unbind_whitelist_keydown);
+
+            function unbind_blacklist_keydown() {
+                // 先保存规则
+                save_blacklist_rule();
+                $j(this).unbind("keydown");
+                // 设置当前textarea的readonly属性
+                $j(this).attr("readonly", true);
+            }
+
+            // 当 #rule_diy_blacklist 失去焦点时， 取消绑定的keydown快捷键
+            $j("#rule_diy_blacklist").bind("blur", unbind_blacklist_keydown);
+
+            function switch_rule_mode() {
+                if ($j(this).val() == "blacklist") {
+                    // 切换为黑名单模式
+                    switch_blacklist_mode();
+                } else if ($j(this).val() == "whitelist") {
+                    // 切换为白名单模式
+                    switch_whitelist_mode();
+                }
+            }
+            // 当 #clash_rule_mode change时，触发事件
+            $j("#clash_rule_mode").bind("change", switch_rule_mode);
+
+            // class="tab"的button被点击时，触发保存当前button的id
+            $j(".tab").bind("click", function() {
+                dbus["clash_current_tab"] = this.id;
+                apply_action("save_current_tab", "2");
+            });
+        }
+
 
         function get_dbus_data() {
             $j.ajax({
@@ -63,10 +161,10 @@
 
             var params = [
                 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
-                'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 
+                'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui',
             ];
             var params_chk = [
-                'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable', 
+                'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable',
                 'clash_watchdog_enable', 'clash_watchdog_start_clash'
             ];
             for (var i = 0; i < params_chk.length; i++) {
@@ -76,7 +174,7 @@
             }
             for (var i = 0; i < params.length; i++) {
                 if (dbus[params[i]]) {
-                    if( params[i] == 'clash_yacd_ui') {
+                    if (params[i] == 'clash_yacd_ui') {
                         E(params[i]).href = dbus[params[i]];
                     } else {
                         E(params[i]).value = dbus[params[i]];
@@ -84,6 +182,17 @@
                 }
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
+            var obj = document.getElementById("clash_rule_mode");
+            obj.options.length = 0;
+            const node_arr = {
+                "blacklist": "黑名单模式",
+                "whitelist": "白名单模式",
+            }
+
+            for (var key in node_arr) {
+                obj.options.add(new Option(node_arr[key], key));
+            }
+            obj.value = dbus["clash_rule_mode"];
 
         }
 
@@ -99,7 +208,8 @@
         }
 
         //提交任务方法,实时日志显示
-        function post_dbus_data(script, arg, obj, flag) {
+        // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
+        function post_dbus_data(script, arg, obj, flag, callback) {
             var id = parseInt(Math.random() * 100000000);
             var postData = {
                 "id": id,
@@ -116,17 +226,38 @@
                 success: function(response) {
                     if (response.result == id) {
                         if (flag && flag == "1") {
-                            refreshpage(1);
+                            // 页面刷新操作
+                            refreshpage(3);
                         } else if (flag && flag == "2") {
                             //continue;
-                            //do nothing
+                            if (callback) {
+                                setTimeout(function() {
+                                    callback();
+                                }, 3000);
+                            }
                         } else {
                             document.getElementById("loadingIcon").style.display = "";
                             show_status();
+                            if (callback) {
+                                setTimeout(function() {
+                                    callback();
+                                }, 3000);
+                            }
                         }
                     }
                 }
             });
+        }
+
+        // 显示动态结果消息
+        function show_result(message, duration) {
+            if (!duration) duration = 1000;
+            $j('#copy_info').text(message);
+            $j('#copy_info').fadeIn(100);
+            $j('#copy_info').css('display', 'inline-block');
+            setTimeout(() => {
+                $j('#copy_info').fadeOut(1000);
+            }, duration);
         }
 
         function show_status() {
@@ -221,14 +352,12 @@
         }
 
         /*********************主要功能逻辑模块实现**************/
-        function apply_action(action, data) {
+        // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
+        function apply_action(action, flag, callback) {
             if (!action) {
                 return;
             }
-            if (!data) {
-                data = dbus
-            }
-            post_dbus_data("clash_control.sh", action, data);
+            post_dbus_data("clash_control.sh", action, dbus, flag, callback);
         }
 
         function service_stop() {
@@ -236,7 +365,17 @@
         }
 
         function service_start() {
-            apply_action("start");
+            apply_action("start", "0", function() {
+                show_result("启动完成后,3秒刷新页面!");
+                setTimeout(function() {
+                    refreshpage(1)
+                }, 3000);
+
+            });
+        }
+
+        function service_restart() {
+            apply_action("restart");
         }
 
         function switch_service() {
@@ -289,7 +428,8 @@
                 dbus["clash_watchdog_enable"] = "on";
             } else {
                 dbus["clash_watchdog_enable"] = "off";
-            }if (document.getElementById('clash_watchdog_start_clash').checked) {
+            }
+            if (document.getElementById('clash_watchdog_start_clash').checked) {
                 dbus["clash_watchdog_start_clash"] = "on";
             } else {
                 dbus["clash_watchdog_start_clash"] = "off";
@@ -327,7 +467,12 @@
 
         function add_nodes() { // 添加DIY节点
             dbus["clash_node_list"] = Base64.encode(document.getElementById("proxy_node_list").value.replaceAll("\n", " "));
-            apply_action("add_nodes");
+            apply_action("add_nodes", "0", function() {
+                show_result("添加完成后,3秒刷新页面!");
+                setTimeout(function() {
+                    refreshpage(3);
+                }, 1000);
+            });
         }
 
         function delete_one_node() { // 按名称删除 DIY节点
@@ -336,9 +481,6 @@
             var obj = document.getElementById("proxy_node_name");
             obj.options.remove(obj.selectedIndex);
 
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000)
         }
 
         function delete_all_nodes() { // 按名称删除 DIY节点
@@ -346,7 +488,7 @@
             var obj = document.getElementById("proxy_node_name");
             obj.options.length = 0;
             setTimeout(() => {
-                window.location.reload();
+                refreshpage(1);
             }, 1000)
         }
 
@@ -358,11 +500,227 @@
 
         // 忽略新版本提示
         function ignore_new_version() {
-            apply_action("ignore_new_version");
+            // 3秒自动刷新页面
+            apply_action("ignore_new_version", "0", function() {
+                show_result("已忽略此版本,3秒后自动刷新页面");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000)
+            });
         }
 
         function show_router_info() {
             apply_action("show_router_info");
+        }
+
+        // 备份配置文件
+        function backup_config_file() {
+            apply_action("backup_config_file", "0", function() {
+                show_result("备份配置文件成功，请到下载本地目录查看");
+                window.location = "/_temp/clash_backup.tar.gz"
+            });
+
+        }
+
+        // 恢复配置信息的压缩包文件
+        function restore_config_file() {
+            var filename = $j("#restore_file").val();
+            filename = filename.split('\\');
+            if (filename == "") {
+                alert("请选择需要恢复的文件");
+                return false;
+            }
+            filename = filename[filename.length - 1];
+            var filelast = filename.split('.');
+            filelast = filelast[filelast.length - 1];
+            if (filelast != 'gz') {
+                alert('压缩包文件格式不正确!');
+                return false;
+            }
+            document.getElementById('copy_info').style.display = "none";
+            var formData = new FormData();
+            formData.append(filename, $j('#restore_file')[0].files[0]);
+            $j.ajax({
+                url: '/_upload',
+                type: 'POST',
+                cache: false,
+                data: formData,
+                processData: false,
+                contentType: false,
+                complete: function(res) {
+                    if (res.status == 200) {
+                        show_result("已上传成功! 3秒后重启服务...", 3000);
+                        dbus["clash_restore_file"] = filename;
+                        apply_action("restore_config_file", "0", function() {
+                            show_result("数据恢复完毕!3秒后自动刷新页面...", 3000);
+                            setTimeout(() => {
+                                refreshpage(3);
+                            }, 3000)
+                        });
+                    }
+                },
+                error: function(res) {
+                    show_result("上传失败，请检查文件是否存在！", 3000);
+                }
+            });
+        }
+
+        function applay_new_config() {
+            apply_action("applay_new_config", "0", function() {
+                show_result("应用新配置成功，3秒后重启服务...", 3000);
+            });
+        }
+        // 上传 config.yaml 文件
+        function upload_config_file() {
+            var filename = $j("#file").val();
+            if (filename == "") {
+                alert("请选择需要上传的文件");
+                return false;
+            }
+            filename = filename.split('\\');
+            filename = filename[filename.length - 1];
+            var filelast = filename.split('.');
+            filelast = filelast[filelast.length - 1];
+            if (filelast != 'yaml' && filelast != 'yml') {
+                alert('Yaml文件格式不正确,非yaml/yml后缀名！');
+                return false;
+            }
+            document.getElementById('copy_info').style.display = "none";
+            var formData = new FormData();
+            formData.append(filename, $j('#file')[0].files[0]);
+            $j.ajax({
+                url: '/_upload',
+                type: 'POST',
+                cache: false,
+                data: formData,
+                processData: false,
+                contentType: false,
+                complete: function(res) {
+                    if (res.status == 200) {
+
+                        show_result("已上传成功! 3秒后重启服务...", 3000);
+                        dbus["clash_config_file"] = filename;
+                        applay_new_config();
+                    }
+                },
+                error: function(res) {
+                    show_result("上传失败，请检查文件是否存在！", 3000);
+                }
+            });
+        }
+
+        // 重新加载blacklist规则
+        function reload_rules() {
+            apply_action("reload_rules", "1");
+        }
+
+        // 解析base64编码的clash_blacklist_rules并加载blacklist规则
+        function load_blacklist_rule() {
+
+            var base64_rule = dbus['clash_blacklist_rules'];
+            if (base64_rule == "" || base64_rule == undefined) {
+
+                reload_rules();
+                return false;
+            }
+            var rule = Base64.decode(base64_rule);
+            $j("#rule_diy_blacklist").val(rule);
+        }
+
+        // 解析base64编码的clash_whitelist_rules并加载whitelist规则
+        function load_whitelist_rule() {
+            var base64_rule = dbus['clash_whitelist_rules'];
+            if (base64_rule == "" || base64_rule == undefined) {
+                reload_rules();
+                return false;
+            }
+            var rule = Base64.decode(base64_rule);
+            $j("#rule_diy_whitelist").val(rule);
+        }
+
+        // 保存黑名单规则
+        function save_blacklist_rule() {
+            var rule = $j("#rule_diy_blacklist").val();
+            if (rule == "") {
+                alert("请输入黑名单规则");
+                return false;
+            }
+            var base64_rule = Base64.encode(rule);
+            if (base64_rule == "") {
+                alert("编码失败，请检查规则");
+                return false;
+            }
+            // 检查是否变化
+            if (base64_rule == dbus['clash_blacklist_rules']) {
+                // show_result("黑名单规则未发生变化", 1000);
+                return false;
+            }
+            dbus["clash_blacklist_rules"] = base64_rule;
+            apply_action("save_blacklist_rule", "0", function() {
+                show_result("保存黑名单规则成功!", 1000);
+            });
+            // 设置readonly属性为true
+            $j("#rule_diy_blacklist").attr("readonly", true);
+        }
+
+        // 保存白名单规则
+        function save_whitelist_rule() {
+            var rule = $j("#rule_diy_whitelist").val();
+            if (rule == "") {
+                alert("请输入白名单规则");
+                return false;
+            }
+            var base64_rule = Base64.encode(rule);
+            if (base64_rule == "") {
+                alert("编码失败，请检查规则");
+                return false;
+            }
+            // 检查是否变化
+            if (base64_rule == dbus['clash_whitelist_rules']) {
+                // show_result("白名单规则未发生变化", 1000);
+                return false;
+            }
+            dbus["clash_whitelist_rules"] = base64_rule;
+            apply_action("save_whitelist_rule", "0", function() {
+                show_result("保存白名单规则成功!", 1000);
+            });
+            // 设置readonly属性为true
+            $j("#rule_diy_whitelist").attr("readonly", true);
+        }
+        // 编辑黑名单规则(设置 rule_diy_blacklist readonly属性为false),并绑定ctrl+s快捷键
+        function edit_blacklist_rule() {
+            $j("#rule_diy_blacklist").attr("readonly", false);
+            $j("#rule_diy_blacklist").focus();
+        }
+
+        // 编辑白名单规则(设置 rule_diy_whitelist readonly属性为false),并绑定ctrl+s快捷键
+        function edit_whitelist_rule() {
+            $j("#rule_diy_whitelist").attr("readonly", false);
+            $j("#rule_diy_whitelist").focus();
+        }
+
+        // 切换为黑名单模式
+        function switch_blacklist_mode() {
+            if (dbus["clash_rule_mode"] == "whitelist") {
+                dbus["clash_rule_mode"] = "blacklist";
+                apply_action("switch_blacklist_mode", "0", function() {
+                    show_result("切换为黑名单模式成功!", 1000);
+                });
+            } else {
+                alert("当前已经是黑名单模式！");
+            }
+        }
+
+        // 切换为白名单模式
+        function switch_whitelist_mode() {
+            if (dbus["clash_rule_mode"] == "blacklist") {
+                dbus["clash_rule_mode"] = "whitelist";
+                apply_action("switch_whitelist_mode", "0", function() {
+                    show_result("切换为白名单模式成功!", 1000);
+                });
+            } else {
+                alert("当前已经是白名单模式！");
+            }
         }
 
         function fallbackCopyTextToClipboard(text) {
@@ -380,6 +738,13 @@
 
             try {
                 var successful = document.execCommand('copy');
+                if (successful) {
+                    // jquery 设置 #copy_info 1秒后慢慢消失
+                    show_result('已复制到剪贴板', 1000);
+                } else {
+                    alert('复制失败！');
+                }
+
                 var msg = successful ? 'successful' : 'unsuccessful';
                 console.log('Fallback: Copying text command was ' + msg);
             } catch (err) {
@@ -388,12 +753,14 @@
 
             document.body.removeChild(textArea);
         }
+
         function copyTextToClipboard(text) {
             if (!navigator.clipboard) {
                 fallbackCopyTextToClipboard(text);
                 return;
             }
             navigator.clipboard.writeText(text).then(function() {
+                show_result('已复制到剪贴板', 1000);
                 console.log('Async: Copying to clipboard was successful!');
             }, function(err) {
                 console.error('Async: Could not copy text: ', err);
@@ -403,8 +770,8 @@
         function copyURI(evt) {
             evt.preventDefault();
             copyTextToClipboard(evt.target.getAttribute('href'))
+                // alert("已复制到剪贴板");
         }
-
     </script>
 </head>
 
@@ -431,10 +798,10 @@
                         <div class="clash_basic_info">
                             <!--插件特点-->
                             <p><a href='https://github.com/Dreamacro/clash' target='_blank' rel="noopener noreferrer"><em><u>Clash</u></em></a>是一个基于规则的代理程序，支持<a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank' rel="noopener noreferrer"><em><u>SS</u></em></a>、
-                                <a
-                                    href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、<a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、<a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。</p>
+                                <a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、<a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、
+                                <a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。</p>
                             <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;1. 特点： <b style="font-size: 25px;color: rgb(32, 252, 32);">安装即用</b>，已经内置<a href="https://github.com/learnhard-cn/free_proxy_ss" target="_blank" style="color: rgb(32, 252, 32); text-decoration: underline;">订阅源URL地址</a>                                到配置文件中。插件代码已<a href="https://github.com/learnhard-cn/clash" target="_blank" style="color: rgb(32, 252, 32);text-decoration: underline;">Github开源</a> 。 </p>
+                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;1. 特点： <b style="font-size: 25px;color: rgb(32, 252, 32);">安装即用</b>，已经内置<a href="https://github.com/learnhard-cn/free_proxy_ss" target="_blank" style="color: rgb(32, 252, 32); text-decoration: underline;">订阅源URL地址</a>                                到配置文件中。插件代码<a href="https://github.com/learnhard-cn/clash" target="_blank" style="color: rgb(32, 252, 32);text-decoration: underline;">Github开源地址</a> 。 </p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;2. 支持功能： 更新订阅源URL地址，若订阅源URL格式错误,请参考<a href="https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers" target="_blank" rel="noopener noreferrer" style="color: rgb(32, 252, 32);text-decoration: underline;">Clash-Provider格式配置参考链接</a>                                </p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;3. 兼容性： 如果使用了透明代理模式，这可能会与<b style="color: red;">其他代理插件可能产生冲突</b> ，使用前要关闭其他透明代理插件。</p>
                             <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;4. <b style="color: rgb(32, 252, 32);">透明代理</b>：局域网不用做任何设置即可科学上网。</p>
@@ -446,13 +813,13 @@
                     <!-- Tab菜单 -->
                     <div id="tabs">
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_group_add')">添加节点</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_group_delete');update_node_list();">删除节点</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
-                        <button class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
-                        
+                        <button id="btn_provider_tab" class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
+                        <button id="btn_group_tab" class="tab" onclick="switch_tabs(event, 'menu_group_manager');update_node_list();">节点管理</button>
+                        <button id="btn_rule_tab" class="tab" onclick="switch_tabs(event, 'menu_rule_manager')">规则管理</button>
+                        <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
+                        <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
+                        <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
+
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -479,11 +846,19 @@
                                 <div id="clash_version_status">
                                     <i style="color:rgb(7, 234, 7)">当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
                                 </div>
-                                
-                                <div id="clash_install_show" style="display: none;" >
-                                    <a type="button" class="button_gen" onclick="ignore_new_version()" href="javascript:void(0);">忽略新版本</a>
-                                    &nbsp;&nbsp;&nbsp;&nbsp;
+
+                                <div id="clash_install_show" style="display: none;">
+                                    <a type="button" class="button_gen" onclick="ignore_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
                                     <a type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新最新版</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>模式选择:</th>
+                            <td>
+                                <div class="switch_field">
+                                    <select id="clash_rule_mode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
+                                        </select>
                                 </div>
                             </td>
                         </tr>
@@ -492,12 +867,14 @@
                     <table id="menu_provider_update" class="FormTable">
                         <thead>
                             <tr>
-                                <td colspan="2">Clash -更新管理</td>
+                                <td colspan="3">Clash -更新管理</td>
                             </tr>
                         </thead>
                         <tr>
-                            <th>使用Clash代理(<i>被墙时用</i>):</th>
-                            <td colspan="2">
+                            <th>
+                                <label title="解决订阅URL链接被墙无法访问问题" class="hintstyle">走代理[?]:</label>
+                            </th>
+                            <td>
                                 <div class="switch_field">
                                     <label for="clash_use_local_proxy">
                                         <input id="clash_use_local_proxy" onclick="swtich_use_localhost_proxy();" class="switch" type="checkbox" style="display: none;">
@@ -511,123 +888,114 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>订阅源URL链接:</label>
+                                <label title="格式为yaml格式的订阅源,参考提供示例. &#010; 订阅源URL会替换provider_remote.yaml文件,对应的proxy-provider名为provider_url。&#010;如果使用自己的config.yaml，而且没添加这个provider_url组，将会导致更新失败哦。" class="hintstyle">订阅源URL链接[?]:</label>
                             </th>
-                            <td colspan="2">
+                            <td class="wide_input">
                                 <span>
-                                    1. Github订阅源(原始链接)免费订阅源<a style="color:chartreuse" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
-                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a style="color:chartreuse" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                    1. Github订阅源(原始链接)免费订阅源<a class="copyToClipboard" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a class="copyToClipboard" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
                                 </span>
                                 <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
                             </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_file()" href="javascript:void(0);">更新订阅源</button>
+                            <td class="hasButton">
+                                <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_file()" href="javascript:void(0);">更新</button>
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2">
+                            <td colspan="3" style="display: none;">
                                 <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>GeoIP数据文件:</label>
+                                <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件[?]:</label>
                             </th>
-                            <td colspan="2">
+                            <td>
                                 <span style="text-align:left;">
-                                    1. 全量GeoIP版本(6MB左右)<a style="color:red ;" href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
-                                    2. 精简版(200KB左右，默认使用)<a style="color:red ;" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
-                                    3. 全量多源合并版(6MB左右)<a style="color:red ;" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
+                                    1. 全量GeoIP版本(6MB左右)<a class="copyToClipboard"  href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
+                                    2. 精简版(200KB左右，默认使用)<a class="copyToClipboard" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
+                                    3. 全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
                                 </span>
                                 <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据下载地址">
                             </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新Country.mmdb</button>
+                            <td class="hasButton">
+                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
                             </td>
                         </tr>
                     </table>
-                    <!-- 代理组添加节点操作 -->
-                    <table id="menu_group_add" class="FormTable">
+                    <!-- 代理组节点管理 -->
+                    <table id="menu_group_manager" class="FormTable">
                         <thead>
                             <tr>
-                                <td colspan="2">Clash - 代理组添加节点</td>
+                                <td colspan="3">Clash - 个人代理节点管理</td>
                             </tr>
                         </thead>
                         <tr>
-                            <th>输入链接：</th>
-                            <td colspan="2">
-                                <textarea rows="5" class="input_text" id="proxy_node_list" placeholder="#粘贴代理链接，每行一个代理,支持SS/SSR/VMESS类型URI链接解析"></textarea>
+                            <th><label class="hintstyle" title="支持:&#010; 1.ss/ssr/vmess格式链接;&#010; 2.包含ss/ssr/vmess格式链接列表的http(s)链接订阅源；&#010; 3.包含yaml格式节点的http(s)订阅源.&#010; 添加节点将保存到 provider_diy.yaml 文件中.">
+                                添加节点链接[?]:</label></th>
+                            <td class="wide_input">
+                                <textarea rows="5" class="input_text" id="proxy_node_list" placeholder="#粘贴代理链接，每行一个链接,支持SS/SSR/VMESS类型URI链接解析。支持添加HTTP远程订阅源,解析工具uridecoder代码已开源,请放心使用."></textarea>
                             </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2" style="text-align: left;">
-                                <p style="text-align: left;color: burlywood;">温馨提示：添加重复节点<b style="color: chocolate;font-size: 20px;">不会覆盖</b> 已有节点。</p>
-                                <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">支持解析URI格式:</p>
-                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ss://</b>base64string@host:port/?plugin=xxx&obfs=xxx&obfs-host=xxx#notes</p>
-                                <p style="color:#FC0">其中，ss的base64string格式为：method:password</p>
-                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ss://</b>base64string</p>
-                                <p style="color:#FC0">其中，ss的base64string内容格式：method:password@host:port </p>
-                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">ssr://</b>base64string</p>
-                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: aquamarine;">vmess://</b>base64string</p>
-                                <p style="font-size: 20px;color:rgb(19, 209, 41)"><b style="color: rgb(200, 19, 50);">(新增)http(s)://</b>yaml格式代理订阅源或ss/ssr/vmess链接节点列表</p>
-                                <p style="color:#FC0">其中，vmess的base64string内容为JSON配置格式： {"add":"server_ip","v":"2","ps":"name","port":158,"id":"683ec608-5af9-4f91-bd5b-ce493307fe56","aid":"0","net":"ws","type":"","host":"","path":"/path","tls":"tls"}</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
+                            <td class="hasButton">
                                 <button type="button" class="button_gen" onclick="add_nodes()" href="javascript:void(0);">添加</button>
                             </td>
                         </tr>
-                    </table>
-                    <!-- 代理组删除节点操作 -->
-                    <table id="menu_group_delete" class="FormTable">
-                        <thead>
-                            <tr>
-                                <td colspan="2">Clash - 代理组删除节点</td>
-                            </tr>
-                        </thead>
-                        <tr>
-                            <th>名称:</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <select id="proxy_node_name" class="input_option" style="width:180px;margin:0px 0px 0px 2px;">
-                                    </select>
-                                </div>
+                        <tr style="display: none;">
+                            <td colspan="3" style="text-align: left; ">
+                                <p style="text-align: left;color: yellow;">温馨提示：添加重复节点<b style="color: rgb(240, 104, 7);">不会覆盖</b> 已有节点。</p>
+                                <p style="text-align: left; color: greenyellow;padding-top: 5px;">支持解析URI格式:
+                                    <b style="color: red;">ss/ssr/vmess</b>格式URI链接&nbsp;&nbsp;
+                                    <b style="color: red;">(新增)http(s)链接远程订阅源</b>(yaml格式内容或ss/ssr/vmess链接列表内容)</p>
                             </td>
                         </tr>
+                        <!-- 代理组删除节点操作 -->
                         <tr>
-                            <td colspan="2">
-                                <button type="button" class="button_gen" onclick="delete_one_node()" href="javascript:void(0);">删除</button>
+                            <th>删除节点选择:</th>
+                            <td>
+                                <div class="switch_field">
+                                    <select id="proxy_node_name" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
+                                        </select>
+                                </div>
+                            </td>
+                            <td class="hasButton">
+                                <button type="button" class="button_gen" onclick="delete_one_node()" href="javascript:void(0);">删除当前</button>
                                 <button type="button" class="button_gen" onclick="delete_all_nodes()" href="javascript:void(0);">删除全部</button>
                             </td>
                         </tr>
                     </table>
-                    <!-- 可选配置信息 -->
-                    <table id="menu_options" class="FormTable">
+                    <!-- rule-provider规则管理 -->
+                    <table id="menu_rule_manager" class="FormTable">
                         <thead>
                             <tr>
-                                <td colspan="2">Clash - 可选配置</td>
+                                <td colspan="3">Clash - 规则组管理</td>
                             </tr>
                         </thead>
-                        
                         <tr>
-                            <th>
-                                <label>透明代理模式开关(<b>建议启用</b> ):</label>
-                            </th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_trans">
-                                        <input id="clash_trans" onclick="switch_trans_mode();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
+                            <th><label title="黑名单规则: 匹配黑名单的请求 走代理,默认直连,更精准的走代理"><b>黑名单</b>规则[?]:</label></th>
+                            <td class="wide_input">
+                                <textarea title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。" readonly="true" rows="5" class="input_text" id="rule_diy_blacklist" placeholder="#粘贴域名前缀、IP段或域名关键词Keyword,一行一条记录!"></textarea>
+                            </td>
+                            <td>
+                                <input type="button" class="button_gen" onclick="edit_blacklist_rule();" value="编辑(ctrl+e)">
+                                <input type="button" class="button_gen" onclick="save_blacklist_rule();" value="保存(ctrl+s)">
+                                <input type="button" class="button_gen" onclick="load_blacklist_rule();" value="重载(ctrl+r)">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><label title="白名单规则: 匹配到白名单的请求 直连, 默认 走代理。走代理流量会更多。&#010;若白名单范围过小可能导致一些CDN访问走代理而变慢或出现异常。&#010; 例如: 小爱同学使用此模式时会提示无法使用网络。"><b>白名单</b>规则[?]:</label></th>
+                            <td class="wide_input">
+                                <textarea title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。" readonly="true" rows="5" class="input_text" id="rule_diy_whitelist" placeholder="#粘贴域名前缀、IP段或域名关键词Keyword,一行一条记录!"></textarea>
+                            </td>
+                            <td>
+                                <input type="button" class="button_gen" onclick="edit_whitelist_rule();" value="编辑(ctrl+e)">
+                                <input type="button" class="button_gen" onclick="save_whitelist_rule();" value="保存(ctrl+s)">
+                                <input type="button" class="button_gen" onclick="load_whitelist_rule();" value="重载(ctrl+r)">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="3">
+                                <p style="font-size: 18px; color:#FC0; text-align: center;">提示:当点击编辑框时，就会激活<b>快捷键</b>操作哦!</p>
                             </td>
                         </tr>
                     </table>
@@ -643,12 +1011,12 @@
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_cfddns_enable">
-                                        <input id="clash_cfddns_enable" onclick="switch_cfddns_mode();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
+                                                    <input id="clash_cfddns_enable" onclick="switch_cfddns_mode();" class="switch" type="checkbox" style="display: none;">
+                                                    <div class="switch_container">
+                                                        <div class="switch_bar"></div>
+                                                        <div class="switch_circle transition_style"></div>
+                                                    </div>
+                                                </label>
                                 </div>
                             </td>
                         </tr>
@@ -665,7 +1033,8 @@
                                 <label>API KEY：</label>
                             </th>
                             <td colspan="2">
-                                <span>获取方法：<a target="_blank" style="color: greenyellow;" href="https://dash.cloudflare.com/profile/api-tokens">直达Cloudflare链接(查看<b>Global API Key</b>)</a> </span>
+                                <span>获取方法：<a target="_blank" style="color: greenyellow;" href="https://dash.cloudflare.com/profile/api-tokens">直达Cloudflare链接(查看<b>Global API Key</b>)</a>
+                                                </span>
                                 <input type="text" class="input_text" id="clash_cfddns_apikey" placeholder="获取方法：">
                             </td>
                         </tr>
@@ -705,7 +1074,7 @@
                             </td>
                         </tr>
                     </table>
-                    <!-- 配置DDNS信息 -->
+                    <!-- 配置软路由监控脚本 -->
                     <table id="menu_watchdog" class="FormTable">
                         <thead>
                             <tr>
@@ -717,12 +1086,12 @@
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_watchdog_start_clash">
-                                        <input id="clash_watchdog_start_clash" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
+                                                    <input id="clash_watchdog_start_clash" class="switch" type="checkbox" style="display: none;">
+                                                    <div class="switch_container">
+                                                        <div class="switch_bar"></div>
+                                                        <div class="switch_circle transition_style"></div>
+                                                    </div>
+                                                </label>
                                 </div>
                             </td>
                         </tr>
@@ -739,7 +1108,31 @@
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_watchdog_enable">
-                                        <input id="clash_watchdog_enable" onclick="switch_route_watchdog();" class="switch" type="checkbox" style="display: none;">
+                                                    <input id="clash_watchdog_enable" onclick="switch_route_watchdog();" class="switch" type="checkbox" style="display: none;">
+                                                    <div class="switch_container">
+                                                        <div class="switch_bar"></div>
+                                                        <div class="switch_circle transition_style"></div>
+                                                    </div>
+                                                </label>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                    <!-- 可选配置信息 -->
+                    <table id="menu_options" class="FormTable">
+                        <thead>
+                            <tr>
+                                <td colspan="3">Clash - 可选配置</td>
+                            </tr>
+                        </thead>
+                        <tr>
+                            <th>
+                                <label title="默认开启，开启此模式后内网无任何配置即可科学上网。&#010;如果只想使用clash提供的socks5代理,可关闭此选项。">透明代理模式[?]:</label>
+                            </th>
+                            <td>
+                                <div class="switch_field">
+                                    <label for="clash_trans">
+                                        <input id="clash_trans" onclick="switch_trans_mode();" class="switch" type="checkbox" style="display: none;">
                                         <div class="switch_container">
                                             <div class="switch_bar"></div>
                                             <div class="switch_circle transition_style"></div>
@@ -748,15 +1141,52 @@
                                 </div>
                             </td>
                         </tr>
+                        <tr>
+                            <th>
+                                <label>备份配置:</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="button" class="button_gen" onclick="backup_config_file();" value="开始备份">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>恢复配置:</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="button" class="button_gen" onclick="restore_config_file();" value="开始恢复">
+                                <input style="color:#FFCC00;*color:#000;width: 200px;" id="restore_file" type="file" name="file">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>上传<b>config.yaml</b>文件:</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="button" id="upload_btn" class="button_gen" onclick="upload_config_file();" value="开始上传">
+                                <input style="color:#FFCC00;*color:#000;width: 200px;" id="file" type="file" name="file">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <b style="color: red;font-size:20px;">注意事项</b>:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+                                <b style="font-size:18px;">1. 确保配置的Yaml格式正确性: </b>本插件会修改redir-port/dns.listen/external-controller/external-ui参数<br>&nbsp;&nbsp;&nbsp;&nbsp;
+                                <b style="font-size:18px;">2. 重要提醒: 修改前记得备份!!!</b><br/>
+                            </td>
+                        </tr>
+
+
                     </table>
                     <!--打开 Clash控制面板-->
-                    <div style="display: inline-table;padding-top: 15px;">
-                        <a type="button" class="button_gen" onclick="get_proc_status();" href="javascript:void(0);">状态检查</a>
-                        &nbsp;&nbsp;&nbsp;<a type="button" class="button_gen" onclick="show_router_info();" href="javascript:void(0);">路由信息</a>
-                        &nbsp;&nbsp;&nbsp;<a type="button" class="button_gen" id="clash_yacd_ui" href="javascript:void(0);" target="_blank">Yacd控制面板</a>
+                    <div style="display: inline-table;margin-top: 25px;">
+                        <a type="button" class="button_gen" onclick="get_proc_status();" href="javascript:void(0);">状态检查</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button" class="button_gen" onclick="show_router_info();" href="javascript:void(0);">路由信息</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button" class="button_gen" id="clash_yacd_ui" href="javascript:void(0);" target="_blank">Yacd控制面板</a>
                     </div>
-                    <div>
+                    <div style="height: 60px;margin-top:10px;">
                         <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
+                        <!-- 显示动态消息 -->
+                        <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px;"></label>
                     </div>
 
                     <div style="margin-top:8px" id="logArea">
@@ -764,16 +1194,16 @@
                         <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
                     </div>
 
-                    <div class="KoolshareBottom" style="margin-top:10px;">
-                        TG讨论群:<a href="https://t.me/share_proxy_001" target="_blank" rel="noopener noreferrer"><i><u>@share_proxy_001</u></i></a><br />
-                        博客地址:<a href="https://vlike.work/" target="_blank"><i><u>https://vlike.work/</u></i> </a> <br />
-                        项目地址:<a href="https://github.com/learnhard-cn/vclash" target="_blank"><i><u>vClash</u></i> </a> <br />
+                    <div class="KoolshareBottom" style="margin-top:5px;">
+                        <a class="tab item-tab" href="https://github.com/Dreamacro/clash" target="_blank">Clash项目</a>
+                        <a class="tab item-tab" href="https://github.com/haishanh/yacd" target="_blank">Yacd项目</a>
+                        <a class="tab item-tab" href="https://github.com/learnhard-cn/uridecoder" target="_blank">uridecoder项目</a>
+                        <a class="tab item-tab" href="https://t.me/share_proxy_001" target="_blank">TG讨论群</a>
+                        <a class="tab item-tab" href="https://vlike.work/" target="_blank">小V的博客</a>
+                        <a class="tab item-tab" href="https://t.me/share_proxy_001" target="_blank">小V的油管</a>
                     </div>
-                </div>
             </td>
-            <div class="author-info">
-
-            </div>
+            <div class="author-info"></div>
         </tr>
     </table>
     <div id="footer"></div>
@@ -788,6 +1218,9 @@
         textArea.scrollTop = textArea.scrollHeight;
     })(jQuery);
     <!--<![endif]-->
+    $(function() {
+        $('.foot_menu ul').prepend($('.foot_menu ul').find('li:last'));
+    });
 </script>
 
 </html>

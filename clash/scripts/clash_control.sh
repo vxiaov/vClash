@@ -34,6 +34,17 @@ yacd_port="9090"        # Yacd 端口
 rule_src_dir="${KSHOME}/clash/ruleset"
 config_file="${KSHOME}/${app_name}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
+
+debug_log=/tmp/upload/clash_debug.log
+# 备份数据文件(包括:providers/rules/config.yaml)
+backup_file=/tmp/upload/${app_name}_backup.tar.gz
+env_file="${app_name}_env.sh"
+
+# 自定义黑名单规则文件
+blacklist_file="/koolshare/${app_name}/ruleset/rule_diy_blacklist.yaml"
+# 自定义白名单规则文件
+whitelist_file="/koolshare/${app_name}/ruleset/rule_diy_whitelist.yaml"
+
 default_test_node="proxies:\n  - name:  test代理分享站(别选我):https://vlike.work\n    type:  ss\n    server:  127.0.0.1\n    port:  9999\n    password:  123456\n    cipher:  aes-256-gcm"
 
 check_config_file() {
@@ -41,7 +52,7 @@ check_config_file() {
     clash_yacd_secret=$(yq e '.secret' $config_file)
     # clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd"
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    clash_yacd_url="http://${lan_ipaddr}:${yacd_port}"
+    # clash_yacd_url="http://${lan_ipaddr}:${yacd_port}"
     tmp_port=$redir_port yq e -iP '.redir-port=env(tmp_port)' $config_file
     tmp_yacd="0.0.0.0:$yacd_port" yq e -iP '.external-controller=strenv(tmp_yacd)' $config_file
     tmp_dns="0.0.0.0:$dns_port" yq e -iP '.dns.listen=strenv(tmp_dns)' $config_file
@@ -101,28 +112,28 @@ echo_status() {
     fi
 }
 
-ARCH=""
 
-# 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
-case $(uname -m) in
-    armv7l)
-        if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1; then
-            ARCH="armv7"
-        elif grep -i vfpv1 /proc/cpuinfo >/dev/null 2>&1; then
-            ARCH="armv6"
-        else
-            ARCH="armv5"
-        fi
-        ;;
-    aarch64)
-        ARCH="armv8"
-        ;;
-    *)
-        LOGGER "糟糕!平台类型不支持呀!赶紧通知开发者适配!或者自己动手丰衣足食!"
-        echo "XU6J03M6"
-        exit 0
-        ;;
-esac
+get_arch() {
+    # 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
+    case $(uname -m) in
+        armv7l)
+            if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1; then
+                ARCH="armv7"
+            else
+                ARCH="armv5"
+            fi
+            ;;
+        aarch64)
+            ARCH="armv8"
+            ;;
+        *)
+            LOGGER "糟糕!平台类型不支持呀!赶紧通知开发者适配!或者自己动手丰衣足食!"
+            echo "XU6J03M6"
+            exit 0
+            ;;
+    esac
+    return $ARCH
+}
 
 get_proc_status() {
     echo "检查进程信息:"
@@ -140,16 +151,10 @@ get_proc_status() {
     echo "代理订阅: $clash_provider_file"
     echo "订阅更新:$(cru l| grep update_provider_local)"
     echo "----------------------------------------------------"
-    # echo "Clash版本信息: `clash -v`"
-    # echo "yq工具版本信息: `yq -V`"
-    # echo "----------------------------------------------------"
-    echo "Clash服务最近重启次数:$(grep start_${app_name} /tmp/syslog.log|wc -l)"
-    echo "Clash服务最近重启时间(最近3次): "
+    echo "Clash服务最近重启次数: [$(grep start_${app_name} /tmp/syslog.log|wc -l)]次"
+    echo "Clash服务最近重启 [3次] 的时间如下: "
     echo "$(grep start_${app_name} /tmp/syslog.log|tail -3)"
     echo "----------------------------------------------------"
-    #echo "中继列表信息:"
-    #yq e '.proxy-groups[2].proxies.[]' $config_file
-    #echo "----------------------------------------------------"
 }
 
 add_ddns_cron(){
@@ -328,6 +333,12 @@ stop() {
 
 ########## config part ###########
 
+
+list_rule_providers() {
+    # yq v4版本命令查看config.yaml文件中的rule-providers列表名
+    yq e '.rule-providers|keys' ${config_file}
+}
+
 # DIY节点 列表
 list_nodes() {
     filename="$provider_diy_file"
@@ -391,7 +402,7 @@ delete_all_nodes() {
         cp $filename $filename.old
         LOGGER "开始清理所有DIY节点:"
         # 偷个懒: 重置DIY配置文件只包含 test节点 就可以了。
-        echo "$default_test_node" > filename
+        echo -e "$default_test_node" > $filename
         LOGGER "清理DIY节点完毕!让世界回归平静!"
     fi
     list_nodes
@@ -450,6 +461,7 @@ update_provider_file() {
     rm -f $temp_provider_file
 }
 
+# 更新Country.mmdb文件
 update_geoip() {
     #
     geoip_file="${KSHOME}/clash/Country.mmdb"
@@ -469,7 +481,8 @@ update_geoip() {
         mv -f ${geoip_file}.bak ${geoip_file}
         return 1
     fi
-    LOGGER "「$geoip_file」文件更新成功!，大小变化[`du -h ${geoip_file}.bak|cut -f1`]=>[`du -h ${geoip_file}|cut -f1`]"
+    LOGGER "「$geoip_file」文件更新成功!"
+    LOGGER "文件大小变化[`du -h ${geoip_file}.bak|cut -f1`]=>[`du -h ${geoip_file}|cut -f1`]"
     rm ${geoip_file}.bak
 }
 
@@ -495,11 +508,10 @@ update_clash_bin() {
     # https://github.com/Dreamacro/clash/releases/tag/premium
     LOGGER "CURL_OPTS:${CURL_OPTS}"
     LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
+    ARCH="$(get_arch)"
     download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium | grep "clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
     bin_file="new_$app_name"
     LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
-    # bin_file="clash-linux-${ARCH}-${new_ver}"
-    # download_url="https://github.com/Dreamacro/clash/releases/download/${new_ver}/${bin_file}.gz"
     curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
@@ -647,29 +659,256 @@ get_fw_type() {
     fi
 }
 
+debug_info() {
+    printf "|%20s : %-40.40s|\n" "$1" "$2"
+}
+
 # DEBUG 路由器信息
 show_router_info() {
     get_fw_type
-    echo "您的路由器基本信息(使用过程有问题时，粘贴以下内容，及问题现象说明):"
-    echo "==========================================================="
-    echo "路由器型号信息:$(nvram get productid)"
-    echo "路由器固件信息:${FW_TYPE_NAME} $(nvram get buildno)"
-    echo "Linux内核版本:$(uname -mnor)"
-    echo "软件中心版本: $(dbus get softcenter_version)"
-    echo "==========================================================="
-    echo "vClash版本信息:$(dbus get softcenter_module_${app_name}_version)"
-    echo "clash版本号:$(clash -v|head -n1)"
-    echo "yq版本号:$(yq -V)"
-    echo "jq版本号:$(jq -V)"
-    echo "vClash安装包携带的软件版本信息列表(如与上面不一致,可能其他插件修改过版本,可能导致无法运行):"
-    echo "$(cat /koolshare/${app_name}/version)"
-    echo "==========================================================="
+    echo "您的路由器基本信息(反馈开发者帮您分析问题用):"
+    echo "| system : $(uname -nmrso)|"
+    echo "| rom    : $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
+    echo "| memory : $(free -m|awk '/Mem/{printf("free: %.2f MB,total: %.2f MB,usage:%.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "| /jffs  : $(df /jffs|awk '/jffs/{printf("free: %.2f MB,total: %.2f MB,usage:%.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "+---------------------------------------------------------------+"
+    echo "|>> vClash实际使用的软件版本:                                   << |"
+    debug_info "vClash" "$(dbus get softcenter_module_${app_name}_version)"
+    debug_info "clash_premium" $(clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')
+    debug_info "yq" "$(yq -V|awk '{ print $NF}')"
+    debug_info "jq" "$(jq -V)"
+    echo "|>> vClash安装包自带软件版本:                                   << |"
+    cat /koolshare/${app_name}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
+    echo "+---------------------------------------------------------------+"
     echo "vClash的转发规则(iptables -t nat -S ${app_name}):"
-    echo "$(iptables -t nat -S ${app_name})"
-    echo "==========================================================="
-    echo "vClash服务进程:[$(pidof ${app_name})]"
-    echo "vClash服务端口:"
-    echo "$(netstat -anp|head -2;netstat -anp|grep ${app_name}|grep LISTEN)"
+    iptables -t nat -S ${app_name}
+    echo "---------------------------------------------------------------"
+}
+
+
+backup_env() {
+    # 输出环境变量到/koolshare/${app_name}/$env_file文件
+    LOGGER "开始备份环境变量"
+    echo "source /koolshare/scripts/base.sh" > /koolshare/${app_name}/$env_file
+    dbus list clash_ | grep -v "=o[nf]" | sed 's/^/dbus set /; s/=/=\"/;s/$/\"/' >> /koolshare/${app_name}/$env_file
+    if [ "$?" != "0" ] ; then
+        LOGGER "备份环境变量失败"
+    else
+        LOGGER "备份环境变量成功"
+    fi
+    # echo "echo '恢复环境变量完成'" >> /koolshare/${app_name}/$env_file
+}
+
+backup_config_file() {
+    # 备份配置信息,打包生成压缩包文件
+    # 备份文件名列表
+    file_list="providers config.yaml ruleset $env_file .cache"    
+    LOGGER "开始备份配置信息: $file_list"
+    if [ -d "/koolshare/${app_name}" ] ; then
+        backup_env
+        for fn in $file_list
+        do
+            if [ ! -r "/koolshare/${app_name}/${fn}" ] ; then
+                LOGGER "找不到备份文件或目录: /koolshare/${app_name}/${fn}"
+                return 1
+            fi
+        done
+        # 压缩文件名
+        tar -zcvf $backup_file -C /koolshare/${app_name} $file_list
+        if [ "$?" != "0" ] ; then
+            LOGGER "备份配置信息失败"
+        else
+            LOGGER "备份配置信息成功"
+            rm -f /koolshare/${app_name}/$env_file
+        fi
+    else
+        LOGGER "备份配置信息失败"
+    fi
+}
+
+restore_config_file() {
+    # 恢复配置信息,解压生成配置文件
+    LOGGER "开始恢复配置信息"
+    if [ "$clash_restore_file" = "" ] ; then
+        LOGGER "恢复配置文件上传失败"
+        return 1
+    fi
+    if [ -f "/tmp/upload/$clash_restore_file" ] ; then
+        tar -zxvf "/tmp/upload/$clash_restore_file" -C /koolshare/${app_name}
+        if [ "$?" != "0" ] ; then
+            LOGGER "恢复配置信息失败!解压过程出错! 文件名:${clash_restore_file}"
+        else
+            if [ -f "/koolshare/${app_name}/$env_file" ] ; then
+                LOGGER "开始执行恢复环境变量脚本"
+                sh "/koolshare/${app_name}/$env_file"
+                # rm -f "/koolshare/${app_name}/$env_file"
+                LOGGER "执行恢复环境变量脚本完成"
+            fi
+            LOGGER "恢复配置信息成功"
+        fi
+    else
+        LOGGER "恢复配置信息文件没找到!"
+        return 2
+    fi
+    rm -f "/tmp/upload/$clash_restore_file"
+    dbus remove clash_restore_file
+}
+
+# 上传并应用新的config.yaml配置文件
+applay_new_config() {
+    
+    LOGGER "开始应用新配置"
+    if [ "$clash_config_file" = "" ] ; then
+        LOGGER "没有设置[clash_config_file]参数"
+        return 1
+    fi
+    if [ ! -f "/tmp/upload/${clash_config_file}" ] ; then
+        LOGGER "找不到配置文件: /tmp/upload/${clash_config_file}"
+        return 2
+    fi
+    # 先备份后复制
+    cp -p /koolshare/${app_name}/config.yaml /koolshare/${app_name}/config.yaml.bak
+    cp -f "/tmp/upload/${clash_config_file}" "/koolshare/${app_name}/config.yaml"
+    if [ -f "/koolshare/${app_name}/config.yaml" ] ; then
+        LOGGER "拷贝新配置成功"
+    else
+        LOGGER "拷贝新配置失败"
+    fi
+    rm -f "/tmp/upload/${clash_config_file}"
+    dbus remove clash_config_file
+    LOGGER "应用新配置完成,准备重启clash服务...\n"
+}
+
+check_valid_rule() {
+    # 检查rule参数是否有效
+    rule="$1"
+    # 检查是否为IPv4地址或IPv4段
+    
+    if [ "$(echo $rule | grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")" != "" ] ; then
+        return "IP-CIDR,$rule/32"
+    fi
+    # 检查rule是否为域名后缀
+    if [ "$(echo $rule | grep -E "^[a-zA-Z0-9]+\.[a-zA-Z]{2,}$")" != "" ] ; then
+        return "DOMAIN-SUFFIX,$rule"
+    fi
+    # 检查rule为单词
+    if [ "$(echo $rule | grep -E "^[a-zA-Z0-9]+$")" != "" ] ; then
+        return "DOMAIN-KEYWORD,$rule"
+    fi
+
+    # 返回字符串表示无效rule
+    return ""
+}
+
+# 添加base64编码的blacklist规则
+save_blacklist_rule() {
+    LOGGER "开始添加黑名单规则"
+    if [ "$clash_blacklist_rules" = "" ] ; then
+        LOGGER "没有设置[clash_blacklist_rules]参数"
+        return 1
+    fi
+    tmp_file="/tmp/upload/clash_blacklist_rules.yaml"
+    echo $clash_blacklist_rules | base64_decode  > $tmp_file
+    if [ ! -f "$tmp_file" ] ; then
+        LOGGER "base64解码失败"
+        return 2
+    fi
+    
+    # 格式化yaml文件，备份并保存新文件
+    yq e -iP $tmp_file && cp -f $blacklist_file $blacklist_file.bak && cp -f $tmp_file $blacklist_file
+    if [ "$?" != "0" ] ; then
+        LOGGER "添加黑名单规则失败"
+        return 2
+    fi
+    rm -f $tmp_file
+    LOGGER "添加黑名单规则成功"
+}
+
+# 添加base64编码的whitelist规则
+save_whitelist_rule() {
+    LOGGER "开始添加白名单规则"
+    if [ "$clash_whitelist_rules" = "" ] ; then
+        LOGGER "没有设置[clash_whitelist_rules]参数"
+        return 1
+    fi
+    tmp_file="/tmp/upload/clash_whitelist_rules.yaml"
+    echo $clash_whitelist_rules| base64_decode  > $tmp_file
+    if [ ! -f "$tmp_file" ] ; then
+        LOGGER "base64解码失败"
+        return 2
+    fi
+    # 格式化yaml文件，备份并保存新文件
+    yq e -iP $tmp_file && cp -f $whitelist_file $whitelist_file.bak && cp -f $tmp_file $whitelist_file
+    if [ "$?" != "0" ] ; then
+        LOGGER "添加白名单规则失败"
+        return 2
+    fi
+    rm -f $tmp_file
+    LOGGER "添加白名单规则成功"
+}
+
+# 获取黑名单规则并编码为base64
+get_blacklist_rules(){
+    LOGGER "开始读取黑名单规则"
+    dbus set clash_blacklist_rules=$(cat $blacklist_file|base64_encode)
+    if [ "$?" != "0" ] ; then
+        LOGGER "读取黑名单规则失败"
+        return 1
+    fi
+    LOGGER "读取黑名单规则成功"
+}
+
+# 获取白名单规则并编码为base64
+get_whitelist_rules(){
+    LOGGER "开始读取白名单规则"
+    dbus set clash_whitelist_rules=$(cat $whitelist_file|base64_encode)
+    if [ "$?" != "0" ] ; then
+        LOGGER "读取白名单规则失败"
+        return 1
+    fi
+    LOGGER "读取白名单规则成功"
+}
+
+reload_rules() {
+    get_blacklist_rules
+    get_whitelist_rules
+}
+
+# 切换为黑名单模式(默认模式)
+switch_blacklist_mode() {
+    LOGGER "开始切换为黑名单模式"
+    # 切换为黑名单模式: 修改 rule 配置信息
+    yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
+    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_basic.yaml"
+    rule_blacklist_file="${KSHOME}/${app_name}/ruleset/rule_blacklist.yaml"
+    yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_blacklist_file}
+    if [ "$?" != "0" ] ; then
+        LOGGER "切换为黑名单模式失败"
+        return 1
+    fi
+    dbus set clash_rule_mode=$clash_rule_mode
+    LOGGER "切换为黑名单模式成功"
+}
+
+# 切换为白名单模式
+switch_whitelist_mode() {
+    LOGGER "开始切换为白名单模式"
+    # 切换为白名单模式: 修改 rule 配置信息
+    yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
+    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_basic.yaml"
+    rule_whitelist_file="${KSHOME}/${app_name}/ruleset/rule_whitelist.yaml"
+    yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_whitelist_file}
+    if [ "$?" != "0" ] ; then
+        LOGGER "切换为白名单模式失败"
+        return 1
+    fi
+    dbus set clash_rule_mode=$clash_rule_mode
+    LOGGER "切换为白名单模式成功"
+}
+
+save_current_tab() {
+    # 保存当前tab标签页面id操作
+    echo "仅仅用于实时保存最后选择的tab页面id" >/dev/null
 }
 
 # 使用帮助信息
@@ -699,9 +938,8 @@ END
 do_action() {
     if [ "$#" = "2" ] ; then
         # web界面配置操作
-        http_response "$1"  >/dev/null
         action_job="$2"
-
+        http_response "$1" >/dev/null 2>&1
     else
         # 后台执行脚本
         if [ "$1" = "" ] ; then
@@ -723,7 +961,7 @@ do_action() {
         stop
         start
         ;;
-    update_clash_bin | switch_trans_mode|switch_group_type)
+    update_clash_bin | switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -733,12 +971,16 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|show_router_info|ignore_new_version)
+    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|ignore_new_version|backup_config_file|get_blacklist_rules|get_whitelist_rules|save_blacklist_rule|save_whitelist_rule|reload_rules|save_current_tab)
         # 不需要重启操作
         $action_job
         ;;
     add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check)
         $action_job
+        ;;
+    show_router_info)
+        # 输出debug信息
+        $action_job  | tee -a $debug_log
         ;;
     help)
         usage

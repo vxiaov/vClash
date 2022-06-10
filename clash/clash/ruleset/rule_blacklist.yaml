@@ -1,0 +1,4 @@
+rules:
+  # 黑名单模式最后规则
+  - RULE-SET,gfw,默认代理组
+  - MATCH,DIRECT

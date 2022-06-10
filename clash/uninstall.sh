@@ -66,4 +66,6 @@ LOGGER "卸载完成啦！一切都归于尘土，哦不！是垃圾站！"
 
 LOGGER "执行命令：rm -rf /koolshare/scripts/${app_name}_*"
 rm -rf /koolshare/scripts/${app_name}_*
+# delete myself
+rm -f /koolshare/scripts/uninstall_${app_name}.sh
 

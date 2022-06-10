@@ -1,0 +1,5 @@
+rules:
+  # 白名单模式最后规则
+  - RULE-SET,direct,DIRECT
+  - GEOIP,CN,DIRECT,no-resolve
+  - MATCH,默认代理组

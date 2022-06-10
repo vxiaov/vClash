@@ -236,70 +236,46 @@ rule-providers:
     url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt
     path: ./ruleset/gfw.yaml
     interval: 86400
+  direct:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt
+    path: ./ruleset/direct.yaml
+    interval: 86400
+  blacklist_rules:
+    type: file
+    behavior: classical
+    path: ./ruleset/rule_diy_blacklist.yaml
+  whitelist_rules:
+    type: file
+    behavior: classical
+    path: ./ruleset/rule_diy_whitelist.yaml
+  video_netflix:
+    type: file
+    behavior: classical
+    path: ./ruleset/video_netflix.yaml
+  video_tiktok:
+    type: file
+    behavior: classical
+    path: ./ruleset/video_tiktok.yaml
+  video_iqiyi:
+    type: file
+    behavior: classical
+    path: ./ruleset/video_iqiyi.yaml
+  video_ibilibili:
+    type: file
+    behavior: classical
+    path: ./ruleset/video_ibilibili.yaml
+
 # 黑名单模式，命中规则使用代理
 rules:
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
-  - DOMAIN-SUFFIX,vlike.work,默认代理组
-  # - DOMAIN-SUFFIX,vlike.work,DIRECT
-  # > Netflix
-  - DOMAIN-SUFFIX,netflix.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflix.net,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,nflxext.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,nflximg.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,nflximg.net,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,nflxso.net,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,nflxvideo.net,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest0.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest1.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest2.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest3.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest4.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest5.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest6.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest7.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest8.com,NETFLIX_PROXY
-  - DOMAIN-SUFFIX,netflixdnstest9.com,NETFLIX_PROXY
-  # Netflix测速网站
-  - DOMAIN-SUFFIX,fast.com,NETFLIX_PROXY
-  # - RULE-SET,video_netflix,NETFLIX_PROXY
-  # > TikTok
-  - PROCESS-NAME,com.ss.android.ugc.trill,Tiktok_PROXY
-  - DOMAIN-SUFFIX,byteoversea.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,ibytedtos.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,ipstatp.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,muscdn.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,musical.ly,Tiktok_PROXY
-  - DOMAIN-SUFFIX,tiktok.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,tik-tokapi.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,tiktokcdn.com,Tiktok_PROXY
-  - DOMAIN-SUFFIX,tiktokv.com,Tiktok_PROXY
-  # - RULE-SET,video_tiktok,Tiktok_PROXY
-  # > iQIYI
-  - DOMAIN-SUFFIX,iq.com,IQiyi_PROXY
-  - DOMAIN,intl.iqiyi.com,IQiyi_PROXY
-  - DOMAIN,intl-rcd.iqiyi.com,IQiyi_PROXY
-  - DOMAIN,intl-subscription.iqiyi.com,IQiyi_PROXY
-  # - RULE-SET,video_iqiyi,IQiyi_PROXY
-  # > Bilibili
-  - PROCESS-NAME,com.bilibili.app.in,Bili_PROXY
-  - PROCESS-NAME,tv.danmaku.bili,Bili_PROXY
-  - DOMAIN-SUFFIX,acg.tv,Bili_PROXY
-  - DOMAIN-SUFFIX,acgvideo.com,Bili_PROXY
-  - DOMAIN-SUFFIX,b23.tv,Bili_PROXY
-  - DOMAIN-SUFFIX,biliapi.com,Bili_PROXY
-  - DOMAIN-SUFFIX,biliapi.net,Bili_PROXY
-  - DOMAIN-SUFFIX,bilibili.com,Bili_PROXY
-  - DOMAIN-SUFFIX,biligame.com,Bili_PROXY
-  - DOMAIN-SUFFIX,biligame.net,Bili_PROXY
-  - DOMAIN-SUFFIX,bilivideo.com,Bili_PROXY
-  - DOMAIN-SUFFIX,hdslb.com,Bili_PROXY
-  - DOMAIN-SUFFIX,im9.com,Bili_PROXY
-  - DOMAIN-SUFFIX,smtcdns.net,Bili_PROXY
-  #
-  # - RULE-SET,reject,REJECT
-  # - RULE-SET,direct,DIRECT
-  # - RULE-SET,google,默认代理组
+  - RULE-SET,video_netflix,NETFLIX_PROXY
+  - RULE-SET,video_tiktok,Tiktok_PROXY
+  - RULE-SET,video_iqiyi,IQiyi_PROXY
+  - RULE-SET,video_ibilibili,Bili_PROXY
+  - RULE-SET,whitelist_rules,DIRECT
+  - RULE-SET,blacklist_rules,默认代理组
   - RULE-SET,gfw,默认代理组
-  # - GEOIP,CN,DIRECT,no-resolve
   - MATCH,DIRECT
