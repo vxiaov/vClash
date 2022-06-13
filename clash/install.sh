@@ -80,10 +80,10 @@ platform_test(){
     
     ks_ver=$(dbus get softcenter_version | awk -F'.' '{ print $1$2 }')
     if [ "$ks_ver" -lt "15" ];then
-        LOGGER "很遗憾! 软件中心版本: $ks_ver (v1.5版本及以上即可) 不符合安装要求！"
+        LOGGER "很遗憾! 软件中心版本: $(dbus get softcenter_version) (v1.5版本及以上即可) 不符合安装要求！"
         exit_install 2
     fi
-    LOGGER "软件中心版本: $ks_ver (v1.5版本及以上即可) 符合安装要求！"
+    LOGGER "软件中心版本: $(dbus get softcenter_version) (v1.5版本及以上即可) 符合安装要求！"
 }
 
 get_model(){

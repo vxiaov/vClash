@@ -31,22 +31,27 @@
 
         var $j = jQuery.noConflict();
 
-        function E(e) {
-            return (typeof(e) == 'string') ? document.getElementById(e) : e;
-        }
 
         function init() {
             show_menu(menu_hook);
+            clash_config_init(); // 初始化配置
             get_dbus_data();
             version_show();
-            load_blacklist_rule();
-            load_whitelist_rule();
             register_event();
 
             if (dbus["clash_current_tab"] == "" || dbus["clash_current_tab"] == undefined) {
                 dbus["clash_current_tab"] = "btn_default_tab";
             }
             document.getElementById(dbus["clash_current_tab"]).click();
+            // 
+            // DEBUG: class 包含 debug 的标签设置为 隐藏
+            for (var i = 0; i < document.getElementsByClassName("debug").length; i++) {
+                document.getElementsByClassName("debug")[i].style.display = "none";
+            }
+            // 隐藏 class 包含 to_be_delete 的标签
+            for (var i = 0; i < document.getElementsByClassName("to_be_delete").length; i++) {
+                document.getElementsByClassName("to_be_delete")[i].style.display = "none";
+            }
 
         }
 
@@ -125,6 +130,46 @@
             // 当 #rule_diy_blacklist 失去焦点时， 取消绑定的keydown快捷键
             $j("#rule_diy_blacklist").bind("blur", unbind_blacklist_keydown);
 
+            // #clash_config_content fucus时，绑定ctrl+s、ctrl+e、ctrl+r快捷键
+            $j("#clash_config_content").bind("focus", function() {
+                // 先解除已有绑定事件
+                $j(this).unbind("keydown");
+                $j(this).bind("keydown", function(e) {
+                    if (e.ctrlKey && e.keyCode == 83) {
+                        save_config_content();
+                        return false;
+                    }
+                    // 绑定 ctrl+e 快捷键
+                    if (e.ctrlKey && e.keyCode == 69) {
+                        edit_config_content();
+                        return false;
+                    }
+                    // 绑定 ctrl+r 快捷键
+                    if (e.ctrlKey && e.keyCode == 82) {
+                        load_config_content();
+                        return false;
+                    }
+                });
+            });
+
+            // #clash_config_content 失去焦点时，取消绑定的keydown快捷键
+            $j("#clash_config_content").bind("blur", function() {
+                // TODO: 先保存变更内容或者取消变更!
+                // save_config_content();
+                var current_content = Base64.encode($j("#clash_config_content").val());
+                if (dbus["clash_edit_filecontent"] != current_content) {
+                    show_result("内容已修改!请按Ctrl+S保存配置文件,或者Ctrl+R取消修改内容.");
+                    console.log("当前内容: " + current_content);
+                    console.log("原有内容: " + dbus["clash_edit_filecontent"]);
+                    $j("#clash_config_content").focus();
+                    return false;
+                }
+                $j(this).unbind("keydown");
+                // 设置当前textarea的readonly属性
+                $j(this).attr("readonly", true);
+
+            });
+
             function switch_rule_mode() {
                 if ($j(this).val() == "blacklist") {
                     // 切换为黑名单模式
@@ -137,13 +182,26 @@
             // 当 #clash_rule_mode change时，触发事件
             $j("#clash_rule_mode").bind("change", switch_rule_mode);
 
+            function bind_edit_filepath_change() {
+                if ($j(this).val() == dbus["clash_edit_filepath"]) {
+                    // 没有变化
+                    return;
+                } else {
+                    // 切换为查看模式
+                    switch_edit_filecontent();
+                }
+            }
+            // 当 #clash_edit_filelist change时，触发事件
+            $j("#clash_edit_filelist").bind("change", bind_edit_filepath_change);
+
             // class="tab"的button被点击时，触发保存当前button的id
             $j(".tab").bind("click", function() {
-                dbus["clash_current_tab"] = this.id;
-                apply_action("save_current_tab", "2");
+                // dbus["clash_current_tab"] = this.id;
+                apply_action("save_current_tab", "2", null, {
+                    "clash_current_tab": this.id,
+                });
             });
         }
-
 
         function get_dbus_data() {
             $j.ajax({
@@ -155,6 +213,14 @@
                     conf2obj();
                 }
             });
+        }
+
+        function yacd_ui_click_check() {
+            // 点击 yacd 按钮时，检测 clash_enable 状态为 off时，弹出警告
+            if (dbus["clash_enable"] == "off") {
+                show_result("请先启用 clash，再进行 yacd 操作!");
+                return false;
+            }
         }
 
         function conf2obj() {
@@ -182,6 +248,8 @@
                 }
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
+
+            // 更新规则模式选项
             var obj = document.getElementById("clash_rule_mode");
             obj.options.length = 0;
             const node_arr = {
@@ -194,18 +262,44 @@
             }
             obj.value = dbus["clash_rule_mode"];
 
+            //更新#clash_edit_filelist 编辑文件选项
+            update_edit_filelist();
+        }
+
+        function update_edit_filelist() {
+            if (dbus["clash_edit_filelist"]) {
+
+                var edit_option = document.getElementById("clash_edit_filelist");
+                edit_option.options.length = 0;
+                edit_filelist = dbus["clash_edit_filelist"].trim().split(" ");
+                current_edit_file = dbus["clash_edit_filepath"];
+                if (edit_filelist.length > 0) {
+                    for (var i = 0; i < edit_filelist.length; i++) {
+                        edit_option.options.add(new Option(edit_filelist[i], edit_filelist[i]));
+                    }
+                    if (current_edit_file) {
+                        edit_option.value = current_edit_file;
+                    } else {
+                        edit_option.value = edit_filelist[0];
+                    }
+                }
+            }
+
         }
 
         function update_node_list() {
-            get_dbus_data();
-            var obj = document.getElementById("proxy_node_name");
-            obj.options.length = 0;
-            const node_arr = dbus["clash_name_list"].trim().split(" ");
-            for (let index = 0; index < node_arr.length; index++) {
-                const element = node_arr[index];
-                obj.options.add(new Option(element, element));
-            }
+            apply_action("list_nodes", "2", function(data) {
+                dbus["clash_name_list"] = data.clash_name_list;
+                var obj = document.getElementById("proxy_node_name");
+                obj.options.length = 0;
+                const node_arr = dbus["clash_name_list"].trim().split(" ");
+                for (let index = 0; index < node_arr.length; index++) {
+                    const element = node_arr[index];
+                    obj.options.add(new Option(element, element));
+                }
+            }, {})
         }
+
 
         //提交任务方法,实时日志显示
         // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
@@ -225,7 +319,25 @@
                 dataType: "json",
                 success: function(response) {
                     if (response.result == id) {
-                        if (flag && flag == "1") {
+                        if (response.status == "ok") {
+                            if (flag && flag == "0") {
+                                // 查看执行过程日志
+                                show_status();
+                            } else if (flag && flag == "1") {
+                                // 页面刷新操作
+                                refreshpage(3);
+                            } else if (flag && flag == "2") {
+                                // 什么也不做...
+                            }
+                            // 动态获取数据模式: JSON数据保存在 response.data 变量中
+                            // data内部数据使用方式: resp_data.key1 , resp_data.key2 , resp_data.key3 ...
+                            var resp_data = response.data;
+                            if (callback) {
+                                setTimeout(function() {
+                                    callback(resp_data);
+                                }, 1000);
+                            }
+                        } else if (flag && flag == "1") {
                             // 页面刷新操作
                             refreshpage(3);
                         } else if (flag && flag == "2") {
@@ -236,7 +348,6 @@
                                 }, 3000);
                             }
                         } else {
-                            document.getElementById("loadingIcon").style.display = "";
                             show_status();
                             if (callback) {
                                 setTimeout(function() {
@@ -249,6 +360,9 @@
             });
         }
 
+        function test_res() {
+            apply_action("test_res")
+        }
         // 显示动态结果消息
         function show_result(message, duration) {
             if (!duration) duration = 1000;
@@ -262,6 +376,7 @@
 
         function show_status() {
             //显示脚本执行过程的日志信息
+            document.getElementById("loadingIcon").style.display = "";
             $j.ajax({
                 url: '/_temp/clash_status.log',
                 type: 'GET',
@@ -316,6 +431,13 @@
             // Show the current tab, and add an "active" class to the button that opened the tab
             document.getElementById(tab_id).style.display = "inline-table";
             evt.currentTarget.className += " active";
+            if (tab_id == "menu_config") {
+                $j("#clash_text_log").attr("rows", "10");
+                $j("#status_tools").hide()
+            } else {
+                $j("#clash_text_log").attr("rows", "30");
+                $j("#status_tools").show();
+            }
         }
 
         function reload_Soft_Center() {
@@ -337,9 +459,10 @@
                         if (obj.name != dbus["clash_version"]) {
                             $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，<i>有新版本：" + obj.name);
                             dbus["clash_new_version"] = obj.name;
-                            document.getElementById("clash_install_show").style.display = "";
+                            $j("#clash_install_show").show();
                         } else {
                             $j("#clash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
+                            $j("#clash_install_show").hide();
                         }
                     }
                 },
@@ -353,29 +476,34 @@
 
         /*********************主要功能逻辑模块实现**************/
         // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
-        function apply_action(action, flag, callback) {
+        function apply_action(action, flag, callback, ret_data) {
             if (!action) {
                 return;
             }
-            post_dbus_data("clash_control.sh", action, dbus, flag, callback);
+            // 如果只需要某个参数，就没必要提交所有dbus数据，参数传递过多也是会有速度影响的。
+            if (!ret_data) {
+                ret_data = dbus;
+            }
+            post_dbus_data("clash_control.sh", action, ret_data, flag, callback);
         }
 
         function service_stop() {
-            apply_action("stop");
-        }
-
-        function service_start() {
-            apply_action("start", "0", function() {
-                show_result("启动完成后,3秒刷新页面!");
-                setTimeout(function() {
-                    refreshpage(1)
-                }, 3000);
-
+            apply_action("stop", "0", null, {
+                "clash_enable": dbus["clash_enable"]
             });
         }
 
-        function service_restart() {
-            apply_action("restart");
+        function service_start() {
+
+            // 由于 start 需要先确保执行成功后再返回执行结果,因此先设置等待状态图片显示，然后再执行 start 操作。
+            $j("#loadingIcon").show();
+            apply_action("start", "0", function(data) {
+                // 更新dbus数据中的 clash_enable 状态 on/off
+                dbus = data;
+                conf2obj();
+            }, {
+                "clash_enable": dbus["clash_enable"]
+            });
         }
 
         function switch_service() {
@@ -404,7 +532,9 @@
             } else {
                 dbus["clash_trans"] = "off";
             }
-            apply_action("switch_trans_mode");
+            apply_action("switch_trans_mode", "0", null, {
+                "clash_trans": dbus["clash_trans"]
+            });
         }
 
         function switch_cfddns_mode() { //启用cfddns
@@ -441,7 +571,7 @@
         }
 
         function get_proc_status() { // 查看服务运行状态
-            apply_action("get_proc_status");
+            apply_action("get_proc_status", "0", null, {});
         }
 
         function update_geoip() { // 更新GeoIP
@@ -451,7 +581,10 @@
             } else {
                 dbus["clash_use_local_proxy"] = "off";
             }
-            apply_action("update_geoip");
+            apply_action("update_geoip", "0", null, {
+                "clash_geoip_url": document.getElementById("clash_geoip_url").value,
+                "clash_use_local_proxy": dbus["clash_use_local_proxy"]
+            });
         }
 
 
@@ -462,34 +595,39 @@
             } else {
                 dbus["clash_use_local_proxy"] = "off";
             }
-            apply_action("update_provider_file");
+            apply_action("update_provider_file", "0", null, {
+                "clash_provider_file": document.getElementById("clash_provider_file").value,
+                "clash_use_local_proxy": dbus["clash_use_local_proxy"]
+            });
         }
 
         function add_nodes() { // 添加DIY节点
             dbus["clash_node_list"] = Base64.encode(document.getElementById("proxy_node_list").value.replaceAll("\n", " "));
             apply_action("add_nodes", "0", function() {
-                show_result("添加完成后,3秒刷新页面!");
-                setTimeout(function() {
-                    refreshpage(3);
-                }, 1000);
+                update_node_list();
+            }, {
+                "clash_node_list": Base64.encode(document.getElementById("proxy_node_list").value.replaceAll("\n", " "))
             });
         }
 
         function delete_one_node() { // 按名称删除 DIY节点
             dbus["clash_delete_name"] = document.getElementById("proxy_node_name").value;
-            apply_action("delete_one_node");
+            if (dbus["clash_delete_name"] == "") {
+                show_result("无节点可删除啦...");
+                return false;
+            }
+            apply_action("delete_one_node", "0", null, {
+                "clash_delete_name": document.getElementById("proxy_node_name").value
+            });
             var obj = document.getElementById("proxy_node_name");
             obj.options.remove(obj.selectedIndex);
-
         }
 
         function delete_all_nodes() { // 按名称删除 DIY节点
-            apply_action("delete_all_nodes");
+            dbus["clash_name_list"] = "";
+            apply_action("delete_all_nodes", "0", null, {});
             var obj = document.getElementById("proxy_node_name");
             obj.options.length = 0;
-            setTimeout(() => {
-                refreshpage(1);
-            }, 1000)
         }
 
         // 更新 clash 新版本
@@ -501,16 +639,16 @@
         // 忽略新版本提示
         function ignore_new_version() {
             // 3秒自动刷新页面
-            apply_action("ignore_new_version", "0", function() {
-                show_result("已忽略此版本,3秒后自动刷新页面");
-                setTimeout(() => {
-                    window.location.reload();
-                }, 3000)
+            apply_action("ignore_new_version", "0", function(data) {
+                dbus["clash_version"] = data["clash_version"];
+                version_show();
+            }, {
+                "clash_new_version": dbus["clash_new_version"]
             });
         }
 
         function show_router_info() {
-            apply_action("show_router_info");
+            apply_action("show_router_info", "0", null, {});
         }
 
         // 备份配置文件
@@ -518,7 +656,7 @@
             apply_action("backup_config_file", "0", function() {
                 show_result("备份配置文件成功，请到下载本地目录查看");
                 window.location = "/_temp/clash_backup.tar.gz"
-            });
+            }, {});
 
         }
 
@@ -556,6 +694,8 @@
                             setTimeout(() => {
                                 refreshpage(3);
                             }, 3000)
+                        }, {
+                            "clash_restore_file": filename
                         });
                     }
                 },
@@ -565,11 +705,6 @@
             });
         }
 
-        function applay_new_config() {
-            apply_action("applay_new_config", "0", function() {
-                show_result("应用新配置成功，3秒后重启服务...", 3000);
-            });
-        }
         // 上传 config.yaml 文件
         function upload_config_file() {
             var filename = $j("#file").val();
@@ -597,10 +732,13 @@
                 contentType: false,
                 complete: function(res) {
                     if (res.status == 200) {
-
                         show_result("已上传成功! 3秒后重启服务...", 3000);
                         dbus["clash_config_file"] = filename;
-                        applay_new_config();
+                        apply_action("applay_new_config", "0", function() {
+                            show_result("应用新配置成功，3秒后重启服务...", 3000);
+                        }, {
+                            "clash_config_file": filename
+                        });
                     }
                 },
                 error: function(res) {
@@ -610,8 +748,8 @@
         }
 
         // 重新加载blacklist规则
-        function reload_rules() {
-            apply_action("reload_rules", "1");
+        function reload_content() {
+            apply_action("reload_content", "1");
         }
 
         // 解析base64编码的clash_blacklist_rules并加载blacklist规则
@@ -619,8 +757,7 @@
 
             var base64_rule = dbus['clash_blacklist_rules'];
             if (base64_rule == "" || base64_rule == undefined) {
-
-                reload_rules();
+                reload_content();
                 return false;
             }
             var rule = Base64.decode(base64_rule);
@@ -631,7 +768,7 @@
         function load_whitelist_rule() {
             var base64_rule = dbus['clash_whitelist_rules'];
             if (base64_rule == "" || base64_rule == undefined) {
-                reload_rules();
+                reload_content();
                 return false;
             }
             var rule = Base64.decode(base64_rule);
@@ -699,12 +836,26 @@
             $j("#rule_diy_whitelist").focus();
         }
 
+        // 点击tab标签时，实时加载规则文件内容
+        function load_rule_content(data) {
+            var clash_blacklist_rules = data.clash_blacklist_rules;
+            var clash_whitelist_rules = data.clash_whitelist_rules;
+            $j("#rule_diy_blacklist").val(Base64.decode(clash_blacklist_rules));
+            $j("#rule_diy_whitelist").val(Base64.decode(clash_whitelist_rules));
+        }
+
+        function load_rules() {
+            apply_action("load_rules", "0", load_rule_content);
+        }
+
         // 切换为黑名单模式
         function switch_blacklist_mode() {
             if (dbus["clash_rule_mode"] == "whitelist") {
                 dbus["clash_rule_mode"] = "blacklist";
                 apply_action("switch_blacklist_mode", "0", function() {
                     show_result("切换为黑名单模式成功!", 1000);
+                }, {
+                    "clash_rule_mode": "blacklist"
                 });
             } else {
                 alert("当前已经是黑名单模式！");
@@ -717,11 +868,105 @@
                 dbus["clash_rule_mode"] = "whitelist";
                 apply_action("switch_whitelist_mode", "0", function() {
                     show_result("切换为白名单模式成功!", 1000);
+                }, {
+                    "clash_rule_mode": "whitelist"
                 });
             } else {
                 alert("当前已经是白名单模式！");
             }
         }
+
+        // 加载config文件内容
+        function load_config_content() {
+            var config = dbus['clash_edit_filecontent'];
+            if (config == "" || config == undefined) {
+                reload_content();
+                return false;
+            }
+            // 解析base64编码的config文件内容
+            var content = Base64.decode(config);
+            if (content == "") {
+                show_result("解码失败,请检查config文件是否丢失啦?");
+                return false;
+            }
+            $j("#clash_config_content").val(content);
+        }
+
+        // 获取编辑文件列表
+        function list_config_files() {
+            apply_action("list_config_files", "2", function(data) {
+                dbus["clash_edit_filelist"] = data.clash_edit_filelist
+                update_edit_filelist();
+            }, {});
+        }
+
+        // 初始化配置clash运行环境变量
+        function clash_config_init() {
+            apply_action("clash_config_init", "2", function(data) {
+                dbus["clash_edit_filelist"] = data.clash_edit_filelist
+                update_edit_filelist();
+            }, {});
+        }
+
+        // 保存config文件内容
+        function save_config_content() {
+            var content = $j("#clash_config_content").val();
+            if (content == "") {
+                // alert("config.yaml文件内容不能为空哦!");
+                return false;
+            }
+            var base64_content = Base64.encode(content);
+
+            if (base64_content == "") {
+                // alert("编码失败，请检查内容是否包含特殊内容.");
+                return false;
+            }
+            // 检查是否变化
+            if (base64_content == dbus['clash_edit_filecontent']) {
+                // show_result("config文件内容未发生变化", 1000);
+                return false;
+            }
+            console.log("当前内容: " + base64_content);
+            console.log("原内容: " + dbus['clash_edit_filecontent']);
+            dbus["clash_edit_filecontent"] = base64_content;
+            apply_action("set_one_file", "0", function() {
+                show_result("保存config文件内容成功!", 3000);
+            }, {
+                "clash_edit_filecontent": base64_content,
+                "clash_edit_filepath": $j("#clash_edit_filelist").val()
+            });
+            // 设置readonly属性为true
+            $j("#clash_config_content").attr("readonly", true);
+        }
+
+        // 编辑config文件内容
+        function edit_config_content() {
+            $j("#clash_config_content").attr("readonly", false);
+            $j("#clash_config_content").focus();
+        }
+
+
+        function set_edit_content(data) {
+            // 解码base64格式的 data.clash_edit_filecontent
+            var filecontent = Base64.decode(data.clash_edit_filecontent);
+            if (filecontent == "") {
+                // 文件内容为空
+                console.log("文件内容为空");
+                return false;
+            }
+            // 设置当前textarea的内容为 file_content
+            dbus["clash_edit_filecontent"] = data.clash_edit_filecontent;
+            $j("#clash_config_content").val(filecontent);
+        }
+
+        function switch_edit_filecontent() {
+            // 根据当前的选择，切换新的文件内容
+            dbus["clash_edit_filepath"] = $j("#clash_edit_filelist").val();
+            apply_action("get_one_file", "0", set_edit_content, {
+                "clash_edit_filepath": $j("#clash_edit_filelist").val()
+            });
+        }
+
 
         function fallbackCopyTextToClipboard(text) {
             var textArea = document.createElement("textarea");
@@ -815,11 +1060,11 @@
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
                         <button id="btn_provider_tab" class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
                         <button id="btn_group_tab" class="tab" onclick="switch_tabs(event, 'menu_group_manager');update_node_list();">节点管理</button>
-                        <button id="btn_rule_tab" class="tab" onclick="switch_tabs(event, 'menu_rule_manager')">规则管理</button>
+                        <button id="btn_rule_tab" class="tab to_be_delete" onclick="switch_tabs(event, 'menu_rule_manager');load_rules();">规则管理</button>
                         <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
                         <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
-
+                        <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -892,8 +1137,8 @@
                             </th>
                             <td class="wide_input">
                                 <span>
-                                    1. Github订阅源(原始链接)免费订阅源<a class="copyToClipboard" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
-                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a class="copyToClipboard" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                    1. Github订阅源(原始链接)免费订阅源<a class="copyToClipboard" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a class="copyToClipboard" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
                                 </span>
                                 <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
                             </td>
@@ -1177,21 +1422,54 @@
 
 
                     </table>
+                    <!-- 在线编辑配置文件内容 -->
+                    <table id="menu_config" class="FormTable">
+                        <thead>
+                            <tr>
+                                <td colspan="3">Clash - 配置文件编辑</td>
+                            </tr>
+                        </thead>
+                        <!-- 编辑文件选择操作 -->
+                        <tr>
+                            <th>编辑文件:</th>
+                            <td>
+                                <div class="switch_field">
+                                    <select id="clash_edit_filelist" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <div style="display: block;text-align: center; font-size: 14px; color:rgb(0, 201, 0);">文件内容</div>
+                                <textarea id="clash_config_content" readonly="true" rows="20" class="input_text" style="width: 98%;" title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。"></textarea>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <p style="color: rgb(182, 222, 2);"> 提示: 若您不了解如何配置config.yaml,不建议您修改<br/> 如果您了解配置规则，可以 <b>点击文本框后激活快捷键</b>，并通过快捷键进行编辑: <br/></p>
+                                <p style="color: rgb(248, 5, 62); font-size: 18px;">&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+E: <b>开始编辑</b> Ctrl+S: <b>保存</b> Ctrl+R: <b>重新加载</b> Ctrl+C:<b>复制</b> Ctrl+V:<b>粘帖</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+Z: <b>撤销(undo)</b> Ctrl+Shift+Z: <b>重做(redo)</b></p>
+                            </td>
+                        </tr>
+                    </table>
                     <!--打开 Clash控制面板-->
-                    <div style="display: inline-table;margin-top: 25px;">
+                    <div id="status_tools" style="display: inline-table;margin-top: 25px;">
+                        <a type="button" class="button_gen debug" onclick="test_res();" href="javascript:void(0);">Test按钮</a> &nbsp;&nbsp;&nbsp;
                         <a type="button" class="button_gen" onclick="get_proc_status();" href="javascript:void(0);">状态检查</a> &nbsp;&nbsp;&nbsp;
                         <a type="button" class="button_gen" onclick="show_router_info();" href="javascript:void(0);">路由信息</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button" class="button_gen" id="clash_yacd_ui" href="javascript:void(0);" target="_blank">Yacd控制面板</a>
+                        <a type="button" class="button_gen" id="clash_yacd_ui" onclick="yacd_ui_click_check();" href="javascript:void(0);" target="_blank">Yacd控制面板</a>
                     </div>
-                    <div style="height: 60px;margin-top:10px;">
-                        <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
-                        <!-- 显示动态消息 -->
-                        <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px;"></label>
+
+                    <div id="status_line">
+                        <div style="height: 60px;margin-top:10px;">
+                            <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
+                            <!-- 显示动态消息 -->
+                            <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px;"></label>
+                        </div>
                     </div>
 
                     <div style="margin-top:8px" id="logArea">
                         <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
-                        <textarea cols="63" rows="30" wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
+                        <textarea rows="30" wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
                     </div>
 
                     <div class="KoolshareBottom" style="margin-top:5px;">
@@ -1218,9 +1496,6 @@
         textArea.scrollTop = textArea.scrollHeight;
     })(jQuery);
     <!--<![endif]-->
-    $(function() {
-        $('.foot_menu ul').prepend($('.foot_menu ul').find('li:last'));
-    });
 </script>
 
 </html>

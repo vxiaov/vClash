@@ -40,6 +40,7 @@ debug_log=/tmp/upload/clash_debug.log
 backup_file=/tmp/upload/${app_name}_backup.tar.gz
 env_file="${app_name}_env.sh"
 
+
 # 自定义黑名单规则文件
 blacklist_file="/koolshare/${app_name}/ruleset/rule_diy_blacklist.yaml"
 # 自定义白名单规则文件
@@ -50,17 +51,10 @@ default_test_node="proxies:\n  - name:  test代理分享站(别选我):https://v
 check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
-    # clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd"
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    # clash_yacd_url="http://${lan_ipaddr}:${yacd_port}"
-    tmp_port=$redir_port yq e -iP '.redir-port=env(tmp_port)' $config_file
-    tmp_yacd="0.0.0.0:$yacd_port" yq e -iP '.external-controller=strenv(tmp_yacd)' $config_file
-    tmp_dns="0.0.0.0:$dns_port" yq e -iP '.dns.listen=strenv(tmp_dns)' $config_file
-    yq e -iP '.external-ui="/koolshare/clash/dashboard"' $config_file
-    yq e -iP '.dns.enhanced-mode="redir-host"' $config_file
+    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"'
+    tmp_yacd="0.0.0.0:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
-    # dbus set clash_yacd_url=$clash_yacd_url
-    # dbus set clash_yacd_secret=$clash_yacd_secret
 }
 
 # 开启对旁路由IP自动化监控脚本
@@ -136,25 +130,27 @@ get_arch() {
 }
 
 get_proc_status() {
-    echo "检查进程信息:"
-    echo "$(echo_status head)"
-    echo "$(echo_status $app_name)"
-    echo "----------------------------------------------------"
-    echo "守护调度:$(cru l | grep ${cron_id})"
+    clash_use_mem="$(cat /proc/$(pidof ${app_name})/status | grep VmRSS | awk '{printf("%.02f MB", $2/1024);}')"
+    free_mem="$(free | grep Mem | awk '{printf("%.02f MB", $4/1024);}')"
+    total_mem="$(free | grep Mem | awk '{printf("%.02f MB", $2/1024);}')"
+    echo "+----------[ 服务信息: ${clash_rule_mode} ]--------------------------------"
+    echo "| $(echo_status head)"
+    echo "| $(echo_status $app_name)"
+    echo "| Clash占用内存: $clash_use_mem, 系统剩余内存: $free_mem, 系统总内存: $total_mem"
+    echo "+----------[ 调度信息 ]--------------------------------"
+    echo "|  $(cru l| grep ${cron_id})"
+    echo "|  $(cru l| grep update_provider_local)"
     if [ "$clash_cfddns_enable" = "on" ] ; then
-        echo "DDNS调度: [$(cru l| grep clash_cfddns)]"
+        echo "|  $(cru l| grep clash_cfddns)"
     fi
     if [ "$clash_watchdog_enable" = "on" ] ; then
-        echo "旁路由Watchdog调度: [$(cru l| grep soft_route_check)]"
+        echo "|  $(cru l| grep soft_route_check)"
     fi
-    echo "----------------------------------------------------"
-    echo "代理订阅: $clash_provider_file"
-    echo "订阅更新:$(cru l| grep update_provider_local)"
-    echo "----------------------------------------------------"
-    echo "Clash服务最近重启次数: [$(grep start_${app_name} /tmp/syslog.log|wc -l)]次"
-    echo "Clash服务最近重启 [3次] 的时间如下: "
-    echo "$(grep start_${app_name} /tmp/syslog.log|tail -3)"
-    echo "----------------------------------------------------"
+    
+    echo "+---------------------------------------------------"
+    echo "| Clash重启信息: [$(grep start_${app_name} /tmp/syslog.log|wc -l)] 次, 最近 [3次] 时间如下:"
+    echo "$(grep start_${app_name} /tmp/syslog.log|tail -3| awk '{printf("| %s\n", $0);}')"
+    echo "+---------------------------------------------------"
 }
 
 add_ddns_cron(){
@@ -282,7 +278,7 @@ get_filelist() {
 }
 
 
-start() {
+service_start() {
     # 1. 启动服务进程
     # 2. 配置iptables策略
     if [ "$clash_enable" = "off" ]; then
@@ -293,19 +289,21 @@ start() {
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
     else
-        LOGGER "检测启动配置文件: ${config_file} :"
+        
         check_config_file
-        LOGGER "开始启动 ${app_name} :"
+        LOGGER "启动配置文件 ${config_file} : 检测完毕!"
         nohup ${CMD} >/dev/null 2>&1 &
         sleep 1
         if status >/dev/null 2>&1; then
-            LOGGER "启动 ${CMD} 成功!"
+            LOGGER "${CMD} 启动成功!"
         else
-            LOGGER "启动 ${CMD} 失败!请手工执行命令并将报错信息发给开发者帮助解决."
+            dbus set clash_enable="off"
+            LOGGER "${CMD} 启动失败! 执行失败原因如下:"
+            ${CMD}
             return 1
         fi
         # 用于记录Clash服务稳定程度
-        SYSLOG "start_${app_name} : pid=$(pidof ${app_name})"
+        SYSLOG "${app_name} 服务启动成功 : pid=$(pidof ${app_name})"
         dbus set ${app_name}_enable="on"
     fi
     add_iptables
@@ -313,31 +311,26 @@ start() {
     list_nodes
 }
 
-stop() {
+service_stop() {
     # 1. 停止服务进程
     # 2. 清理iptables策略
     #echo "停止 $app_name"
     if status >/dev/null 2>&1; then
-        LOGGER "停止 ${app_name} ..."
+        LOGGER "开始停止 ${app_name} ..."
         killall ${app_name}
-        dbus set ${app_name}_enable="off"
     fi
     del_iptables  2>/dev/null
-    if status >/dev/null 2>&1; then
-        LOGGER "停止 ${CMD} 失败!"
-    else
-        LOGGER "停止 ${CMD} 成功!"
-    fi
     del_cron
+    if status >/dev/null 2>&1; then
+        LOGGER "${CMD} 停止失败!"
+        dbus set ${app_name}_enable="on"
+    else
+        LOGGER "${CMD} 停止成功!"
+        dbus set ${app_name}_enable="off"
+    fi
 }
 
 ########## config part ###########
-
-
-list_rule_providers() {
-    # yq v4版本命令查看config.yaml文件中的rule-providers列表名
-    yq e '.rule-providers|keys' ${config_file}
-}
 
 # DIY节点 列表
 list_nodes() {
@@ -345,6 +338,19 @@ list_nodes() {
     node_list=`yq e '.proxies[].name' $filename| awk '!/test/{ printf("%s ", $0)}'`
     LOGGER "DIY节点列表: [${node_list}]"
     dbus set clash_name_list="$node_list"
+}
+
+list_proxy_num() {
+    filename="$1"
+    yq e '.proxies[].type' ${filename} | awk '{ 
+        a[$1]++
+    }END{
+        printf("\n")
+        for(i in a){ 
+            printf("| %s:%.0f ",i,a[i]);
+        }
+        printf("|\n")
+    }'
 }
 
 # DIY节点 添加节点(一个或多个)
@@ -365,18 +371,19 @@ add_nodes() {
         LOGGER "抱歉!你添加的链接解析失败啦!给个正确的链接吧!"
         return 2
     fi
-    LOGGER "成功导入DIY代理节点"
+    LOGGER "获取DIY代理节点数量信息: $(list_proxy_num ${tmp_node_file})"
 
     cp $provider_diy_file $provider_diy_file.old
-    # yq_expr='select(fi==1).proxies as $plist | select(fi==1).proxies[].name as $nlist | select(fi==0)|.proxies += $plist | (.proxy-groups[]|select(.name == "DIY组")).proxies += [$nlist]'
     yq_expr='select(fi==1).proxies as $plist | select(fi==0)|.proxies += $plist'
     yq ea -iP "$yq_expr" ${provider_diy_file} ${tmp_node_file}
     if [ "$?" != "0" ] ; then
+        cp $provider_diy_file.old $provider_diy_file
+        rm -f $provider_diy_file.old ${tmp_node_file}
         LOGGER "怎么会这样! 添加DIY代理节点失败啦!"
         return 2
     fi
     LOGGER "添加DIY节点成功!"
-    rm -f ${tmp_node_file}
+    rm -f ${provider_diy_file}.old ${tmp_node_file}
     dbus remove clash_node_list
     list_nodes
 }
@@ -457,7 +464,7 @@ update_provider_file() {
     fi
 
     LOGGER "还不错!更新订阅源成功了!"
-    LOGGER "成功导入代理节点:$(yq e '.proxies[].type' ${provider_remote_file} | awk '{a[$1]++}END{for(i in a)printf("%s:%.0f ,",i,a[i])}')"
+    LOGGER "成功导入代理节点:$(list_proxy_num $provider_remote_file)"
     rm -f $temp_provider_file
 }
 
@@ -544,11 +551,10 @@ start_cfddns(){
     # 支持多个域名更新
     for current_domain in `echo $clash_cfddns_domain | sed 's/[,，]/ /g'`
     do
-        echo "当前域名: $current_domain"
+        # echo "当前域名: $current_domain"
         clash_cfddns_zone=`echo $current_domain| cut -d. -f2,3`
         clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
         clash_cfddns_recid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?name=$current_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
-        #dbus set clash_cfddns_ip=$clash_cfddns_ip
         dbus set clash_cfddns_ttl=$clash_cfddns_ttl
         real_ip=`echo ${clash_cfddns_ip}|sh 2>/dev/null`
         if [ "$?" != "0" -o "$real_ip" = "" ] ; then
@@ -562,13 +568,12 @@ start_cfddns(){
             echo "失败详细信息:"
             echo "$update| jq ."
         else
-            LOGGER "更新DDNS成功!"
+            LOGGER "当前域名: $current_domain, 更新DDNS成功!"
             # 添加cron调度
             add_ddns_cron
-            clash_cfddns_lastmsg="`date +'%Y/%m/%d %H:%M:%S'`"
+            clash_cfddns_lastmsg="$(date +'%Y/%m/%d %H:%M:%S')"
             dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
         fi
-        LOGGER "$clash_cfddns_lastmsg"
     done
 }
 
@@ -599,7 +604,10 @@ change_gateway() {
 soft_route_check() {
 
     cur_gateway=$(nvram get  dhcp_gateway_x)
-    
+    if [ "$cur_gateway" = "" ] ; then
+        LOGGER "没有设置默认网关地址，取路由器本机IP地址,例如: 192.168.50.1"
+        cur_gateway="${lan_ipaddr}"
+    fi
     ping -c 2 -W 1 -q $clash_watchdog_soft_ip
     if [ "$?" != "0" ] ; then
         if [ "${cur_gateway}" == "${lan_ipaddr}" ]; then
@@ -621,7 +629,7 @@ soft_route_check() {
             echo "软路由的DHCP配置没添加, 开始配置软路由DHCP信息"
             change_gateway ${clash_watchdog_soft_ip}
             LOGGER "关闭Clash服务"
-            stop
+            service_stop
         fi
     fi
 }
@@ -669,8 +677,8 @@ show_router_info() {
     echo "您的路由器基本信息(反馈开发者帮您分析问题用):"
     echo "| system : $(uname -nmrso)|"
     echo "| rom    : $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
-    echo "| memory : $(free -m|awk '/Mem/{printf("free: %.2f MB,total: %.2f MB,usage:%.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
-    echo "| /jffs  : $(df /jffs|awk '/jffs/{printf("free: %.2f MB,total: %.2f MB,usage:%.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "| memory : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "| /jffs  : $(df /jffs|awk '/jffs/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "+---------------------------------------------------------------+"
     echo "|>> vClash实际使用的软件版本:                                   << |"
     debug_info "vClash" "$(dbus get softcenter_module_${app_name}_version)"
@@ -706,15 +714,22 @@ backup_config_file() {
     LOGGER "开始备份配置信息: $file_list"
     if [ -d "/koolshare/${app_name}" ] ; then
         backup_env
+        cur_filelist=""
         for fn in $file_list
         do
             if [ ! -r "/koolshare/${app_name}/${fn}" ] ; then
-                LOGGER "找不到备份文件或目录: /koolshare/${app_name}/${fn}"
-                return 1
+                LOGGER "没不到备份文件或目录: /koolshare/${app_name}/${fn}"
+                # return 1
+                continue
+            fi
+            if [ "$cur_filelist" == "" ] ; then
+                cur_filelist="$fn"
+            else
+                cur_filelist="$cur_filelist $fn"
             fi
         done
         # 压缩文件名
-        tar -zcvf $backup_file -C /koolshare/${app_name} $file_list
+        tar -zcvf $backup_file -C /koolshare/${app_name} ${cur_filelist}
         if [ "$?" != "0" ] ; then
             LOGGER "备份配置信息失败"
         else
@@ -849,7 +864,6 @@ save_whitelist_rule() {
 
 # 获取黑名单规则并编码为base64
 get_blacklist_rules(){
-    LOGGER "开始读取黑名单规则"
     dbus set clash_blacklist_rules=$(cat $blacklist_file|base64_encode)
     if [ "$?" != "0" ] ; then
         LOGGER "读取黑名单规则失败"
@@ -860,18 +874,12 @@ get_blacklist_rules(){
 
 # 获取白名单规则并编码为base64
 get_whitelist_rules(){
-    LOGGER "开始读取白名单规则"
     dbus set clash_whitelist_rules=$(cat $whitelist_file|base64_encode)
     if [ "$?" != "0" ] ; then
         LOGGER "读取白名单规则失败"
         return 1
     fi
     LOGGER "读取白名单规则成功"
-}
-
-reload_rules() {
-    get_blacklist_rules
-    get_whitelist_rules
 }
 
 # 切换为黑名单模式(默认模式)
@@ -911,6 +919,71 @@ save_current_tab() {
     echo "仅仅用于实时保存最后选择的tab页面id" >/dev/null
 }
 
+# 获取 config.yaml 中配置的文件路径
+list_config_files() {
+    # local tmp_rule_filepath="$(yq e '.rule-providers[]|select(.type == "file").path' ${config_file} | awk '{ printf("%s ",$0);}')"
+    # local tmp_proxy_filepath="$(yq e '.proxy-providers[]|select(.type == "file").path' ${config_file} | awk '{ printf("%s ",$0);}')"
+    tmp_filepath_list="$(yq e '.rule-providers[]|select(.type=="file").path,.proxy-providers[]|select(.type=="file").path' ${config_file})"
+    if [ -z "$tmp_filepath_list" ] ; then
+        LOGGER "您的config.yaml配置文件没有 file 类型的配置文件(rule-providers/proxy-providers)"
+    fi
+    tmp_filelist="./config.yaml ./ruleset/rule_basic.yaml ./ruleset/rule_blacklist.yaml ./ruleset/rule_whitelist.yaml"
+    for fn in $tmp_filepath_list
+    do
+        # 忽略 1MB大小以上的文件: dbus value大小限制为1MB
+        if [ `cat $KSHOME/$app_name/$fn | wc -c` -lt 786432 ]; then
+            # 保留文件内容比较少的文件,文件过大无法直接保存和修改
+            tmp_filelist="$tmp_filelist $fn"
+
+        fi
+    done
+    dbus set clash_edit_filelist="$tmp_filelist"
+    LOGGER "获取配置文件列表成功!"
+}
+
+get_one_file() {
+    # 获取单个文件的内容
+    local file_name="$(echo $KSHOME/${app_name}/$clash_edit_filepath | sed 's/\/\.\//\//g')"
+    if [ ! -f ${file_name} ]; then
+        LOGGER "文件没找到: ${file_name}"
+        return 1
+    fi
+    dbus set clash_edit_filecontent=$(cat ${file_name} | base64_encode)
+    if [ $? -ne 0 ]; then
+        LOGGER "${file_name} 文件读取失败!"
+        return 2
+    fi
+    LOGGER "${file_name} 文件读取完成!"
+}
+
+set_one_file() {
+    # 设置单个文件的内容: 过滤掉中间的 "./"部分
+    local file_name="$(echo $KSHOME/${app_name}/$clash_edit_filepath | sed 's/\/\.\//\//g')"
+    if [ ! -f ${file_name} ]; then
+        LOGGER "文件没找到: ${file_name}"
+        return 1
+    fi
+    cp ${file_name} ${file_name}.bak
+    echo -n ${clash_edit_filecontent} | base64_decode > ${file_name}.tmp
+    if [ $? -eq 0 ]; then
+        mv ${file_name}.tmp ${file_name}
+        LOGGER "${file_name} 保存成功!"
+    else
+        rm -f ${file_name}.bak
+        LOGGER "${file_name} 保存失败!"
+        return 1
+    fi
+    rm -f ${file_name}.bak
+}
+
+clash_config_init() {
+    # 初始化配置文件
+    # 初始化编辑文件列表
+    list_config_files
+
+    # 校验配置文件:初始化 yacd 访问链接: 执行太慢了，影响页面加载速度,暂时屏蔽
+    # check_config_file
+}
 # 使用帮助信息
 usage() {
     cat <<END
@@ -933,13 +1006,84 @@ END
     exit 0
 }
 
+# 用于返回JSON格式数据: {result: id, status: ok, data: {key:value, ...}}
+response_json() {
+    # 其中 data 内容格式示例: "{\"key\":\"value\"}"
+    # 参数说明:
+    #   $1: 请求ID
+    #   $2: 想要传递给页面的JSON数据:格式为:key=value,key=value,... 或者 key1=value1\nkey2=value2\n...
+    #   $3: 返回状态码, ok为成功, error等其他为失败
+    # data="{$(echo $2 | sed 's/#xx#/\n/g' | awk -F= '{printf("\"%s\":\"%s\",",$1,$2)}'|sed 's/,$//')}"
+    http_response "$1\",\"data\": "$2", \"status\": \"$3"  >/dev/null 2>&1
+}
+
 
 ######## 执行主要动作信息  ########
 do_action() {
+
     if [ "$#" = "2" ] ; then
         # web界面配置操作
         action_job="$2"
-        http_response "$1" >/dev/null 2>&1
+        case "$action_job" in 
+            test_res)
+                # awk使用=分隔符会导致追加尾部的=号被忽略而出现错误
+                # 因此使用了sub只替换第一个=号为":"，后面的=号不变
+                ret_data="{$(dbus list clash_edit| awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            start)
+                # 启动服务, 并返回状态
+                service_start
+                ret_data="{$(dbus list clash_ | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                # 先返回成功结果,放在后面执行启动功能，否则页面会一直等待且没有动态执行中的效果
+                # service_start
+                return 0
+                ;;
+            get_one_file)
+                get_one_file
+                ret_data="{$(dbus list clash_edit_filecontent | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            list_config_files)
+                list_config_files
+                ret_data="{$(dbus list clash_edit_filelist  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            list_nodes)
+                list_nodes
+                ret_data="{$(dbus list clash_name_list  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                
+                ;;
+            load_rules) # 点击进入规则管理tab页面时调用
+                get_blacklist_rules
+                get_whitelist_rules
+                # 获取 clash_blacklist_rules clash_whitelist_rules 信息
+                ret_data="{$(dbus list clash_ | grep list_rules | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            clash_config_init)
+                clash_config_init
+                ret_data="{$(dbus list clash_  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            ignore_new_version)
+                ignore_new_version
+                ret_data="{$(dbus list clash_version  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            *)
+                http_response "$1" >/dev/null 2>&1
+                ;;
+        esac
     else
         # 后台执行脚本
         if [ "$1" = "" ] ; then
@@ -948,34 +1092,37 @@ do_action() {
             action_job="$1"
         fi
     fi
-    echo > $LOGFILE
     # LOGGER "执行动作 ${action_job} ..."
     case "$action_job" in
-    start)
-        start
-        ;;
     stop)
-        stop
+        service_stop
+        ;;
+    start)
+        service_start
         ;;
     restart)
-        stop
-        start
+        service_stop
+        service_start
         ;;
     update_clash_bin | switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
-            stop
-            start
+            service_stop
+            service_start
         else
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|ignore_new_version|backup_config_file|get_blacklist_rules|get_whitelist_rules|save_blacklist_rule|save_whitelist_rule|reload_rules|save_current_tab)
+    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|backup_config_file|get_blacklist_rules|get_whitelist_rules|save_blacklist_rule|save_whitelist_rule)
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|list_nodes|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check)
+    add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check)
+        $action_job
+        ;;
+    set_one_file)
+        # 不需要重启操作
         $action_job
         ;;
     show_router_info)
@@ -992,7 +1139,6 @@ do_action() {
     esac
     # 执行完成动作后，清理动作.
     dbus remove clash_action
-    echo "XU6J03M6"
 }
 
 LOGFILE="/tmp/upload/clash_status.log"
@@ -1001,7 +1147,19 @@ if [ "$#" = "1" ] ; then
     LOGFILE=/dev/null
 fi
 
-echo > $LOGFILE
 
-do_action $@ 2>&1 | tee -a $LOGFILE
+no_output_log=0
+case "$2" in
+    clash_config_init|save_current_tab|list_config_files|list_nodes)
+        # 不需要输入日志内容
+        no_output_log=1
+        ;;
+esac
 
+if [ "$no_output_log" = "0" ] ; then
+    echo > $LOGFILE
+    do_action $@ 2>&1 | tee -a $LOGFILE
+    echo "XU6J03M6" >> $LOGFILE
+else
+    do_action $@  >/dev/null 2>&1
+fi
