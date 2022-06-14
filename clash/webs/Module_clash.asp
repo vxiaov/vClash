@@ -154,14 +154,24 @@
 
             // #clash_config_content 失去焦点时，取消绑定的keydown快捷键
             $j("#clash_config_content").bind("blur", function() {
-                // TODO: 先保存变更内容或者取消变更!
-                // save_config_content();
+                // 先保存变更内容或者取消变更!
                 var current_content = Base64.encode($j("#clash_config_content").val());
                 if (dbus["clash_edit_filecontent"] != current_content) {
-                    show_result("内容已修改!请按Ctrl+S保存配置文件,或者Ctrl+R取消修改内容.");
-                    console.log("当前内容: " + current_content);
-                    console.log("原有内容: " + dbus["clash_edit_filecontent"]);
-                    $j("#clash_config_content").focus();
+                    var res = confirm("内容已修改!是否保存?");
+                    if (res) {
+                        save_config_content();
+                    }
+                    // 一段JS实现的提示框
+                    // var confirmBox = $j("#confirm");
+                    // confirmBox.find("#confirm_msg").html("内容已修改!是否保存?");
+                    // confirmBox.find(".confirm_yes").bind("click", function() {
+                    //     save_config_content();
+                    //     confirmBox.hide();
+                    // });
+                    // confirmBox.find(".confirm_no").unbind().click(function() {
+                    //     confirmBox.hide();
+                    // });
+                    // confirmBox.show();
                     return false;
                 }
                 $j(this).unbind("keydown");
@@ -473,6 +483,38 @@
                 console.log('failed');
             });
         }
+
+        function vClash_version_check() {
+            // TODO: 更新vClash 检测
+            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version']);
+            $j.ajax({
+                url: 'https://api.github.com/repos/Dreamacro/clash/tags',
+                type: 'GET',
+                async: true,
+                cache: false,
+                retries: 0,
+                dataType: 'json',
+                success: function(res) {
+                    if (typeof(res) != "undefined" && res.length > 0) {
+                        var obj = res[0];
+                        if (obj.name != dbus["clash_version"]) {
+                            $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，<i>有新版本：" + obj.name);
+                            dbus["clash_new_version"] = obj.name;
+                            $j("#clash_install_show").show();
+                        } else {
+                            $j("#clash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
+                            $j("#clash_install_show").hide();
+                        }
+                    }
+                },
+                error: function(res) {
+                    $j("#clash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。");
+                }
+            }).fail(() => {
+                console.log('failed');
+            });
+        }
+
 
         /*********************主要功能逻辑模块实现**************/
         // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
@@ -890,6 +932,7 @@
                 return false;
             }
             $j("#clash_config_content").val(content);
+            show_result("重新加载内容完成!", 1000);
         }
 
         // 获取编辑文件列表
@@ -923,14 +966,12 @@
             }
             // 检查是否变化
             if (base64_content == dbus['clash_edit_filecontent']) {
-                // show_result("config文件内容未发生变化", 1000);
+                show_result("内容无变化,不用保存了。", 1000);
                 return false;
             }
-            console.log("当前内容: " + base64_content);
-            console.log("原内容: " + dbus['clash_edit_filecontent']);
             dbus["clash_edit_filecontent"] = base64_content;
             apply_action("set_one_file", "0", function() {
-                show_result("保存config文件内容成功!", 3000);
+                show_result("保存文件内容成功!");
             }, {
                 "clash_edit_filecontent": base64_content,
                 "clash_edit_filepath": $j("#clash_edit_filelist").val()
@@ -943,6 +984,7 @@
         function edit_config_content() {
             $j("#clash_config_content").attr("readonly", false);
             $j("#clash_config_content").focus();
+            show_result("开始编辑文件!")
         }
 
 
@@ -961,6 +1003,7 @@
 
         function switch_edit_filecontent() {
             // 根据当前的选择，切换新的文件内容
+            list_config_files();
             dbus["clash_edit_filepath"] = $j("#clash_edit_filelist").val();
             apply_action("get_one_file", "0", set_edit_content, {
                 "clash_edit_filepath": $j("#clash_edit_filelist").val()
@@ -1040,20 +1083,19 @@
                         <div style="float:right; width:15px; height:25px;margin-top:10px">
                             <img id="return_btn" onclick="reload_Soft_Center();" align="right" style="cursor:pointer;margin-left:-80px;margin-top:-25px;" title="返回软件中心" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'"></img>
                         </div>
-                        <div class="clash_basic_info">
+                        <div class="clash_basic_info" style="float:left;">
                             <!--插件特点-->
-                            <p><a href='https://github.com/Dreamacro/clash' target='_blank' rel="noopener noreferrer"><em><u>Clash</u></em></a>是一个基于规则的代理程序，支持<a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank' rel="noopener noreferrer"><em><u>SS</u></em></a>、
-                                <a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、<a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、
-                                <a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。</p>
-                            <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;1. 特点： <b style="font-size: 25px;color: rgb(32, 252, 32);">安装即用</b>，已经内置<a href="https://github.com/learnhard-cn/free_proxy_ss" target="_blank" style="color: rgb(32, 252, 32); text-decoration: underline;">订阅源URL地址</a>                                到配置文件中。插件代码<a href="https://github.com/learnhard-cn/clash" target="_blank" style="color: rgb(32, 252, 32);text-decoration: underline;">Github开源地址</a> 。 </p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;2. 支持功能： 更新订阅源URL地址，若订阅源URL格式错误,请参考<a href="https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers" target="_blank" rel="noopener noreferrer" style="color: rgb(32, 252, 32);text-decoration: underline;">Clash-Provider格式配置参考链接</a>                                </p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;3. 兼容性： 如果使用了透明代理模式，这可能会与<b style="color: red;">其他代理插件可能产生冲突</b> ，使用前要关闭其他透明代理插件。</p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;4. <b style="color: rgb(32, 252, 32);">透明代理</b>：局域网不用做任何设置即可科学上网。</p>
-                            <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;5. 关闭透明代理，可结合 <b>switchyomega插件</b> 使用SOCKS5代理端口： <b>1080</b> ! 非大陆IP自动使用代理转发。</p>
-                            <p style="text-align: center; color: #FC0; font-size: 20px;">闲话少说！<b style="font-size: 25px;">安装即用</b>就对了。</p>
+                            <p style="color: rgb(229, 254, 2);">
+                                <b><a href="https://github.com/learnhard-cn/vClash">vClash</a></b>:一个简单、安装即用的科学上网插件...<br/> &nbsp;&nbsp;&nbsp;&nbsp;1.Clash内核:
+                                <a href='https://github.com/Dreamacro/clash' target='_blank' rel="noopener noreferrer"><em><u>Clash</u></em></a>是一个基于规则的代理程序， 支持
+                                <a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank' rel="noopener noreferrer"><em><u>SS</u></em></a>、
+                                <a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、
+                                <a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、
+                                <a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。<br/> &nbsp;&nbsp;&nbsp;&nbsp;2.
+                                <b>问题反馈: </b> 点击<a style="color: rgb(255, 0, 0);" href="https://github.com/learnhard-cn/vClash/issues" target="_blank">项目Issue</a>链接，请尽量详细描述您的问题，以及提交点击<b>路由信息</b>按钮输出内容，这样才能更快速帮您解决问题。
+                            </p>
+                            <hr>
                         </div>
-
                     </div>
                     <!-- Tab菜单 -->
                     <div id="tabs">
@@ -1065,6 +1107,7 @@
                         <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
                         <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
+                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');switch_edit_filecontent();">使用帮助</button>
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -1451,45 +1494,71 @@
                             </td>
                         </tr>
                     </table>
+                    <!-- 帮助信息 -->
+                    <table id="menu_help" class="FormTable">
+                        <thead>
+                            <tr>
+                                <td colspan="3">vClash - 使用帮助</td>
+                            </tr>
+                        </thead>
+                        <tr>
+                            <td colspan="2">
+                                <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 个人节点添加</b>: 在 “节点管理”页面完成，支持base64链接格式(如:ss://base64string),支持http订阅源(yaml格式或包含ss://、ssr://、vmess://格式链接列表地址),格式繁多，有问题反馈issue</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 免费订阅节点添加</b>: 在 "订阅管理"页面完成，支持HTTP格式链接,如果链接被墙无法访问，开启走代理开关会自动使用clash的socks5代理访问。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. 兼容性</b>: 如果安装了多个代理类型插件，且使用了透明代理模式，这可能会与<b style="color: rgb(32, 252, 32);">其他代理插件可能产生冲突</b> ，使用前要关闭其他透明代理插件。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 什么是透明代理?</b>: 局域网不用做任何设置,内部局域网即可科学上网。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">5. 关闭透明代理</b>: 可结合 <b>switchyomega插件</b> 使用SOCKS5代理端口: <b>1080</b>实现科学上网。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">6. 了解更多</b>: 可阅读vClash项目的<a target="_blank" href="https://github.com/learnhard-cn/vClash/wiki">wiki页面</a></p>
+                                <hr>
+                                <p style=" color:#FC0 ">&nbsp;&nbsp;&nbsp;&nbsp; <b>问题反馈: </b> 点击<a href="https://github.com/learnhard-cn/vClash/issues " target="_blank ">项目Issue</a>链接，请尽量详细描述您的问题，以及提交点击<b>路由信息</b>输出内容，这样才能更快速帮您解决问题。(理论上可以一键提交问题，但出于用户对安全考虑，并没有实现任何数据上传操作)</p>
+                            </td>
+                        </tr>
+                    </table>
                     <!--打开 Clash控制面板-->
-                    <div id="status_tools" style="display: inline-table;margin-top: 25px;">
-                        <a type="button" class="button_gen debug" onclick="test_res();" href="javascript:void(0);">Test按钮</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button" class="button_gen" onclick="get_proc_status();" href="javascript:void(0);">状态检查</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button" class="button_gen" onclick="show_router_info();" href="javascript:void(0);">路由信息</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button" class="button_gen" id="clash_yacd_ui" onclick="yacd_ui_click_check();" href="javascript:void(0);" target="_blank">Yacd控制面板</a>
+                    <div id="status_tools " style="display: inline-table;margin-top: 25px; ">
+                        <a type="button " class="button_gen debug " onclick="test_res(); " href="javascript:void(0); ">Test按钮</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button " class="button_gen " onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button " class="button_gen " onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button " class="button_gen " id="clash_yacd_ui " onclick="yacd_ui_click_check(); " href="javascript:void(0); " target="_blank ">Yacd控制面板</a>
                     </div>
 
-                    <div id="status_line">
-                        <div style="height: 60px;margin-top:10px;">
-                            <div><img id="loadingIcon" style="display:none;" src="/images/loading.gif"></div>
+                    <div id="status_line ">
+                        <div style="height: 60px;margin-top:10px; ">
+                            <div><img id="loadingIcon " style="display:none; " src="/images/loading.gif "></div>
                             <!-- 显示动态消息 -->
-                            <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px;"></label>
+                            <label id="copy_info " style="display: none;color:#ffc800;font-size: 24px; "></label>
                         </div>
                     </div>
-
-                    <div style="margin-top:8px" id="logArea">
-                        <div style="display: block;text-align: center; font-size: 14px;">显示日志信息</div>
-                        <textarea rows="30" wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
+                    <div id="confirm " style="display: none; ">
+                        <div id="confirm_msg "></div>
+                        <br />
+                        <button class="button_gen confirm_yes ">确认</button>
+                        <button class="button_gen confirm_no ">取消</button>
+                    </div>
+                    <div style="margin-top:8px " id="logArea ">
+                        <div style="display: block;text-align: center; font-size: 14px; ">显示日志信息</div>
+                        <textarea rows="30 " wrap="off " readonly="readonly " id="clash_text_log " class="input_text "></textarea>
                     </div>
 
-                    <div class="KoolshareBottom" style="margin-top:5px;">
-                        <a class="tab item-tab" href="https://github.com/Dreamacro/clash" target="_blank">Clash项目</a>
-                        <a class="tab item-tab" href="https://github.com/haishanh/yacd" target="_blank">Yacd项目</a>
-                        <a class="tab item-tab" href="https://github.com/learnhard-cn/uridecoder" target="_blank">uridecoder项目</a>
-                        <a class="tab item-tab" href="https://t.me/share_proxy_001" target="_blank">TG讨论群</a>
-                        <a class="tab item-tab" href="https://vlike.work/" target="_blank">小V的博客</a>
-                        <a class="tab item-tab" href="https://t.me/share_proxy_001" target="_blank">小V的油管</a>
+                    <div class="KoolshareBottom " style="margin-top:5px; ">
+                        <a class="tab item-tab " href="https://github.com/Dreamacro/clash " target="_blank ">Clash项目</a>
+                        <a class="tab item-tab " href="https://github.com/haishanh/yacd " target="_blank ">Yacd项目</a>
+                        <a class="tab item-tab " href="https://github.com/learnhard-cn/uridecoder " target="_blank ">uridecoder项目</a>
+                        <a class="tab item-tab " href="https://t.me/share_proxy_001 " target="_blank ">TG讨论群</a>
+                        <a class="tab item-tab " href="https://vlike.work/ " target="_blank ">小V的博客</a>
+                        <a class="tab item-tab " href="https://t.me/share_proxy_001 " target="_blank ">小V的油管</a>
                     </div>
             </td>
-            <div class="author-info"></div>
+            <div class="author-info "></div>
         </tr>
     </table>
-    <div id="footer"></div>
+    <div id="footer "></div>
 </body>
-<script type="text/css">
+<script type="text/css ">
 
 </script>
-<script type="text/javascript">
+<script type="text/javascript ">
     <!--[if !IE]>-->
     (function($) {
         var textArea = document.getElementById('clash_text_log');

@@ -105,3 +105,34 @@ td {
     padding: 2px !important;
     color: rgb(0, 255, 8) !important;
 }
+#confirm {
+    display: none;
+    background-color: #21333E;
+    color: #ffffff;
+    border: 1px solid #aaa;
+    border-radius: 5px;
+    position: fixed;
+    width: 25%;
+    height: auto;
+    left: 50%;
+    top:50%;
+    margin-left: -100px;
+    padding: 20px 20px 20px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+#confirm button {
+    background-color: #FFFFFF;
+    display: inline-block;
+    border-radius: 12px;
+    border: 4px solid #aaa;
+    padding: 5px;
+    text-align: center;
+    width: 60px;
+    cursor: pointer;
+}
+
+#confirm .message {
+    text-align: left;
+}

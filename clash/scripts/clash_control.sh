@@ -540,6 +540,7 @@ update_clash_bin() {
     fi
 }
 
+
 start_cfddns(){
     # 配置检测
     [[ -z "$clash_cfddns_email" ]]  && LOGGER "email 没填写!" && return 1
@@ -1011,12 +1012,10 @@ response_json() {
     # 其中 data 内容格式示例: "{\"key\":\"value\"}"
     # 参数说明:
     #   $1: 请求ID
-    #   $2: 想要传递给页面的JSON数据:格式为:key=value,key=value,... 或者 key1=value1\nkey2=value2\n...
+    #   $2: 想要传递给页面的JSON数据:格式为:key=value\nkey=value\n...
     #   $3: 返回状态码, ok为成功, error等其他为失败
-    # data="{$(echo $2 | sed 's/#xx#/\n/g' | awk -F= '{printf("\"%s\":\"%s\",",$1,$2)}'|sed 's/,$//')}"
     http_response "$1\",\"data\": "$2", \"status\": \"$3"  >/dev/null 2>&1
 }
-
 
 ######## 执行主要动作信息  ########
 do_action() {
