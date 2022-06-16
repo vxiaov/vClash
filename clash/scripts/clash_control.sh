@@ -888,8 +888,8 @@ switch_blacklist_mode() {
     LOGGER "开始切换为黑名单模式"
     # 切换为黑名单模式: 修改 rule 配置信息
     yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
-    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_basic.yaml"
-    rule_blacklist_file="${KSHOME}/${app_name}/ruleset/rule_blacklist.yaml"
+    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_part_basic.yaml"
+    rule_blacklist_file="${KSHOME}/${app_name}/ruleset/rule_part_blacklist.yaml"
     yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_blacklist_file}
     if [ "$?" != "0" ] ; then
         LOGGER "切换为黑名单模式失败"
@@ -904,8 +904,8 @@ switch_whitelist_mode() {
     LOGGER "开始切换为白名单模式"
     # 切换为白名单模式: 修改 rule 配置信息
     yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
-    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_basic.yaml"
-    rule_whitelist_file="${KSHOME}/${app_name}/ruleset/rule_whitelist.yaml"
+    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_part_basic.yaml"
+    rule_whitelist_file="${KSHOME}/${app_name}/ruleset/rule_part_whitelist.yaml"
     yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_whitelist_file}
     if [ "$?" != "0" ] ; then
         LOGGER "切换为白名单模式失败"
@@ -928,7 +928,7 @@ list_config_files() {
     if [ -z "$tmp_filepath_list" ] ; then
         LOGGER "您的config.yaml配置文件没有 file 类型的配置文件(rule-providers/proxy-providers)"
     fi
-    tmp_filelist="./config.yaml ./ruleset/rule_basic.yaml ./ruleset/rule_blacklist.yaml ./ruleset/rule_whitelist.yaml"
+    tmp_filelist="./config.yaml ./ruleset/rule_part_basic.yaml ./ruleset/rule_part_blacklist.yaml ./ruleset/rule_part_whitelist.yaml"
     for fn in $tmp_filepath_list
     do
         # 忽略 1MB大小以上的文件: dbus value大小限制为1MB
