@@ -187,6 +187,7 @@ proxy-groups:
     interval: 300
     proxies:
       - DIY组
+      - 中继组-解锁奈飞
       - 解锁Netflix非自制剧
       - 仅支持Netflix自制剧
       - PROXY
@@ -198,6 +199,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - DIY组
+      - 中继组-解锁奈飞
       - PROXY
       - 解锁Netflix非自制剧
       - 仅支持Netflix自制剧
@@ -224,12 +226,6 @@ proxy-groups:
       - DIRECT
 
 rule-providers:
-  google:
-    type: http
-    behavior: domain
-    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt
-    path: ./ruleset/google.yaml
-    interval: 86400
   gfw:
     type: http
     behavior: domain
