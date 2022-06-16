@@ -9,7 +9,9 @@
 usage() {
     cat <<END
  Usage:
-    `basename $0` <version>
+    `basename $0` pack <version>
+    `basename $0` yaml
+
  Params:
     version : new version number , v2.2.4
 END
@@ -19,8 +21,64 @@ if [ "$1" = "" ] ; then
     usage
     exit
 fi
-new_version="$1"
 
-sed -i "s/vClash:.*/vClash:$new_version/" clash/clash/version
+generate_gfwlist() {
+    # 生成gfw.yaml #
+    echo "rule_diy_gfw.yaml 正在生成..."
+    outdir="./clash/clash/ruleset/"
+    curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt > ${outdir}/gfw.tmp
+    yq e '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
+        printf("payload:\n");
+    }{
+        idx=$(NF-1)"."$(NF);
+        a[idx]++;
+    }END{
+        for(i in a)
+            printf("  - '\''+.%s'\''\n", i);
+    }' > ${outdir}/rule_diy_gfw.yaml
+    yq e -iP ${outdir}/rule_diy_gfw.yaml
+    rm -f ${outdir}/gfw.tmp
+    echo "rule_diy_gfw.yaml 生成完毕."
+}
 
-tar zcf ./release/clash.tar.gz clash/
+generate_direct() {
+    # 生成direct.yaml #
+    echo "rule_diy_direct.yaml 正在生成..."
+    outdir="./clash/clash/ruleset/"
+    curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt > ${outdir}/direct.tmp
+    yq e '.payload[]' ${outdir}/direct.tmp | awk -F'.' 'BEGIN{
+        printf("payload:\n");
+    }$NF~/org|com|cn|net|edu|gov/ && $(NF-1)!~/[a-z][0-9]/ && $(NF-1)~/qiniu|baidu|cloudflare|upyun|cachemoment|163|265|360|tecent|qq|cdn|verycloud|ali/ {
+        idx=$(NF-1)"."$(NF);
+        a[idx]++;
+    }END{
+        for(i in a)
+            printf("  - '\''+.%s'\''\n", i);
+    }' > ${outdir}/rule_diy_direct.yaml
+    yq e -iP ${outdir}/rule_diy_direct.yaml
+    rm -f ${outdir}/direct.tmp
+    echo "rule_diy_direct.yaml 生成完毕."
+}
+
+generate_package() {
+    # 生成release安装包
+    echo "正在生成 release 安装包 ..."
+    outdir="./release/"
+    new_version="$1"
+    sed -i "s/vClash:.*/vClash:$new_version/" clash/clash/version
+    tar zcf ./release/clash.tar.gz clash/
+}
+
+
+case "$1" in
+    pack)
+        generate_package $2
+        ;;
+    yaml)
+        generate_gfwlist
+        generate_direct
+        ;;
+    *)
+        usage
+        ;;
+esac

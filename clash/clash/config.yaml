@@ -226,18 +226,26 @@ proxy-groups:
       - DIRECT
 
 rule-providers:
-  gfw:
+  webgfw:
     type: http
     behavior: domain
     url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt
     path: ./ruleset/gfw.yaml
     interval: 86400
-  direct:
+  webdirect:
     type: http
     behavior: domain
     url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt
     path: ./ruleset/direct.yaml
     interval: 86400
+  gfw:
+    type: file
+    behavior: domain
+    path: ./ruleset/rule_diy_gfw.yaml
+  direct:
+    type: file
+    behavior: domain
+    path: ./ruleset/rule_diy_direct.yaml
   blacklist_rules:
     type: file
     behavior: classical
