@@ -2,6 +2,10 @@ port: 7890
 socks-port: 1080 # SOCKS5代理端口，DNS请求会中转
 redir-port: 3333 # 透明代理端口
 allow-lan: true
+# allow-lan=true时,最好设置内网访问IP,关闭IPv6监听
+bind-address: 192.168.50.1
+# 不使用IPv6地址(配合上面的bind-address)
+ipv6: false
 mode: Rule
 log-level: info # 日志显示级别： debug-问题调试，info-基本信息
 external-controller: 0.0.0.0:9090
@@ -120,7 +124,7 @@ proxy-groups:
     url: http://www.gstatic.com/generate_204
     interval: 300
   - name: PROXY                  # 免费可用代理组
-    type: select
+    type: url-test
     use:
       - provider_url
       - provider_free

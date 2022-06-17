@@ -52,8 +52,8 @@ check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"'
-    tmp_yacd="0.0.0.0:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
+    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"|.allow-lan=true|.bind-address=strenv(tmp_ipaddr)|.ipv6=false'
+    tmp_ipaddr=${lan_ipaddr} tmp_yacd="0.0.0.0:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
@@ -931,8 +931,8 @@ list_config_files() {
     tmp_filelist="./config.yaml ./ruleset/rule_part_basic.yaml ./ruleset/rule_part_blacklist.yaml ./ruleset/rule_part_whitelist.yaml"
     for fn in $tmp_filepath_list
     do
-        # 忽略 1MB大小以上的文件: dbus value大小限制为1MB
-        if [ `cat $KSHOME/$app_name/$fn | wc -c` -lt 786432 ]; then
+        # 忽略 96KB大小以上的文件: dbus value大小限制为128KB
+        if [ `cat $KSHOME/$app_name/$fn | wc -c` -lt 98304 ]; then
             # 保留文件内容比较少的文件,文件过大无法直接保存和修改
             tmp_filelist="$tmp_filelist $fn"
 
