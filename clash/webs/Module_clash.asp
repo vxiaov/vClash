@@ -1086,7 +1086,7 @@
                         <div class="clash_basic_info" style="float:left;">
                             <!--插件特点-->
                             <p style="color: rgb(229, 254, 2);">
-                                <b><a href="https://github.com/learnhard-cn/vClash">vClash</a></b>:一个简单、安装即用的科学上网插件...<br/> &nbsp;&nbsp;&nbsp;&nbsp;1.Clash内核:
+                                &nbsp;&nbsp;<b><a style="color: rgb(0, 255, 60); text-decoration: underline; " href="https://github.com/learnhard-cn/vClash">vClash</a></b>:一个简单、安装即用的科学上网插件...<br/> &nbsp;&nbsp;&nbsp;&nbsp;1.Clash内核:
                                 <a href='https://github.com/Dreamacro/clash' target='_blank' rel="noopener noreferrer"><em><u>Clash</u></em></a>是一个基于规则的代理程序， 支持
                                 <a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank' rel="noopener noreferrer"><em><u>SS</u></em></a>、
                                 <a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、
@@ -1520,25 +1520,25 @@
                         <a type="button " class="button_gen debug " onclick="test_res(); " href="javascript:void(0); ">Test按钮</a> &nbsp;&nbsp;&nbsp;
                         <a type="button " class="button_gen " onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
                         <a type="button " class="button_gen " onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button " class="button_gen " id="clash_yacd_ui " onclick="yacd_ui_click_check(); " href="javascript:void(0); " target="_blank ">Yacd控制面板</a>
+                        <a type="button " class="button_gen " id="clash_yacd_ui" onclick="yacd_ui_click_check(); " href="javascript:void(0); " target="_blank ">Yacd控制面板</a>
                     </div>
 
-                    <div id="status_line ">
+                    <div id="status_line">
                         <div style="height: 60px;margin-top:10px; ">
-                            <div><img id="loadingIcon " style="display:none; " src="/images/loading.gif "></div>
+                            <div><img id="loadingIcon" style="display:none; " src="/images/loading.gif "></div>
                             <!-- 显示动态消息 -->
-                            <label id="copy_info " style="display: none;color:#ffc800;font-size: 24px; "></label>
+                            <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px; "></label>
                         </div>
                     </div>
-                    <div id="confirm " style="display: none; ">
-                        <div id="confirm_msg "></div>
+                    <div id="confirm" style="display: none; ">
+                        <div id="confirm_msg"></div>
                         <br />
                         <button class="button_gen confirm_yes ">确认</button>
                         <button class="button_gen confirm_no ">取消</button>
                     </div>
-                    <div style="margin-top:8px " id="logArea ">
+                    <div style="margin-top:8px " id="logArea">
                         <div style="display: block;text-align: center; font-size: 14px; ">显示日志信息</div>
-                        <textarea rows="30 " wrap="off " readonly="readonly " id="clash_text_log " class="input_text "></textarea>
+                        <textarea rows="30 " wrap="off " readonly="readonly " id="clash_text_log" class="input_text "></textarea>
                     </div>
 
                     <div class="KoolshareBottom " style="margin-top:5px; ">
@@ -1553,7 +1553,7 @@
             <div class="author-info "></div>
         </tr>
     </table>
-    <div id="footer "></div>
+    <div id="footer"></div>
 </body>
 <script type="text/css ">
 

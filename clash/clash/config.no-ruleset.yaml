@@ -178,6 +178,7 @@ proxy-groups:
     interval: 300
     proxies:
       - DIY组
+      - 中继组-解锁奈飞
       - 解锁Netflix非自制剧
       - 仅支持Netflix自制剧
       - PROXY
@@ -189,6 +190,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - DIY组
+      - 中继组-解锁奈飞
       - PROXY
       - 解锁Netflix非自制剧
       - 仅支持Netflix自制剧
@@ -199,6 +201,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - DIY组
+      - 中继组-解锁奈飞
       - PROXY
       - 解锁Netflix非自制剧
       - 仅支持Netflix自制剧

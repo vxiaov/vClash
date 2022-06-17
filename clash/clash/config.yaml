@@ -22,10 +22,10 @@ dns:
   fallback:
     - 8.8.8.8 # Google DNS over TCP
     - 1.1.1.1 # cloudflare DNS over TCP
-    - tls://8.8.8.8:853 # Google DNS over TLS
-    - tls://1.1.1.1:853 # cloudflare DNS over TLS
-    - https://dns.google/dns-query # Google DNS over HTTPS
-    - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
+    # - tls://8.8.8.8:853 # Google DNS over TLS
+    # - tls://1.1.1.1:853 # cloudflare DNS over TLS
+    # - https://dns.google/dns-query # Google DNS over HTTPS
+    # - https://cloudflare-dns.com/dns-query # cloudflare DNS over HTTPS
   # 强制DNS解析使用`fallback`配置
   fallback-filter:
     # true: CN使用nameserver解析，非CN使用fallback
