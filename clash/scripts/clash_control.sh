@@ -53,7 +53,7 @@ check_config_file() {
     clash_yacd_secret=$(yq e '.secret' $config_file)
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"|.allow-lan=true|.bind-address=strenv(tmp_ipaddr)|.ipv6=false'
-    tmp_ipaddr=${lan_ipaddr} tmp_yacd="0.0.0.0:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
+    tmp_ipaddr=${lan_ipaddr} tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="${lan_ipaddr}:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
@@ -130,21 +130,36 @@ get_arch() {
 }
 
 get_proc_status() {
-    clash_use_mem="$(cat /proc/$(pidof ${app_name})/status | grep VmRSS | awk '{printf("%.02f MB", $2/1024);}')"
+    
     free_mem="$(free | grep Mem | awk '{printf("%.02f MB", $4/1024);}')"
     total_mem="$(free | grep Mem | awk '{printf("%.02f MB", $2/1024);}')"
     echo "+----------[ 服务信息: ${clash_rule_mode} ]--------------------------------"
     echo "| $(echo_status head)"
     echo "| $(echo_status $app_name)"
-    echo "| Clash占用内存: $clash_use_mem, 系统剩余内存: $free_mem, 系统总内存: $total_mem"
+    if [ "$(pidof $app_name)" != "" ]; then
+        clash_use_mem="$(cat /proc/$(pidof ${app_name})/status | grep VmRSS | awk '{printf("%.02f MB", $2/1024);}')"
+        echo "| Clash占用内存: $clash_use_mem, 系统剩余内存: $free_mem, 系统总内存: $total_mem"
+    fi
     echo "+----------[ 调度信息 ]--------------------------------"
-    echo "|  $(cru l| grep ${cron_id})"
-    echo "|  $(cru l| grep update_provider_local)"
+    tmp_cron=$(cru l| grep ${cron_id})
+    if [ "$tmp_cron" != "" ]; then
+        echo "|  $tmp_cron"
+    fi
+    tmp_cron="$(cru l| grep update_provider_local)"
+    if [ "$tmp_cron" != "" ]; then
+        echo "|  $tmp_cron"
+    fi
     if [ "$clash_cfddns_enable" = "on" ] ; then
-        echo "|  $(cru l| grep clash_cfddns)"
+        tmp_cron="$(cru l| grep clash_cfddns)"
+        if [ "$tmp_cron" != "" ]; then
+            echo "|  $tmp_cron"
+        fi
     fi
     if [ "$clash_watchdog_enable" = "on" ] ; then
-        echo "|  $(cru l| grep soft_route_check)"
+        tmp_cron="$(cru l| grep soft_route_check)"
+        if [ "$tmp_cron" != "" ]; then
+            echo "|  $tmp_cron"
+        fi
     fi
     
     echo "+---------------------------------------------------"

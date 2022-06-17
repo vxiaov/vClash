@@ -8,7 +8,7 @@ bind-address: 192.168.50.1
 ipv6: false
 mode: Rule
 log-level: info # 日志显示级别： debug-问题调试，info-基本信息
-external-controller: 0.0.0.0:9090
+external-controller: 192.168.50.1:9090
 external-ui: /koolshare/clash/dashboard/
 secret: route
 # 透明代理开启DNS
