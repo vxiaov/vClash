@@ -63,7 +63,7 @@
 
 .tabs {
     overflow: hidden;
-    border: 1px solid #ccc;
+    border: 1px rgb(132, 132, 132);
 }
 
 
@@ -135,4 +135,20 @@ td {
 
 #confirm .message {
     text-align: left;
+}
+
+.formfonttitle {
+    display: block;
+    text-align: left;
+}
+
+.softcenterRetBtn {
+    float: right;
+    cursor: pointer;
+    margin-top: -20px;
+    content: url('/images/backprev.png');
+}
+
+.softcenterRetBtn:hover {
+    content: url('/images/backprevclick.png');
 }

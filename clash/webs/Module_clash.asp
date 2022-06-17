@@ -1079,26 +1079,20 @@
                 <div id="tabMenu" class="submenuBlock"></div>
                 <div class="apply_gen FormTitle">
                     <div class="clash_top" style="padding-top: 20px;">
-                        <div style="float:left;" class="formfonttitle"><b>Clash</b>版科学上网工具</div>
-                        <div style="float:right; width:15px; height:25px;margin-top:10px">
-                            <img id="return_btn" onclick="reload_Soft_Center();" align="right" style="cursor:pointer;margin-left:-80px;margin-top:-25px;" title="返回软件中心" src="/images/backprev.png" onMouseOver="this.src='/images/backprevclick.png'" onMouseOut="this.src='/images/backprev.png'"></img>
-                        </div>
-                        <div class="clash_basic_info" style="float:left;">
-                            <!--插件特点-->
-                            <p style="color: rgb(229, 254, 2);">
-                                &nbsp;&nbsp;<b><a style="color: rgb(0, 255, 60); text-decoration: underline; " href="https://github.com/learnhard-cn/vClash">vClash</a></b>:一个简单、安装即用的科学上网插件...<br/> &nbsp;&nbsp;&nbsp;&nbsp;1.Clash内核:
-                                <a href='https://github.com/Dreamacro/clash' target='_blank' rel="noopener noreferrer"><em><u>Clash</u></em></a>是一个基于规则的代理程序， 支持
-                                <a href='https://github.com/shadowsocks/shadowsocks-libev' target='_blank' rel="noopener noreferrer"><em><u>SS</u></em></a>、
-                                <a href='https://github.com/shadowsocksrr/shadowsocksr-libev' target='_blank' rel="noopener noreferrer"><em><u>SSR</u></em></a>、
-                                <a href='https://github.com/v2ray/v2ray-core' target='_blank'><em><u>V2Ray</u></em></a>、
-                                <a href='https://github.com/trojan-gfw/trojan' target='_blank'><em><u>Trojan</u></em></a>等方式科学上网。<br/> &nbsp;&nbsp;&nbsp;&nbsp;2.
-                                <b>问题反馈: </b> 点击<a style="color: rgb(255, 0, 0);" href="https://github.com/learnhard-cn/vClash/issues" target="_blank">项目Issue</a>链接，请尽量详细描述您的问题，以及提交点击<b>路由信息</b>按钮输出内容，这样才能更快速帮您解决问题。
-                            </p>
-                            <hr>
+                        <div class="formfonttitle" ><b>Clash</b>版科学上网工具
+                            <img id="return_btn" onclick="reload_Soft_Center();" class="softcenterRetBtn" title="返回软件中心""></img>
                         </div>
                     </div>
+                    <div class="clash_basic_info">
+                        <!--插件特点-->
+                        <p style="color: rgb(229, 254, 2);">
+                            <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/learnhard-cn/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
+                            <b style="color: rgb(0, 255, 60);font-size: 16px;">问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/learnhard-cn/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。
+                        </p>
+                        <hr>
+                    </div>
                     <!-- Tab菜单 -->
-                    <div id="tabs">
+                    <div class="tabs">
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
                         <button id="btn_provider_tab" class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
                         <button id="btn_group_tab" class="tab" onclick="switch_tabs(event, 'menu_group_manager');update_node_list();">节点管理</button>
@@ -1107,7 +1101,7 @@
                         <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
                         <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
-                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');switch_edit_filecontent();">使用帮助</button>
+                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">使用帮助</button>
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -1119,7 +1113,7 @@
                         </thead>
                         <tr>
                             <th>
-                                <label>开启Clash服务:</label>
+                                <label>开启Clash服务</label>
                             </th>
                             <td colspan="2">
                                 <div class="switch_field">
@@ -1142,7 +1136,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <th>模式选择:</th>
+                            <th>模式选择</th>
                             <td>
                                 <div class="switch_field">
                                     <select id="clash_rule_mode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
@@ -1160,7 +1154,7 @@
                         </thead>
                         <tr>
                             <th>
-                                <label title="解决订阅URL链接被墙无法访问问题" class="hintstyle">走代理[?]:</label>
+                                <label title="解决订阅URL链接被墙无法访问问题" class="hintstyle">走代理</label>
                             </th>
                             <td>
                                 <div class="switch_field">
@@ -1176,7 +1170,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label title="格式为yaml格式的订阅源,参考提供示例. &#010; 订阅源URL会替换provider_remote.yaml文件,对应的proxy-provider名为provider_url。&#010;如果使用自己的config.yaml，而且没添加这个provider_url组，将会导致更新失败哦。" class="hintstyle">订阅源URL链接[?]:</label>
+                                <label title="格式为yaml格式的订阅源,参考提供示例. &#010; 订阅源URL会替换provider_remote.yaml文件,对应的proxy-provider名为provider_url。&#010;如果使用自己的config.yaml，而且没添加这个provider_url组，将会导致更新失败哦。" class="hintstyle">订阅源URL链接</label>
                             </th>
                             <td class="wide_input">
                                 <span>
@@ -1196,7 +1190,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件[?]:</label>
+                                <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件</label>
                             </th>
                             <td>
                                 <span style="text-align:left;">
@@ -1220,7 +1214,7 @@
                         </thead>
                         <tr>
                             <th><label class="hintstyle" title="支持:&#010; 1.ss/ssr/vmess格式链接;&#010; 2.包含ss/ssr/vmess格式链接列表的http(s)链接订阅源；&#010; 3.包含yaml格式节点的http(s)订阅源.&#010; 添加节点将保存到 provider_diy.yaml 文件中.">
-                                添加节点链接[?]:</label></th>
+                                添加节点链接</label></th>
                             <td class="wide_input">
                                 <textarea rows="5" class="input_text" id="proxy_node_list" placeholder="#粘贴代理链接，每行一个链接,支持SS/SSR/VMESS类型URI链接解析。支持添加HTTP远程订阅源,解析工具uridecoder代码已开源,请放心使用."></textarea>
                             </td>
@@ -1238,7 +1232,7 @@
                         </tr>
                         <!-- 代理组删除节点操作 -->
                         <tr>
-                            <th>删除节点选择:</th>
+                            <th>删除节点选择</th>
                             <td>
                                 <div class="switch_field">
                                     <select id="proxy_node_name" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
@@ -1295,22 +1289,22 @@
                             </tr>
                         </thead>
                         <tr>
-                            <th>启用CloudflareDDNS功能:</th>
+                            <th title="启动Cloudflare的DDNS功能">启用DDNS功能</th>
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_cfddns_enable">
-                                                    <input id="clash_cfddns_enable" onclick="switch_cfddns_mode();" class="switch" type="checkbox" style="display: none;">
-                                                    <div class="switch_container">
-                                                        <div class="switch_bar"></div>
-                                                        <div class="switch_circle transition_style"></div>
-                                                    </div>
-                                                </label>
+                                        <input id="clash_cfddns_enable" onclick="switch_cfddns_mode();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>Email邮箱地址：</label>
+                                <label>Email邮箱地址</label>
                             </th>
                             <td colspan="2">
                                 <input type="email" class="input_text" name="email" id="clash_cfddns_email" placeholder="CF注册的邮箱：you@example.com">
@@ -1318,7 +1312,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>API KEY：</label>
+                                <label>API KEY</label>
                             </th>
                             <td colspan="2">
                                 <span>获取方法：<a target="_blank" style="color: greenyellow;" href="https://dash.cloudflare.com/profile/api-tokens">直达Cloudflare链接(查看<b>Global API Key</b>)</a>
@@ -1328,15 +1322,15 @@
                         </tr>
                         <tr>
                             <th title="提前添加一条A记录（例如:home,IPv4地址可以写 127.0.0.1，添加成功后会更新，这里就填写 home.example.com,其中 example.com 是您的购买的域名）">
-                                <label>Domain(<b>多域名逗号分割</b>)：</label>
+                                <label>域名列表</label>
                             </th>
                             <td colspan="2">
                                 <input type="text" class="input_text" id="clash_cfddns_domain" placeholder="示例：home.example.com,test.example.com">
                             </td>
                         </tr>
                         <tr>
-                            <th title="设置解析TTL，免费版的范围是120-86400,设置1为自动,默认值为1(调度更新时间2分钟)">
-                                <label>TTL生命周期[?]<b>(可不填)</b> ：</label>
+                            <th title="设置解析TTL生命周期，免费版的范围是120-86400,设置1为自动,默认值为1(调度更新时间2分钟)">
+                                <label>TTL<b>(可不填)</b></label>
                             </th>
                             <td colspan="2">
                                 <input type="text" class="input_text" class="input_text" id="clash_cfddns_ttl" placeholder="范围是120-86400,设置1为自动,默认值为1(调度更新时间2分钟)">
@@ -1344,7 +1338,7 @@
                         </tr>
                         <tr>
                             <th title="自动获取公网IP地址的检测命令，尽量自建或选择信任的网站！">
-                                <label>获取公网IP命令[?]<b>(可不填)</b> ：</label>
+                                <label>获取公网IP命令<b>(可不填)</b></label>
                             </th>
                             <td colspan="2">
                                 <input type="text" class="input_text" id="clash_cfddns_ip" placeholder="curl https://httpbin.org/ip|grep origin|cut -d\&quot; -f4">
@@ -1352,7 +1346,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>最后一次更新时间：</label>
+                                <label>最后一次更新</label>
                             </th>
                             <td colspan="2">
                                 <p>
@@ -1370,38 +1364,38 @@
                             </tr>
                         </thead>
                         <tr>
-                            <th>自动开启Clash功能:</th>
+                            <th>自动开启Clash功能</th>
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_watchdog_start_clash">
-                                                    <input id="clash_watchdog_start_clash" class="switch" type="checkbox" style="display: none;">
-                                                    <div class="switch_container">
-                                                        <div class="switch_bar"></div>
-                                                        <div class="switch_circle transition_style"></div>
-                                                    </div>
-                                                </label>
+                                        <input id="clash_watchdog_start_clash" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>旁路由IP地址：</label>
+                                <label>旁路由IP地址</label>
                             </th>
                             <td colspan="2">
                                 <input type="text" class="input_text" name="route_soft_ip" id="clash_watchdog_soft_ip" placeholder="旁路由IP地址： 192.168.50.1">
                             </td>
                         </tr>
                         <tr>
-                            <th>启用旁路由Watchdog(立即生效):</th>
+                            <th>启用监控(立即生效)</th>
                             <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_watchdog_enable">
-                                                    <input id="clash_watchdog_enable" onclick="switch_route_watchdog();" class="switch" type="checkbox" style="display: none;">
-                                                    <div class="switch_container">
-                                                        <div class="switch_bar"></div>
-                                                        <div class="switch_circle transition_style"></div>
-                                                    </div>
-                                                </label>
+                                        <input id="clash_watchdog_enable" onclick="switch_route_watchdog();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
                                 </div>
                             </td>
                         </tr>
@@ -1415,7 +1409,7 @@
                         </thead>
                         <tr>
                             <th>
-                                <label title="默认开启，开启此模式后内网无任何配置即可科学上网。&#010;如果只想使用clash提供的socks5代理,可关闭此选项。">透明代理模式[?]:</label>
+                                <label title="默认开启，开启此模式后内网无任何配置即可科学上网。&#010;如果只想使用clash提供的socks5代理,可关闭此选项。">透明代理模式</label>
                             </th>
                             <td>
                                 <div class="switch_field">
@@ -1431,7 +1425,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>备份配置:</label>
+                                <label>备份配置</label>
                             </th>
                             <td colspan="2">
                                 <input type="button" class="button_gen" onclick="backup_config_file();" value="开始备份">
@@ -1439,7 +1433,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>恢复配置:</label>
+                                <label>恢复配置</label>
                             </th>
                             <td colspan="2">
                                 <input type="button" class="button_gen" onclick="restore_config_file();" value="开始恢复">
@@ -1448,7 +1442,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>上传<b>config.yaml</b>文件:</label>
+                                <label>上传<b>config.yaml</b>文件</label>
                             </th>
                             <td colspan="2">
                                 <input type="button" id="upload_btn" class="button_gen" onclick="upload_config_file();" value="开始上传">
@@ -1474,7 +1468,7 @@
                         </thead>
                         <!-- 编辑文件选择操作 -->
                         <tr>
-                            <th>编辑文件:</th>
+                            <th>编辑文件</th>
                             <td>
                                 <div class="switch_field">
                                     <select id="clash_edit_filelist" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
@@ -1498,20 +1492,17 @@
                     <table id="menu_help" class="FormTable">
                         <thead>
                             <tr>
-                                <td colspan="3">vClash - 使用帮助</td>
+                                <td>vClash - 使用帮助</td>
                             </tr>
                         </thead>
                         <tr>
-                            <td colspan="2">
-                                <p style="text-align: left; color: rgb(19, 209, 41); font-size: 25px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 个人节点添加</b>: 在 “节点管理”页面完成，支持base64链接格式(如:ss://base64string),支持http订阅源(yaml格式或包含ss://、ssr://、vmess://格式链接列表地址),格式繁多，有问题反馈issue</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 免费订阅节点添加</b>: 在 "订阅管理"页面完成，支持HTTP格式链接,如果链接被墙无法访问，开启走代理开关会自动使用clash的socks5代理访问。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. 兼容性</b>: 如果安装了多个代理类型插件，且使用了透明代理模式，这可能会与<b style="color: rgb(32, 252, 32);">其他代理插件可能产生冲突</b> ，使用前要关闭其他透明代理插件。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 什么是透明代理?</b>: 局域网不用做任何设置,内部局域网即可科学上网。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">5. 关闭透明代理</b>: 可结合 <b>switchyomega插件</b> 使用SOCKS5代理端口: <b>1080</b>实现科学上网。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">6. 了解更多</b>: 可阅读vClash项目的<a target="_blank" href="https://github.com/learnhard-cn/vClash/wiki">wiki页面</a></p>
-                                <hr>
-                                <p style=" color:#FC0 ">&nbsp;&nbsp;&nbsp;&nbsp; <b>问题反馈: </b> 点击<a href="https://github.com/learnhard-cn/vClash/issues " target="_blank ">项目Issue</a>链接，请尽量详细描述您的问题，以及提交点击<b>路由信息</b>输出内容，这样才能更快速帮您解决问题。(理论上可以一键提交问题，但出于用户对安全考虑，并没有实现任何数据上传操作)</p>
+                            <td>
+                                <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 个人节点添加</b>:在“节点管理”页面,稳定节点专用,支持base64格式链接以及http源(yaml格式或ss://、ssr://、vmess://格式链接列表)</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 免费节点添加</b>:在"订阅管理"页面,支持HTTP源,不稳定节点添加在这里.</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. 插件的兼容性</b>: 透明代理模式时会与<b style="color: rgb(32, 252, 32);">其他代理插件冲突</b> ，使用前要关闭其他透明代理插件。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 学习配置规则</b>: 核心配置为clash的启动配置文件,请阅读<a target="_blank" href="https://github.com/Dreamacro/clash/wiki/configuration">官方配置说明文档</a></p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">5. 学习插件用法</b>: 可阅读vClash项目的<a target="_blank" href="https://github.com/learnhard-cn/vClash/wiki">wiki页面</a></p>
                             </td>
                         </tr>
                     </table>
