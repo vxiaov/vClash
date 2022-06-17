@@ -5,5 +5,7 @@ rules:
   - RULE-SET,video_tiktok,Tiktok_PROXY
   - RULE-SET,video_iqiyi,IQiyi_PROXY
   - RULE-SET,video_ibilibili,Bili_PROXY
+  # > 白名单列表
   - RULE-SET,whitelist_rules,DIRECT
+  # > 黑名单列表
   - RULE-SET,blacklist_rules,默认代理组

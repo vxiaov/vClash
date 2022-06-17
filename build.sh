@@ -24,7 +24,6 @@ fi
 
 generate_gfwlist() {
     # 生成gfw.yaml #
-    echo "rule_diy_gfw.yaml 正在生成..."
     outdir="./clash/clash/ruleset/"
     curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt > ${outdir}/gfw.tmp
     yq e '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
@@ -43,7 +42,6 @@ generate_gfwlist() {
 
 generate_direct() {
     # 生成direct.yaml #
-    echo "rule_diy_direct.yaml 正在生成..."
     outdir="./clash/clash/ruleset/"
     curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt > ${outdir}/direct.tmp
     yq e '.payload[]' ${outdir}/direct.tmp | awk -F'.' 'BEGIN{

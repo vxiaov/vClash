@@ -105,24 +105,25 @@ td {
     padding: 2px !important;
     color: rgb(0, 255, 8) !important;
 }
-#confirm {
+#logArea {
     display: none;
     background-color: #21333E;
     color: #ffffff;
     border: 1px solid #aaa;
-    border-radius: 5px;
+    border-radius: 8px;
     position: fixed;
-    width: 25%;
+    width: 60%;
     height: auto;
-    left: 50%;
-    top:50%;
+    left: 20%;
+    top:20%;
     margin-left: -100px;
-    padding: 20px 20px 20px;
+    padding: 20px 10px 10px;
     box-sizing: border-box;
     text-align: center;
+    opacity: 95%;
 }
 
-#confirm button {
+#logArea a {
     background-color: #FFFFFF;
     display: inline-block;
     border-radius: 12px;
@@ -131,9 +132,10 @@ td {
     text-align: center;
     width: 60px;
     cursor: pointer;
+    margin: 5px;
 }
 
-#confirm .message {
+#logArea #clash_text_log {
     text-align: left;
 }
 

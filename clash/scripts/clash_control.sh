@@ -1000,6 +1000,17 @@ clash_config_init() {
     # 校验配置文件:初始化 yacd 访问链接: 执行太慢了，影响页面加载速度,暂时屏蔽
     # check_config_file
 }
+
+set_log_type() {
+    # 设置日志类型
+    local log_type="$1"
+    if [ -z "$log_type" ]; then
+        LOGGER "日志类型不能为空!"
+        return 1
+    fi
+    dbus set clash_log_type="$log_type"
+    LOGGER "设置日志类型成功!"
+}
 # 使用帮助信息
 usage() {
     cat <<END
@@ -1132,7 +1143,7 @@ do_action() {
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check)
+    add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check| set_log_type)
         $action_job
         ;;
     set_one_file)

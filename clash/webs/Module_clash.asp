@@ -48,9 +48,9 @@
             for (var i = 0; i < document.getElementsByClassName("debug").length; i++) {
                 document.getElementsByClassName("debug")[i].style.display = "none";
             }
-            // 隐藏 class 包含 to_be_delete 的标签
-            for (var i = 0; i < document.getElementsByClassName("to_be_delete").length; i++) {
-                document.getElementsByClassName("to_be_delete")[i].style.display = "none";
+            // 隐藏 class 包含 to_be_deleted 的标签
+            for (var i = 0; i < document.getElementsByClassName("to_be_deleted").length; i++) {
+                document.getElementsByClassName("to_be_deleted")[i].style.display = "none";
             }
 
         }
@@ -241,7 +241,7 @@
             ];
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable',
-                'clash_watchdog_enable', 'clash_watchdog_start_clash'
+                'clash_watchdog_enable', 'clash_watchdog_start_clash', 'clash_log_type'
             ];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
@@ -274,6 +274,8 @@
 
             //更新#clash_edit_filelist 编辑文件选项
             update_edit_filelist();
+
+            set_log_type(); //初始化日志类型
         }
 
         function update_edit_filelist() {
@@ -355,14 +357,14 @@
                             if (callback) {
                                 setTimeout(function() {
                                     callback();
-                                }, 3000);
+                                }, 1000);
                             }
                         } else {
                             show_status();
                             if (callback) {
                                 setTimeout(function() {
                                     callback();
-                                }, 3000);
+                                }, 1000);
                             }
                         }
                     }
@@ -387,6 +389,12 @@
         function show_status() {
             //显示脚本执行过程的日志信息
             document.getElementById("loadingIcon").style.display = "";
+            if(dbus["clash_log_type"] == "on") {
+                $j("#logArea").show();
+            }else {
+                $j("#logMsg").show();
+            }
+            
             $j.ajax({
                 url: '/_temp/clash_status.log',
                 type: 'GET',
@@ -395,10 +403,17 @@
                 dataType: 'text',
                 success: function(response) {
                     var retArea = E("clash_text_log");
+                    var logBackup = E("clash_log_backup");
+                    var logMsg = E("clash_log_msg");
+                    
                     if (response.search("XU6J03M6") != -1) {
                         document.getElementById("loadingIcon").style.display = "none";
                         retArea.value = response.replace("XU6J03M6", " ");
+                        logBackup.value = retArea.value;
+                        logMsg.value = retArea.value;
+                        logMsg.scrollTop = logMsg.scrollHeight;
                         retArea.scrollTop = retArea.scrollHeight;
+                        ready_close_log_msg();
                         return true;
                     }
                     if (_responseLen == response.length) {
@@ -414,12 +429,31 @@
                     }
                     retArea.value = response.replace("XU6J03M6", " ");
                     retArea.scrollTop = retArea.scrollHeight;
+                    logMsg.value = retArea.value;
+                    logMsg.scrollTop = logMsg.scrollHeight;
                     _responseLen = response.length;
                 },
                 error: function() {
                     setTimeout("show_status();", 500);
                 }
             });
+        }
+
+        // 关闭日志消息提示
+        function ready_close_log_msg() {
+            var time_sec = 5;
+            var timeoutid = setInterval(function() {
+                $j("#btn_log_msg_close").text("关闭(" + time_sec-- + "秒后)");
+                if (time_sec == 0) {
+                    $j("#btn_log_msg_close").text("关闭");
+                    clearInterval(timeoutid);
+                    // close_log_msg();
+                }
+            }, 1000);
+        }
+
+        function close_log_msg() {
+            $j("#logArea").fadeOut(1000);
         }
 
         function switch_tabs(evt, tab_id) {
@@ -441,13 +475,6 @@
             // Show the current tab, and add an "active" class to the button that opened the tab
             document.getElementById(tab_id).style.display = "inline-table";
             evt.currentTarget.className += " active";
-            if (tab_id == "menu_config") {
-                $j("#clash_text_log").attr("rows", "10");
-                $j("#status_tools").hide()
-            } else {
-                $j("#clash_text_log").attr("rows", "30");
-                $j("#status_tools").show();
-            }
         }
 
         function reload_Soft_Center() {
@@ -556,6 +583,29 @@
                 dbus["clash_enable"] = "off";
                 service_stop();
             }
+        }
+        function set_log_type() {
+            // 界面切换日志弹出框模式
+            if (dbus["clash_log_type"] == "on") {
+                //开启日志弹出框模式
+                $j("#logMsg").hide();
+                $j("#logBackup").show();
+            } else {
+                //关闭日志弹出框模式
+                $j("#logMsg").show();
+                $j("#logBackup").hide();
+            }
+        }
+        //切换日志弹出框模式
+        function switch_log_type() {
+            if (document.getElementById('clash_log_type').checked) {
+                dbus["clash_log_type"] = "on";
+            } else {
+                dbus["clash_log_type"] = "off";
+            }
+            apply_action("set_log_type", "2", set_log_type, {
+                "clash_log_type": dbus["clash_log_type"]
+            });
         }
 
         function swtich_use_localhost_proxy() {
@@ -886,10 +936,6 @@
             $j("#rule_diy_whitelist").val(Base64.decode(clash_whitelist_rules));
         }
 
-        function load_rules() {
-            apply_action("load_rules", "0", load_rule_content);
-        }
-
         // 切换为黑名单模式
         function switch_blacklist_mode() {
             if (dbus["clash_rule_mode"] == "whitelist") {
@@ -999,13 +1045,14 @@
             // 设置当前textarea的内容为 file_content
             dbus["clash_edit_filecontent"] = data.clash_edit_filecontent;
             $j("#clash_config_content").val(filecontent);
+            show_result(dbus["clash_edit_filepath"] + "文件加载成功!", 1000);
         }
 
         function switch_edit_filecontent() {
             // 根据当前的选择，切换新的文件内容
             list_config_files();
             dbus["clash_edit_filepath"] = $j("#clash_edit_filelist").val();
-            apply_action("get_one_file", "0", set_edit_content, {
+            apply_action("get_one_file", "2", set_edit_content, {
                 "clash_edit_filepath": $j("#clash_edit_filelist").val()
             });
         }
@@ -1096,12 +1143,12 @@
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
                         <button id="btn_provider_tab" class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
                         <button id="btn_group_tab" class="tab" onclick="switch_tabs(event, 'menu_group_manager');update_node_list();">节点管理</button>
-                        <button id="btn_rule_tab" class="tab to_be_delete" onclick="switch_tabs(event, 'menu_rule_manager');load_rules();">规则管理</button>
                         <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
                         <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
                         <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">使用帮助</button>
+                        <button id="btn_log_tab" class="tab" onclick="switch_tabs(event, 'menu_log');">日志信息</button>
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -1242,42 +1289,6 @@
                             <td class="hasButton">
                                 <button type="button" class="button_gen" onclick="delete_one_node()" href="javascript:void(0);">删除当前</button>
                                 <button type="button" class="button_gen" onclick="delete_all_nodes()" href="javascript:void(0);">删除全部</button>
-                            </td>
-                        </tr>
-                    </table>
-                    <!-- rule-provider规则管理 -->
-                    <table id="menu_rule_manager" class="FormTable">
-                        <thead>
-                            <tr>
-                                <td colspan="3">Clash - 规则组管理</td>
-                            </tr>
-                        </thead>
-                        <tr>
-                            <th><label title="黑名单规则: 匹配黑名单的请求 走代理,默认直连,更精准的走代理"><b>黑名单</b>规则[?]:</label></th>
-                            <td class="wide_input">
-                                <textarea title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。" readonly="true" rows="5" class="input_text" id="rule_diy_blacklist" placeholder="#粘贴域名前缀、IP段或域名关键词Keyword,一行一条记录!"></textarea>
-                            </td>
-                            <td>
-                                <input type="button" class="button_gen" onclick="edit_blacklist_rule();" value="编辑(ctrl+e)">
-                                <input type="button" class="button_gen" onclick="save_blacklist_rule();" value="保存(ctrl+s)">
-                                <input type="button" class="button_gen" onclick="load_blacklist_rule();" value="重载(ctrl+r)">
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th><label title="白名单规则: 匹配到白名单的请求 直连, 默认 走代理。走代理流量会更多。&#010;若白名单范围过小可能导致一些CDN访问走代理而变慢或出现异常。&#010; 例如: 小爱同学使用此模式时会提示无法使用网络。"><b>白名单</b>规则[?]:</label></th>
-                            <td class="wide_input">
-                                <textarea title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。" readonly="true" rows="5" class="input_text" id="rule_diy_whitelist" placeholder="#粘贴域名前缀、IP段或域名关键词Keyword,一行一条记录!"></textarea>
-                            </td>
-                            <td>
-                                <input type="button" class="button_gen" onclick="edit_whitelist_rule();" value="编辑(ctrl+e)">
-                                <input type="button" class="button_gen" onclick="save_whitelist_rule();" value="保存(ctrl+s)">
-                                <input type="button" class="button_gen" onclick="load_whitelist_rule();" value="重载(ctrl+r)">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="3">
-                                <p style="font-size: 18px; color:#FC0; text-align: center;">提示:当点击编辑框时，就会激活<b>快捷键</b>操作哦!</p>
                             </td>
                         </tr>
                     </table>
@@ -1451,9 +1462,9 @@
                         </tr>
                         <tr>
                             <td colspan="2">
-                                <b style="color: red;font-size:20px;">注意事项</b>:<br>&nbsp;&nbsp;&nbsp;&nbsp;
-                                <b style="font-size:18px;">1. 确保配置的Yaml格式正确性: </b>本插件会修改redir-port/dns.listen/external-controller/external-ui参数<br>&nbsp;&nbsp;&nbsp;&nbsp;
-                                <b style="font-size:18px;">2. 重要提醒: 修改前记得备份!!!</b><br/>
+                                <b>注意事项</b>:<br>&nbsp;&nbsp;&nbsp;&nbsp;
+                                <b>1. 确保配置的Yaml格式正确性: </b>本插件会修改redir-port/dns.listen/external-controller/external-ui参数<br>&nbsp;&nbsp;&nbsp;&nbsp;
+                                <b>2. 重要提醒: 修改前记得备份!!!</b><br/>
                             </td>
                         </tr>
 
@@ -1506,33 +1517,61 @@
                             </td>
                         </tr>
                     </table>
+                    <table id="menu_log" class="FormTable">
+                        <thead>
+                            <tr>
+                                <td colspan="2">vClash - 日志</td>
+                            </tr>
+                        </thead>
+                        <tr>
+                            <th>日志弹窗模式</th>
+                            <td>
+                                <div class="switch_field">
+                                    <label for="clash_log_type">
+                                        <input id="clash_log_type" onclick="switch_log_type();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr id="logBackup">
+                            <td colspan="2">
+                                <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">日志信息</p>
+                                <textarea rows="20 " wrap="off" readonly="readonly" id="clash_log_backup" class="input_text"></textarea>
+                            </td>
+                        </tr>
+                    </table>
                     <!--打开 Clash控制面板-->
-                    <div id="status_tools " style="display: inline-table;margin-top: 25px; ">
-                        <a type="button " class="button_gen debug " onclick="test_res(); " href="javascript:void(0); ">Test按钮</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button " class="button_gen " onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button " class="button_gen " onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button " class="button_gen " id="clash_yacd_ui" onclick="yacd_ui_click_check(); " href="javascript:void(0); " target="_blank ">Yacd控制面板</a>
+                    <div id="status_tools " style="margin-top: 25px; padding-bottom: 20px;">
+                        <a type="button" class="button_gen debug" onclick="test_res(); " href="javascript:void(0); ">Test按钮</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button" class="button_gen" onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button" class="button_gen" onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
+                        <a type="button" class="button_gen" id="clash_yacd_ui" onclick="yacd_ui_click_check(); " href="javascript:void(0); " target="_blank">Yacd控制面板</a>
                     </div>
 
-                    <div id="status_line">
+                    <div>
                         <div style="height: 60px;margin-top:10px; ">
-                            <div><img id="loadingIcon" style="display:none; " src="/images/loading.gif "></div>
+                            <div><img id="loadingIcon" style="display:none; " src="/images/loading.gif"></div>
                             <!-- 显示动态消息 -->
                             <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px; "></label>
                         </div>
                     </div>
-                    <div id="confirm" style="display: none; ">
-                        <div id="confirm_msg"></div>
-                        <br />
-                        <button class="button_gen confirm_yes ">确认</button>
-                        <button class="button_gen confirm_no ">取消</button>
-                    </div>
-                    <div style="margin-top:8px " id="logArea">
-                        <div style="display: block;text-align: center; font-size: 14px; ">显示日志信息</div>
-                        <textarea rows="30 " wrap="off " readonly="readonly " id="clash_text_log" class="input_text "></textarea>
+
+                    <div id="logMsg" style="display: none;">
+                        <div>显示日志信息</div>
+                        <textarea rows="20 " wrap="off" readonly="readonly" id="clash_log_msg" class="input_text"></textarea>
                     </div>
 
-                    <div class="KoolshareBottom " style="margin-top:5px; ">
+                    <div id="logArea" style="display: none; ">
+                        <div>显示日志信息</div>
+                        <textarea rows="20 " wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
+                        <a type="button" class="button_gen" id="btn_log_msg_close" onclick="close_log_msg(); " href="javascript:void(0); ">关闭(5秒后)</a>
+                    </div>
+
+                    <div class="KoolshareBottom" style="margin-top:5px; ">
                         <a class="tab item-tab " href="https://github.com/Dreamacro/clash " target="_blank ">Clash项目</a>
                         <a class="tab item-tab " href="https://github.com/haishanh/yacd " target="_blank ">Yacd项目</a>
                         <a class="tab item-tab " href="https://github.com/learnhard-cn/uridecoder " target="_blank ">uridecoder项目</a>
@@ -1541,7 +1580,7 @@
                         <a class="tab item-tab " href="https://t.me/share_proxy_001 " target="_blank ">小V的油管</a>
                     </div>
             </td>
-            <div class="author-info "></div>
+            <div class="author-info"></div>
         </tr>
     </table>
     <div id="footer"></div>
@@ -1549,7 +1588,7 @@
 <script type="text/css ">
 
 </script>
-<script type="text/javascript ">
+<script type="text/javascript">
     <!--[if !IE]>-->
     (function($) {
         var textArea = document.getElementById('clash_text_log');
