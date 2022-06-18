@@ -112,11 +112,13 @@ td {
     border: 1px solid #aaa;
     border-radius: 8px;
     position: fixed;
-    width: 60%;
+    width: 70%;
+    min-width: 600px;
+    max-width: 800px;
     height: auto;
-    left: 20%;
+    /* left: 20%; */
     top:20%;
-    margin-left: -100px;
+    /* margin-left: -100px; */
     padding: 20px 10px 10px;
     box-sizing: border-box;
     text-align: center;

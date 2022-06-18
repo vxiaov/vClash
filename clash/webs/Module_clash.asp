@@ -67,17 +67,18 @@
                 // 先解除已有绑定事件
                 $j(this).unbind("keydown");
                 $j(this).bind("keydown", function(e) {
-                    if (e.ctrlKey && e.keyCode == 83) {
+                    // mac 绑定 command+s
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
                         save_whitelist_rule();
                         return false;
                     }
                     // 绑定 ctrl+e 快捷键
-                    if (e.ctrlKey && e.keyCode == 69) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
                         edit_whitelist_rule();
                         return false;
                     }
                     // 绑定 ctrl+r 快捷键
-                    if (e.ctrlKey && e.keyCode == 82) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
                         load_whitelist_rule();
                         return false;
                     }
@@ -90,17 +91,17 @@
                 // 先解除已有绑定事件
                 $j(this).unbind("keydown");
                 $j(this).bind("keydown", function(e) {
-                    if (e.ctrlKey && e.keyCode == 83) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
                         save_blacklist_rule();
                         return false;
                     }
                     // 绑定 ctrl+e 快捷键
-                    if (e.ctrlKey && e.keyCode == 69) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
                         edit_blacklist_rule();
                         return false;
                     }
                     // 绑定 ctrl+r 快捷键
-                    if (e.ctrlKey && e.keyCode == 82) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
                         load_blacklist_rule();
                         return false;
                     }
@@ -135,17 +136,17 @@
                 // 先解除已有绑定事件
                 $j(this).unbind("keydown");
                 $j(this).bind("keydown", function(e) {
-                    if (e.ctrlKey && e.keyCode == 83) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
                         save_config_content();
                         return false;
                     }
                     // 绑定 ctrl+e 快捷键
-                    if (e.ctrlKey && e.keyCode == 69) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
                         edit_config_content();
                         return false;
                     }
                     // 绑定 ctrl+r 快捷键
-                    if (e.ctrlKey && e.keyCode == 82) {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
                         load_config_content();
                         return false;
                     }

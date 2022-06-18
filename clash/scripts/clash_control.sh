@@ -449,22 +449,26 @@ update_provider_file() {
 
     # 格式化处理yaml文件，只保留proxies信息
     check_format=$(yq e '.proxies[0].name' $temp_provider_file)
-    if [ "$check_format" = "null" ]; then
+    if [ "$check_format" = "" -o "$check_format" = "null" ]; then
         LOGGER "节点订阅源配置文件yaml格式错误: ${temp_provider_file}"
         LOGGER "错误原因:没找到 proxies 代理节点配置! 没有代理节点怎么科学上网呢？"
         LOGGER "订阅源文件格式请参考: https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers "
         return 3
     fi
 
-    yq e '{ "proxies": .proxies}' $temp_provider_file > ${provider_remote_file}.new
+    yq e -P '{ "proxies": .proxies}' $temp_provider_file > ${provider_remote_file}.new
+    proxy_num="$(yq e '.proxies[].name' ${provider_remote_file}.new|wc -l)"
     if [ "$?" != "0" ] ; then
         LOGGER "更新节点错误![$?]!订阅源配置可能存在问题!"
         rm -f ${provider_remote_file}.new
         return 4
-    else
-        mv ${provider_remote_file} ${provider_remote_file}.old
-        mv ${provider_remote_file}.new  ${provider_remote_file}
+    if [ "$proxy_num" = "0" ] ; then
+        LOGGER "可能是你的订阅源不符合Yaml格式,节点导入失败了"
+        rm -f ${provider_remote_file}.new
+        return 5
     fi
+    mv ${provider_remote_file} ${provider_remote_file}.old
+    mv ${provider_remote_file}.new  ${provider_remote_file}
 
     if cru l | grep update_provider_local >/dev/null; then
         LOGGER "已经添加了调度! $(cru l | grep update_provider_local)"
