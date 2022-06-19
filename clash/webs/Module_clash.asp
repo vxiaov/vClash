@@ -69,16 +69,19 @@
                 $j(this).bind("keydown", function(e) {
                     // mac 绑定 command+s
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
+                        e.preventDefault();
                         save_whitelist_rule();
                         return false;
                     }
                     // 绑定 ctrl+e 快捷键
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
+                        e.preventDefault();
                         edit_whitelist_rule();
                         return false;
                     }
                     // 绑定 ctrl+r 快捷键
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
+                        e.preventDefault();
                         load_whitelist_rule();
                         return false;
                     }
@@ -92,16 +95,19 @@
                 $j(this).unbind("keydown");
                 $j(this).bind("keydown", function(e) {
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
+                        e.preventDefault();
                         save_blacklist_rule();
                         return false;
                     }
                     // 绑定 ctrl+e 快捷键
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
+                        e.preventDefault();
                         edit_blacklist_rule();
                         return false;
                     }
                     // 绑定 ctrl+r 快捷键
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
+                        e.preventDefault();
                         load_blacklist_rule();
                         return false;
                     }
@@ -137,16 +143,19 @@
                 $j(this).unbind("keydown");
                 $j(this).bind("keydown", function(e) {
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
+                        e.preventDefault();
                         save_config_content();
                         return false;
                     }
                     // 绑定 ctrl+e 快捷键
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
+                        e.preventDefault();
                         edit_config_content();
                         return false;
                     }
                     // 绑定 ctrl+r 快捷键
                     if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
+                        e.preventDefault();
                         load_config_content();
                         return false;
                     }
@@ -162,17 +171,6 @@
                     if (res) {
                         save_config_content();
                     }
-                    // 一段JS实现的提示框
-                    // var confirmBox = $j("#confirm");
-                    // confirmBox.find("#confirm_msg").html("内容已修改!是否保存?");
-                    // confirmBox.find(".confirm_yes").bind("click", function() {
-                    //     save_config_content();
-                    //     confirmBox.hide();
-                    // });
-                    // confirmBox.find(".confirm_no").unbind().click(function() {
-                    //     confirmBox.hide();
-                    // });
-                    // confirmBox.show();
                     return false;
                 }
                 $j(this).unbind("keydown");
@@ -241,7 +239,7 @@
                 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui',
             ];
             var params_chk = [
-                'clash_trans', 'clash_enable', 'clash_use_local_proxy', 'clash_cfddns_enable',
+                'clash_trans', 'clash_enable', 'clash_cfddns_enable',
                 'clash_watchdog_enable', 'clash_watchdog_start_clash', 'clash_log_type'
             ];
             for (var i = 0; i < params_chk.length; i++) {
@@ -253,6 +251,8 @@
                 if (dbus[params[i]]) {
                     if (params[i] == 'clash_yacd_ui') {
                         E(params[i]).href = dbus[params[i]];
+                    } else if (params[i] in ['clash_provider_file',]) {
+                        E(params[i]).value = Base64.decode(dbus[params[i]]);
                     } else {
                         E(params[i]).value = dbus[params[i]];
                     }
@@ -609,16 +609,6 @@
             });
         }
 
-        function swtich_use_localhost_proxy() {
-            if (document.getElementById('clash_use_local_proxy').checked) {
-                dbus["clash_use_local_proxy"] = "on";
-            } else {
-                dbus["clash_use_local_proxy"] = "off";
-            }
-            //apply_action("swtich_use_localhost_proxy");
-        }
-
-
         function switch_trans_mode() { //切换透明代理模式，开关
             if (document.getElementById('clash_trans').checked) {
                 dbus["clash_trans"] = "on";
@@ -669,28 +659,17 @@
 
         function update_geoip() { // 更新GeoIP
             dbus["clash_geoip_url"] = document.getElementById("clash_geoip_url").value;
-            if (document.getElementById('clash_use_local_proxy').checked) {
-                dbus["clash_use_local_proxy"] = "on";
-            } else {
-                dbus["clash_use_local_proxy"] = "off";
-            }
+            
             apply_action("update_geoip", "0", null, {
                 "clash_geoip_url": document.getElementById("clash_geoip_url").value,
-                "clash_use_local_proxy": dbus["clash_use_local_proxy"]
             });
         }
 
 
         function update_provider_file() { // 更新节点订阅源URL
-            dbus["clash_provider_file"] = document.getElementById("clash_provider_file").value;
-            if (document.getElementById('clash_use_local_proxy').checked) {
-                dbus["clash_use_local_proxy"] = "on";
-            } else {
-                dbus["clash_use_local_proxy"] = "off";
-            }
+            dbus["clash_provider_file"] = Base64.encode(document.getElementById("clash_provider_file").value);
             apply_action("update_provider_file", "0", null, {
-                "clash_provider_file": document.getElementById("clash_provider_file").value,
-                "clash_use_local_proxy": dbus["clash_use_local_proxy"]
+                "clash_provider_file": dbus["clash_provider_file"],
             });
         }
 
@@ -1141,15 +1120,14 @@
                     </div>
                     <!-- Tab菜单 -->
                     <div class="tabs">
-                        <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">帐号设置</button>
-                        <button id="btn_provider_tab" class="tab" onclick="switch_tabs(event, 'menu_provider_update')">更新管理</button>
+                        <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">主面板</button>
                         <button id="btn_group_tab" class="tab" onclick="switch_tabs(event, 'menu_group_manager');update_node_list();">节点管理</button>
-                        <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
-                        <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">CF动态DNS</button>
-                        <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
-                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">使用帮助</button>
+                        <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button id="btn_log_tab" class="tab" onclick="switch_tabs(event, 'menu_log');">日志信息</button>
+                        <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">配置DDNS</button>
+                        <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
+                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">帮助信息</button>
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -1193,76 +1171,16 @@
                             </td>
                         </tr>
                     </table>
-                    <!-- 订阅源URL更新部分 -->
-                    <table id="menu_provider_update" class="FormTable">
-                        <thead>
-                            <tr>
-                                <td colspan="3">Clash -更新管理</td>
-                            </tr>
-                        </thead>
-                        <tr>
-                            <th>
-                                <label title="解决订阅URL链接被墙无法访问问题" class="hintstyle">走代理</label>
-                            </th>
-                            <td>
-                                <div class="switch_field">
-                                    <label for="clash_use_local_proxy">
-                                        <input id="clash_use_local_proxy" onclick="swtich_use_localhost_proxy();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label title="格式为yaml格式的订阅源,参考提供示例. &#010; 订阅源URL会替换provider_remote.yaml文件,对应的proxy-provider名为provider_url。&#010;如果使用自己的config.yaml，而且没添加这个provider_url组，将会导致更新失败哦。" class="hintstyle">订阅源URL链接</label>
-                            </th>
-                            <td class="wide_input">
-                                <span>
-                                    1. Github订阅源(原始链接)免费订阅源<a class="copyToClipboard" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
-                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a class="copyToClipboard" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
-                                </span>
-                                <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
-                            </td>
-                            <td class="hasButton">
-                                <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_file()" href="javascript:void(0);">更新</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="3" style="display: none;">
-                                <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件</label>
-                            </th>
-                            <td>
-                                <span style="text-align:left;">
-                                    1. 全量GeoIP版本(6MB左右)<a class="copyToClipboard"  href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
-                                    2. 精简版(200KB左右，默认使用)<a class="copyToClipboard" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
-                                    3. 全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
-                                </span>
-                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据下载地址">
-                            </td>
-                            <td class="hasButton">
-                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
-                            </td>
-                        </tr>
-                    </table>
                     <!-- 代理组节点管理 -->
                     <table id="menu_group_manager" class="FormTable">
                         <thead>
                             <tr>
-                                <td colspan="3">Clash - 个人代理节点管理</td>
+                                <td colspan="3">Clash - 代理节点管理</td>
                             </tr>
                         </thead>
                         <tr>
                             <th><label class="hintstyle" title="支持:&#010; 1.ss/ssr/vmess格式链接;&#010; 2.包含ss/ssr/vmess格式链接列表的http(s)链接订阅源；&#010; 3.包含yaml格式节点的http(s)订阅源.&#010; 添加节点将保存到 provider_diy.yaml 文件中.">
-                                添加节点链接</label></th>
+                                更新DIY组<br>(一次添加)</label></th>
                             <td class="wide_input">
                                 <textarea rows="5" class="input_text" id="proxy_node_list" placeholder="#粘贴代理链接，每行一个链接,支持SS/SSR/VMESS类型URI链接解析。支持添加HTTP远程订阅源,解析工具uridecoder代码已开源,请放心使用."></textarea>
                             </td>
@@ -1280,7 +1198,7 @@
                         </tr>
                         <!-- 代理组删除节点操作 -->
                         <tr>
-                            <th>删除节点选择</th>
+                            <th>删除节点</th>
                             <td>
                                 <div class="switch_field">
                                     <select id="proxy_node_name" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
@@ -1290,6 +1208,27 @@
                             <td class="hasButton">
                                 <button type="button" class="button_gen" onclick="delete_one_node()" href="javascript:void(0);">删除当前</button>
                                 <button type="button" class="button_gen" onclick="delete_all_nodes()" href="javascript:void(0);">删除全部</button>
+                            </td>
+                        </tr>
+                        <!-- 订阅源更新: PROXY节点组更新 -->
+                        <tr>
+                            <th>
+                                <label title="格式为yaml格式的订阅源,参考提供示例. &#010; 订阅源URL会替换provider_remote.yaml文件,对应的proxy-provider名为provider_url。&#010;如果使用自己的config.yaml，而且没添加这个provider_url组，将会导致更新失败哦。" class="hintstyle">更新PROXY组<br>(1小时/次)</label>
+                            </th>
+                            <td class="wide_input">
+                                <span>
+                                    1. Github订阅源(原始链接)免费订阅源<a class="copyToClipboard" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a class="copyToClipboard" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
+                                </span>
+                                <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
+                            </td>
+                            <td class="hasButton">
+                                <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_file()" href="javascript:void(0);">添加订阅</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="3" style="display: none;">
+                                <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
                             </td>
                         </tr>
                     </table>
@@ -1423,7 +1362,7 @@
                             <th>
                                 <label title="默认开启，开启此模式后内网无任何配置即可科学上网。&#010;如果只想使用clash提供的socks5代理,可关闭此选项。">透明代理模式</label>
                             </th>
-                            <td>
+                            <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_trans">
                                         <input id="clash_trans" onclick="switch_trans_mode();" class="switch" type="checkbox" style="display: none;">
@@ -1433,6 +1372,22 @@
                                         </div>
                                     </label>
                                 </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件</label>
+                            </th>
+                            <td>
+                                <span style="text-align:left;">
+                                    1. 全量GeoIP版本(6MB左右)<a class="copyToClipboard"  href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
+                                    2. 精简版(200KB左右，默认使用)<a class="copyToClipboard" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
+                                    3. 全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
+                                </span>
+                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据下载地址">
+                            </td>
+                            <td class="hasButton">
+                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
                             </td>
                         </tr>
                         <tr>
@@ -1462,14 +1417,12 @@
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2">
+                            <td colspan="3">
                                 <b>注意事项</b>:<br>&nbsp;&nbsp;&nbsp;&nbsp;
                                 <b>1. 确保配置的Yaml格式正确性: </b>本插件会修改redir-port/dns.listen/external-controller/external-ui参数<br>&nbsp;&nbsp;&nbsp;&nbsp;
                                 <b>2. 重要提醒: 修改前记得备份!!!</b><br/>
                             </td>
                         </tr>
-
-
                     </table>
                     <!-- 在线编辑配置文件内容 -->
                     <table id="menu_config" class="FormTable">
@@ -1510,11 +1463,11 @@
                         <tr>
                             <td>
                                 <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 个人节点添加</b>:在“节点管理”页面,稳定节点专用,支持base64格式链接以及http源(yaml格式或ss://、ssr://、vmess://格式链接列表)</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 免费节点添加</b>:在"订阅管理"页面,支持HTTP源,不稳定节点添加在这里.</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 个人节点添加</b>:在“节点管理”>"更新DIY组"添加，一次添加不再更新。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 订阅节点添加</b>:在"节点管理">"PROXY组"添加，每小时更新一次。</p>
                                 <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. 插件的兼容性</b>: 透明代理模式时会与<b style="color: rgb(32, 252, 32);">其他代理插件冲突</b> ，使用前要关闭其他透明代理插件。</p>
                                 <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 学习配置规则</b>: 核心配置为clash的启动配置文件,请阅读<a target="_blank" href="https://github.com/Dreamacro/clash/wiki/configuration">官方配置说明文档</a></p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">5. 学习插件用法</b>: 可阅读vClash项目的<a target="_blank" href="https://github.com/learnhard-cn/vClash/wiki">wiki页面</a></p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">5. 学习插件用法</b>: 可阅读<a target="_blank" href="https://github.com/learnhard-cn/vClash/wiki">vClash项目wiki页面</a></p>
                             </td>
                         </tr>
                     </table>

@@ -21,9 +21,10 @@ alias curl="curl --connect-timeout 300 -sSL"
 
 CURL_OPTS=" "
 
-if [ "$clash_use_local_proxy" == "on" ] ; then
-    CURL_OPTS="--proxy socks5h://127.0.0.1:1080 $CURL_OPTS"
-fi
+# CURL添加代理选项
+# if [ "$clash_use_local_proxy" == "on" ] ; then
+#     CURL_OPTS="--proxy socks5h://127.0.0.1:1080 $CURL_OPTS"
+# fi
 
 bin_list="${app_name} yq"
 
@@ -39,7 +40,6 @@ debug_log=/tmp/upload/clash_debug.log
 # 备份数据文件(包括:providers/rules/config.yaml)
 backup_file=/tmp/upload/${app_name}_backup.tar.gz
 env_file="${app_name}_env.sh"
-
 
 # 自定义黑名单规则文件
 blacklist_file="/koolshare/${app_name}/ruleset/rule_diy_blacklist.yaml"
@@ -304,11 +304,10 @@ service_start() {
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
     else
-        
         check_config_file
         LOGGER "启动配置文件 ${config_file} : 检测完毕!"
         nohup ${CMD} >/dev/null 2>&1 &
-        sleep 1
+        sleep 3
         if status >/dev/null 2>&1; then
             LOGGER "${CMD} 启动成功!"
         else
@@ -439,17 +438,23 @@ update_provider_file() {
         LOGGER "文件类型订阅源URL地址没设置，就不更新啦! clash_provider_file=[$clash_provider_file]!"
         return 1
     fi
-    curl ${CURL_OPTS} -o $temp_provider_file ${clash_provider_file}
+    dbus set clash_provider_file=$clash_provider_file
+    socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
+    uri_decoder -proxy "$socks5_proxy" -uri "$clash_provider_file" -db "/koolshare/clash/Country.mmdb" > ${temp_provider_file}
     if [ "$?" != "0" ]; then
-        echo "curl ${CURL_OPTS} -o $temp_provider_file ${clash_provider_file}"
         LOGGER "下载订阅源URL信息失败!可能原因:1.URL地址被屏蔽!2.使用代理不稳定. 重新尝试一次。"
         return 2
     fi
-    LOGGER "下载订阅源文件成功! URL=[${clash_provider_file}]."
+    if [ ! -s "$temp_provider_file" ] ; then
+        LOGGER "下载订阅源URL信息失败!可能原因: 订阅源的格式不识别."
+        return 2
+    fi
+    
+    LOGGER "下载文件成功!URL=[${clash_provider_file}]."
 
     # 格式化处理yaml文件，只保留proxies信息
     check_format=$(yq e '.proxies[0].name' $temp_provider_file)
-    if [ "$check_format" = "" -o "$check_format" = "null" ]; then
+    if [ "$check_format" = "" -o "$check_format" = "null" ] ; then
         LOGGER "节点订阅源配置文件yaml格式错误: ${temp_provider_file}"
         LOGGER "错误原因:没找到 proxies 代理节点配置! 没有代理节点怎么科学上网呢？"
         LOGGER "订阅源文件格式请参考: https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers "
@@ -462,6 +467,8 @@ update_provider_file() {
         LOGGER "更新节点错误![$?]!订阅源配置可能存在问题!"
         rm -f ${provider_remote_file}.new
         return 4
+    fi
+
     if [ "$proxy_num" = "0" ] ; then
         LOGGER "可能是你的订阅源不符合Yaml格式,节点导入失败了"
         rm -f ${provider_remote_file}.new
@@ -476,13 +483,7 @@ update_provider_file() {
         cru a "update_provider_local" "0 * * * * $main_script update_provider_file >/dev/null 2>&1"
         LOGGER "成功添加更新调度配置: $(cru l| grep update_provider_local)"
     fi
-    
-    if [ "$clash_provider_file" != "$clash_provider_file_old" ]; then
-        LOGGER "更新了订阅源! 旧地址:[$clash_provider_file_old]"
-        dbus set clash_provider_file_old=$clash_provider_file
-    fi
-
-    LOGGER "还不错!更新订阅源成功了!"
+    LOGGER "更新订阅源成功!"
     LOGGER "成功导入代理节点:$(list_proxy_num $provider_remote_file)"
     rm -f $temp_provider_file
 }
