@@ -450,7 +450,7 @@ update_provider_file() {
         return 2
     fi
     
-    LOGGER "下载文件成功!URL=[${clash_provider_file}]."
+    LOGGER "下载文件成功!"
 
     # 格式化处理yaml文件，只保留proxies信息
     check_format=$(yq e '.proxies[0].name' $temp_provider_file)
@@ -478,13 +478,13 @@ update_provider_file() {
     mv ${provider_remote_file}.new  ${provider_remote_file}
 
     if cru l | grep update_provider_local >/dev/null; then
-        LOGGER "已经添加了调度! $(cru l | grep update_provider_local)"
+        LOGGER "已经添加调度!"
     else
         cru a "update_provider_local" "0 * * * * $main_script update_provider_file >/dev/null 2>&1"
-        LOGGER "成功添加更新调度配置: $(cru l| grep update_provider_local)"
+        LOGGER "成功添加更新调度配置!"
+        LOGGER "$(cru l| grep update_provider_local)"
     fi
-    LOGGER "更新订阅源成功!"
-    LOGGER "成功导入代理节点:$(list_proxy_num $provider_remote_file)"
+    LOGGER "更新订阅源成功!成功导入代理节点: $(list_proxy_num $provider_remote_file)"
     rm -f $temp_provider_file
 }
 
