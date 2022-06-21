@@ -72,24 +72,40 @@ platform_test(){
     get_arch
 
     # 判断KoolShare支持的固件平台
-    if [ -d "/koolshare" -a -x "/koolshare/bin/httpdb" -a -x "/usr/bin/skipd" ];then
-        LOGGER "KoolShare支持的固件平台!"
+    if [ -d "/koolshare"  ] ; then
+        LOGGER "KoolShare目录存在，继续检测固件平台支持!"
     else
         exit_install 1
     fi
-    
-    ks_ver=$(dbus get softcenter_version | awk -F'.' '{ print $1$2 }')
-    if [ "$ks_ver" -lt "15" ];then
-        LOGGER "很遗憾! 软件中心版本: $(dbus get softcenter_version) (v1.5版本及以上即可) 不符合安装要求！"
+
+    if [ -x "/koolshare/bin/httpdb" ] ; then
+        LOGGER "httpdb已安装，继续检测固件平台支持!"
+    else
         exit_install 2
     fi
-    LOGGER "软件中心版本: $(dbus get softcenter_version) (v1.5版本及以上即可) 符合安装要求！"
+
+    if [ "$(which skipd)" != "" ] ; then
+        # 384 位置为 /usr/sbin/skipd , 386 位置为 /usr/bin/skipd
+        LOGGER "skipd已安装，继续检测固件平台支持!"
+    else
+        exit_install 3
+    fi
+    
+    # # 不检查 softcenter，384版本也不准确,默认都是1.5版本API
+    #ks_ver=$(dbus get softcenter_version | awk -F'.' '{ print $1$2 }')
+    #if [ "$ks_ver" = "" ] ; then
+    #    LOGGER "KoolShare版本没有设置，您可能没有正确安装koolshare软件中心!，请确保使用版本在v1.5版本以上"
+    #elif [ "$ks_ver" -lt "10" ] ; then
+    #    LOGGER "很遗憾! 软件中心版本: $(dbus get softcenter_version) (v1.5版本及以上即可) 不符合安装要求！"
+    #    exit_install 2
+    #fi
+    #LOGGER "软件中心版本: $(dbus get softcenter_version) (v1.5版本及以上即可) 符合安装要求！"
 }
 
 get_model(){
 	local ODMPID=$(nvram get odmpid)
 	local PRODUCTID=$(nvram get productid)
-	if [ -n "${ODMPID}" ];then
+	if [ -n "${ODMPID}" ] ; then
 		MODEL="${ODMPID}"
 	else
 		MODEL="${PRODUCTID}"
@@ -98,8 +114,8 @@ get_model(){
 
 get_fw_type() {
     local KS_TAG=$(nvram get extendno|grep koolshare)
-    if [ -d "$KSHOME" ];then
-        if [ -n "${KS_TAG}" ];then
+    if [ -d "$KSHOME" ] ; then
+        if [ -n "${KS_TAG}" ] ; then
             FW_TYPE_CODE="2"
             FW_TYPE_NAME="koolshare官改固件"
         else
@@ -107,7 +123,7 @@ get_fw_type() {
             FW_TYPE_NAME="koolshare梅林改版固件"
         fi
     else
-        if [ "$(uname -o|grep Merlin)" ];then
+        if [ "$(uname -o|grep Merlin)" ] ; then
             FW_TYPE_CODE="3"
             FW_TYPE_NAME="梅林原版固件"
         else
@@ -216,6 +232,7 @@ init_env() {
     dbus set clash_trans="on"           # 默认开启透明代理模式
     dbus set clash_rule_mode="blacklist" # 默认为黑名单模式
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
+    dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
     
     vClash_VERSION=$(sed -n '1p' /koolshare/${app_name}/version| cut -d: -f2)
     CLASH_VERSION=$(sed -n '2p' /koolshare/${app_name}/version| cut -d: -f2)

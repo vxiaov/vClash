@@ -64,6 +64,9 @@ generate_package() {
     outdir="./release/"
     new_version="$1"
     sed -i "s/vClash:.*/vClash:$new_version/" clash/clash/version
+    echo "arm384" > clash/.valid
+    tar zcf ./release/clash_384.tar.gz clash/
+    echo "hnd|arm384|arm386|p1axhnd.675x" > clash/.valid
     tar zcf ./release/clash.tar.gz clash/
 }
 

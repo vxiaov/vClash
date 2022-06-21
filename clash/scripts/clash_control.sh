@@ -52,8 +52,8 @@ check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"|.allow-lan=true|.bind-address=strenv(tmp_ipaddr)|.ipv6=false'
-    tmp_ipaddr=${lan_ipaddr} tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="${lan_ipaddr}:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
+    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"|.allow-lan=true'
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
@@ -241,20 +241,20 @@ add_iptables() {
 
     iptables -t nat -N ${app_name}
     iptables -t nat -F ${app_name}
-    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16  -j ${app_name}
+    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
     # 本地地址请求不转发
     iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
     iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
     iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
     iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
-    iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
+    iptables -t nat -A ${app_name} -d ${lan_ipaddr}/24 -j RETURN
     # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
     # 转发DNS请求到端口 dns_port 解析
     iptables -t nat -N ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
-    iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
+    iptables -t nat -A ${app_name}_dns -p udp  --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A PREROUTING -p udp  --dport 53 -j ${app_name}_dns
     iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
 }
 
@@ -267,14 +267,11 @@ del_iptables() {
     LOGGER "开始清理 ${app_name} iptables规则 ..."
     # Fake-IP 规则清理
     iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
-    
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -m set --match-set gfwlist dst -j ${app_name}
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
-    iptables -t nat -D ${app_name} -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 -j ${app_name}
     iptables -t nat -F ${app_name}
     iptables -t nat -X ${app_name}
 
-    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
+    iptables -t nat -D PREROUTING -p udp --dport 53 -j ${app_name}_dns
     iptables -t nat -D OUTPUT -p udp --dport 53 -j ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
     iptables -t nat -X ${app_name}_dns
@@ -518,6 +515,22 @@ switch_trans_mode(){
     LOGGER "切换透明代理模式:$clash_trans"
 }
 
+switch_ipv6_mode(){
+    LOGGER "开始切换IPv6模式..."
+    if [ "$clash_ipv6_mode" = "on" ] ; then
+        # 开启IPv6模式
+        tmp_expr=".ipv6=true|.dns.ipv6=true|.bind-address=\"*\""
+    else
+        # 关闭IPv6模式
+        tmp_expr=".ipv6=false|.dns.ipv6=false|.bind-address=\"*\""
+    fi
+    yq e -iP "$tmp_expr" ${config_file}
+    if [ "$?" != "0" ] ; then
+        LOGGER "切换IPv6模式失败!"
+        return 1
+    fi
+    LOGGER "切换IPv6模式成功!"
+}
 # 忽略clash新版本提醒
 ignore_new_version() {
     dbus set clash_version=$clash_new_version
@@ -1134,7 +1147,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    update_clash_bin | switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file)
+    update_clash_bin | switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then

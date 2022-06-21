@@ -239,12 +239,15 @@
                 'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui',
             ];
             var params_chk = [
-                'clash_trans', 'clash_enable', 'clash_cfddns_enable',
+                'clash_trans', 'clash_enable', 'clash_cfddns_enable', 'clash_ipv6_mode',
                 'clash_watchdog_enable', 'clash_watchdog_start_clash', 'clash_log_type'
             ];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
+                } else {
+                    // 第一次使用，有些参数没有设置
+                    E(params_chk[i]).checked = false;
                 }
             }
             for (var i = 0; i < params.length; i++) {
@@ -611,6 +614,18 @@
             }
             apply_action("set_log_type", "2", set_log_type, {
                 "clash_log_type": dbus["clash_log_type"]
+            });
+        }
+
+        // 切换支持ipv6模式
+        function switch_ipv6_mode() {
+            if (document.getElementById('clash_ipv6_mode').checked) {
+                dbus["clash_ipv6_mode"] = "on";
+            } else {
+                dbus["clash_ipv6_mode"] = "off";
+            }
+            apply_action("switch_ipv6_mode", "0", set_log_type, {
+                "clash_ipv6_mode": dbus["clash_ipv6_mode"]
             });
         }
 
@@ -1371,6 +1386,22 @@
                                 <div class="switch_field">
                                     <label for="clash_trans">
                                         <input id="clash_trans" onclick="switch_trans_mode();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label title="默认关闭，如果有公网IPv6地址，可开启此选项。">支持IPv6模式</label>
+                            </th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_ipv6_mode">
+                                        <input id="clash_ipv6_mode" onclick="switch_ipv6_mode();" class="switch" type="checkbox" style="display: none;">
                                         <div class="switch_container">
                                             <div class="switch_bar"></div>
                                             <div class="switch_circle transition_style"></div>
