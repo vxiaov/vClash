@@ -226,8 +226,7 @@ init_env() {
     # 默认不启用
     [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
 
-    dbus set clash_provider_file="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
-    dbus set clash_provider_file_old="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/clash.provider.yaml"
+    dbus set clash_provider_file="$(echo -n https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/providers/provider_free.yaml|base64_encode)"
     dbus set clash_geoip_url="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb"
     dbus set clash_trans="on"           # 默认开启透明代理模式
     dbus set clash_rule_mode="blacklist" # 默认为黑名单模式
