@@ -251,19 +251,21 @@
                 }
             }
             for (var i = 0; i < params.length; i++) {
-                switch (params[i]) {
-                    case 'clash_yacd_ui':
-                        // a 标签参数设置
-                        E(params[i]).href = dbus[params[i]];
-                        break;
-                    case 'clash_provider_file':
-                        // base64 类型数据
-                        E(params[i]).value = Base64.decode(dbus[ params[i] ]);
-                        break;
-                    default:
-                        // 普通类型数据
-                        E(params[i]).value = dbus[params[i]];
-                        break;
+                if (dbus[ params[i] ]) {
+                    switch (params[i]) {
+                        case 'clash_yacd_ui':
+                            // a 标签参数设置
+                            E(params[i]).href = dbus[params[i]];
+                            break;
+                        case 'clash_provider_file':
+                            // base64 类型数据
+                            E(params[i]).value = Base64.decode(dbus[ params[i] ]);
+                            break;
+                        default:
+                            // 普通类型数据
+                            E(params[i]).value = dbus[params[i]];
+                            break;
+                    }
                 }
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];

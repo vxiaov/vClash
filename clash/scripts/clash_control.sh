@@ -52,7 +52,8 @@ check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.dns.enhanced-mode="redir-host"|.allow-lan=true'
+    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.allow-lan=true'
+    # .dns.enhanced-mode="redir-host"|
     tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
@@ -253,9 +254,9 @@ add_iptables() {
     # 转发DNS请求到端口 dns_port 解析
     iptables -t nat -N ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
-    iptables -t nat -A ${app_name}_dns -p udp  --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -A PREROUTING -p udp  --dport 53 -j ${app_name}_dns
-    iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
+    iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
+    iptables -t nat -I OUTPUT -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
 }
 
 # 清理iptables规则
@@ -271,8 +272,8 @@ del_iptables() {
     iptables -t nat -F ${app_name}
     iptables -t nat -X ${app_name}
 
-    iptables -t nat -D PREROUTING -p udp --dport 53 -j ${app_name}_dns
-    iptables -t nat -D OUTPUT -p udp --dport 53 -j ${app_name}_dns
+    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
+    iptables -t nat -D OUTPUT -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
     iptables -t nat -X ${app_name}_dns
 }
