@@ -702,6 +702,14 @@ get_fw_type() {
     fi
 }
 
+switch_option_tab() {
+    if [ "$1" == "on" ] ; then
+        LOGGER "开启选项卡"
+    else
+        LOGGER "关闭选项卡"
+    fi
+}
+
 debug_info() {
     printf "|%20s : %-40.40s|\n" "$1" "$2"
 }
@@ -713,7 +721,7 @@ show_router_info() {
     echo "| system : $(uname -nmrso)|"
     echo "| rom    : $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
     echo "| memory : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
-    echo "| /jffs  : $(df /jffs|awk '/jffs/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "| /jffs  : $(df /jffs|awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "+---------------------------------------------------------------+"
     echo "|>> vClash实际使用的软件版本:                                   << |"
     debug_info "vClash" "$(dbus get softcenter_module_${app_name}_version)"
@@ -1162,7 +1170,7 @@ do_action() {
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check| set_log_type)
+    add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check| set_log_type|switch_option_tab)
         $action_job
         ;;
     set_one_file)

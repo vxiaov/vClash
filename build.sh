@@ -9,13 +9,15 @@
 usage() {
     cat <<END
  Usage:
-    `basename $0` pack <version>
-    `basename $0` yaml
+    `basename $0` pack <version>  # 打包指定版本安装包
+    `basename $0` yaml    # 精简yaml文件
+    `basename $0` yaml0   # 输出完整的yaml文件
 
  Params:
     version : new version number , v2.2.4
 END
 }
+
 # 生成最新版本Clash安装包 #
 if [ "$1" = "" ] ; then
     usage
@@ -24,36 +26,46 @@ fi
 
 generate_gfwlist() {
     # 生成gfw.yaml #
+    filter_flag="${1:-0}"
     outdir="./clash/clash/ruleset/"
     curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt > ${outdir}/gfw.tmp
-    yq e '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
-        printf("payload:\n");
-    }{
-        idx=$(NF-1)"."$(NF);
-        a[idx]++;
-    }END{
-        for(i in a)
-            printf("  - '\''+.%s'\''\n", i);
-    }' > ${outdir}/rule_diy_gfw.yaml
-    yq e -iP ${outdir}/rule_diy_gfw.yaml
+    if [ "$filter_flag" = "1" ] ; then
+        # 精简过滤一些地址
+        yq e -P '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
+            printf("payload:\n");
+        }{
+            idx=$(NF-1)"."$(NF);
+            a[idx]++;
+        }END{
+            for(i in a)
+                printf("  - '\''+.%s'\''\n", i);
+        }' > ${outdir}/rule_diy_gfw.yaml
+    else
+        yq e -P ${outdir}/gfw.tmp > ${outdir}/rule_diy_gfw.yaml
+    fi
     rm -f ${outdir}/gfw.tmp
     echo "rule_diy_gfw.yaml 生成完毕."
 }
 
 generate_direct() {
     # 生成direct.yaml #
+    filter_flag="${1:-0}"
     outdir="./clash/clash/ruleset/"
     curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt > ${outdir}/direct.tmp
-    yq e '.payload[]' ${outdir}/direct.tmp | awk -F'.' 'BEGIN{
-        printf("payload:\n");
-    }$NF~/org|com|cn|net|edu|gov/ && $(NF-1)!~/[a-z][0-9]/ && $(NF-1)~/qiniu|baidu|cloudflare|upyun|cachemoment|163|265|360|tecent|qq|cdn|verycloud|ali/ {
-        idx=$(NF-1)"."$(NF);
-        a[idx]++;
-    }END{
-        for(i in a)
-            printf("  - '\''+.%s'\''\n", i);
-    }' > ${outdir}/rule_diy_direct.yaml
-    yq e -iP ${outdir}/rule_diy_direct.yaml
+    if [ "$filter_flag" = "1" ] ; then
+        # 精简过滤一些地址
+        yq e '.payload[]' ${outdir}/direct.tmp | awk -F'.' 'BEGIN{
+            printf("payload:\n");
+        }$NF~/org|com|cn|net|edu|gov/ && $(NF-1)!~/[a-z][0-9]/ && $(NF-1)~/qiniu|baidu|cloudflare|upyun|cachemoment|163|265|360|tecent|qq|cdn|verycloud|ali/ {
+            idx=$(NF-1)"."$(NF);
+            a[idx]++;
+        }END{
+            for(i in a)
+                printf("  - '\''+.%s'\''\n", i);
+        }' > ${outdir}/rule_diy_direct.yaml
+    else
+        yq e -P ${outdir}/direct.tmp > ${outdir}/rule_diy_direct.yaml
+    fi
     rm -f ${outdir}/direct.tmp
     echo "rule_diy_direct.yaml 生成完毕."
 }
@@ -76,6 +88,10 @@ case "$1" in
         generate_package $2
         ;;
     yaml)
+        generate_gfwlist 1
+        generate_direct  1
+        ;;
+    yaml0)
         generate_gfwlist
         generate_direct
         ;;

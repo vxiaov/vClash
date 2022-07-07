@@ -236,11 +236,11 @@
 
             var params = [
                 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
-                'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui',
+                'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 'clash_cfddns_switch', 'clash_watchdog_switch'
             ];
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_cfddns_enable', 'clash_ipv6_mode',
-                'clash_watchdog_enable', 'clash_watchdog_start_clash', 'clash_log_type'
+                'clash_watchdog_enable', 'clash_watchdog_start_clash', 'clash_log_type', 'clash_cfddns_switch', 'clash_watchdog_switch'
             ];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
@@ -251,21 +251,38 @@
                 }
             }
             for (var i = 0; i < params.length; i++) {
-                if (dbus[ params[i] ]) {
-                    switch (params[i]) {
-                        case 'clash_yacd_ui':
-                            // a 标签参数设置
+                switch (params[i]) {
+                    case 'clash_yacd_ui':
+                        // a 标签参数设置
+                        if (dbus[ params[i] ]) 
                             E(params[i]).href = dbus[params[i]];
-                            break;
-                        case 'clash_provider_file':
-                            // base64 类型数据
+                        break;
+                    case 'clash_provider_file':
+                        // base64 类型数据
+                        if (dbus[ params[i] ]) 
                             E(params[i]).value = Base64.decode(dbus[ params[i] ]);
-                            break;
-                        default:
-                            // 普通类型数据
+                        break;
+                    case 'clash_cfddns_switch':
+                        // 判断是否启用#btn_ddns_tab tab页面
+                        if (dbus[params[i]] == "on") {
+                            $j("#btn_ddns_tab").show();
+                        } else {
+                            $j("#btn_ddns_tab").hide();
+                        }
+                        break;
+                    case 'clash_watchdog_switch':
+                        // 判断是否启用#btn_watchdog_tab tab页面
+                        if (dbus[params[i]] == "on") {
+                            $j("#btn_watchdog_tab").show();
+                        } else {
+                            $j("#btn_watchdog_tab").hide();
+                        }
+                        break;
+                    default:
+                        // 普通类型数据
+                        if (dbus[ params[i] ]) 
                             E(params[i]).value = dbus[params[i]];
-                            break;
-                    }
+                        break;
                 }
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
@@ -383,9 +400,6 @@
             });
         }
 
-        function test_res() {
-            apply_action("test_res")
-        }
         // 显示动态结果消息
         function show_result(message, duration) {
             if (!duration) duration = 1000;
@@ -458,7 +472,7 @@
                 if (time_sec == 0) {
                     $j("#btn_log_msg_close").text("关闭");
                     clearInterval(timeoutid);
-                    // close_log_msg();
+                    close_log_msg();
                 }
             }, 1000);
         }
@@ -616,6 +630,33 @@
             }
             apply_action("set_log_type", "2", set_log_type, {
                 "clash_log_type": dbus["clash_log_type"]
+            });
+        }
+
+        // 切换cfddns模式tab页面功能
+        function switch_cfddns_tab() {
+            if (document.getElementById('clash_cfddns_switch').checked) {
+                dbus["clash_cfddns_switch"] = "on";
+                $j("#btn_ddns_tab").show();
+            } else {
+                dbus["clash_cfddns_switch"] = "off";
+                $j("#btn_ddns_tab").hide();
+            }
+            apply_action("switch_option_tab", "2", null, {
+                "clash_cfddns_switch": dbus["clash_cfddns_switch"]
+            });
+        }
+        //切换watchdog模式tab页面功能
+        function switch_watchdog_tab() {
+            if (document.getElementById('clash_watchdog_switch').checked) {
+                dbus["clash_watchdog_switch"] = "on";
+                $j("#btn_watchdog_tab").show();
+            } else {
+                dbus["clash_watchdog_switch"] = "off";
+                $j("#btn_watchdog_tab").hide();
+            }
+            apply_action("switch_option_tab", "2", null, {
+                "clash_watchdog_switch": dbus["clash_watchdog_switch"]
             });
         }
 
@@ -1414,6 +1455,38 @@
                         </tr>
                         <tr>
                             <th>
+                                <label title="显示/隐藏DDNS配置页面">CFDDNS功能开关</label>
+                            </th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_cfddns_switch">
+                                        <input id="clash_cfddns_switch" onclick="switch_cfddns_tab();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label title="显示/隐藏旁路由watchdog功能配置页面">旁路由监控开关</label>
+                            </th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_watchdog_switch">
+                                        <input id="clash_watchdog_switch" onclick="switch_watchdog_tab();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
                                 <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件</label>
                             </th>
                             <td>
@@ -1461,6 +1534,7 @@
                                 <b>2. 重要提醒: 修改前记得备份!!!</b><br/>
                             </td>
                         </tr>
+
                     </table>
                     <!-- 在线编辑配置文件内容 -->
                     <table id="menu_config" class="FormTable">
@@ -1480,14 +1554,20 @@
                         </tr>
                         <tr>
                             <td colspan="2">
-                                <div style="display: block;text-align: center; font-size: 14px; color:rgb(0, 201, 0);">文件内容</div>
                                 <textarea id="clash_config_content" readonly="true" rows="20" class="input_text" style="width: 98%;" title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。"></textarea>
                             </td>
                         </tr>
                         <tr>
+                            <td colspan="2" style="text-align: center;">
+                                <a type="button" class="button_gen" onclick="edit_config_content(); " href="javascript:void(0); ">编辑</a> &nbsp;&nbsp;&nbsp;
+                                <a type="button" class="button_gen" onclick="set_edit_content(); " href="javascript:void(0); ">保存</a> &nbsp;&nbsp;&nbsp;
+                                <a type="button" class="button_gen" onclick="load_config_content(); " href="javascript:void(0); ">重载</a>
+                            </td>
+                        </tr>
+                        <tr>
                             <td colspan="2">
-                                <p style="color: rgb(182, 222, 2);"> 提示: 若您不了解如何配置config.yaml,不建议您修改<br/> 如果您了解配置规则，可以 <b>点击文本框后激活快捷键</b>，并通过快捷键进行编辑: <br/></p>
-                                <p style="color: rgb(248, 5, 62); font-size: 18px;">&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+E: <b>开始编辑</b> Ctrl+S: <b>保存</b> Ctrl+R: <b>重新加载</b> Ctrl+C:<b>复制</b> Ctrl+V:<b>粘帖</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+Z: <b>撤销(undo)</b> Ctrl+Shift+Z: <b>重做(redo)</b></p>
+                                <p style="color: rgb(182, 222, 2);"> Clash配置规则</b>: 请阅读<a target="_blank" href="https://github.com/Dreamacro/clash/wiki/configuration">官方配置说明文档</a>，编辑快捷键: <br/></p>
+                                <p style="color: rgb(248, 5, 62);">&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+E: <b>开始编辑</b> Ctrl+S: <b>保存</b> Ctrl+R: <b>重新加载</b> Ctrl+C:<b>复制</b> Ctrl+V:<b>粘帖</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+Z: <b>撤销(undo)</b> Ctrl+Shift+Z: <b>重做(redo)</b></p>
                             </td>
                         </tr>
                     </table>
@@ -1538,7 +1618,6 @@
                     </table>
                     <!--打开 Clash控制面板-->
                     <div id="status_tools " style="margin-top: 25px; padding-bottom: 20px;">
-                        <a type="button" class="button_gen debug" onclick="test_res(); " href="javascript:void(0); ">Test按钮</a> &nbsp;&nbsp;&nbsp;
                         <a type="button" class="button_gen" onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
                         <a type="button" class="button_gen" onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
                         <a type="button" class="button_gen" id="clash_yacd_ui" onclick="yacd_ui_click_check(); " href="javascript:void(0); " target="_blank">Yacd控制面板</a>
