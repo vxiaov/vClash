@@ -899,7 +899,7 @@
             }
             document.getElementById('copy_info').style.display = "none";
             var formData = new FormData();
-            formData.append(filename, $j('#file')[0].files[0]);
+            formData.append(filename, $j('#clash_file')[0].files[0]);
             $j.ajax({
                 url: '/_upload',
                 type: 'POST',

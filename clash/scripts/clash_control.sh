@@ -814,7 +814,7 @@ restore_config_file() {
 
 update_clash_file() {
     # 升级clash文件
-    LOGGER "开始恢复配置信息"
+    LOGGER "开始升级Clash内核文件"
     if [ "$clash_bin_file" = "" ] ; then
         LOGGER "Clash升级文件上传失败"
         return 1
@@ -831,6 +831,7 @@ update_clash_file() {
                 LOGGER "没有找到Clash文件,开始更新Clash文件"
             fi
             mv "/koolshare/bin/clash.new" "/koolshare/bin/clash"
+            chmod +x "/koolshare/bin/clash"
             LOGGER "更新Clash文件完成"
             rm -f "/koolshare/bin/clash.old"
         fi
