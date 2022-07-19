@@ -839,7 +839,7 @@ update_clash_file() {
         LOGGER "没找到上传的Clash文件!"
         return 2
     fi
-    # rm -f "/tmp/upload/$clash_bin_file"
+    rm -f "/tmp/upload/$clash_bin_file"
     dbus remove clash_bin_file
 }
 
