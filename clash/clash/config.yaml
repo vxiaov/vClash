@@ -130,7 +130,7 @@ proxy-groups:
     url: http://www.gstatic.com/generate_204
     interval: 300
   - name: PROXY                  # 免费可用代理组
-    type: url-test
+    type: select
     use:
       - provider_url
       - provider_free
