@@ -882,6 +882,48 @@
             });
         }
 
+        // 上传 clash 文件
+        function upload_clash_file() {
+            var filename = $j("#clash_file").val();
+            if (filename == "") {
+                alert("请选择需要上传的文件");
+                return false;
+            }
+            filename = filename.split('\\');
+            filename = filename[filename.length - 1];
+            var filelast = filename.split('.');
+            filelast = filelast[filelast.length - 1];
+            if (filelast != 'gz') {
+                alert('请上传gz后缀名的文件！');
+                return false;
+            }
+            document.getElementById('copy_info').style.display = "none";
+            var formData = new FormData();
+            formData.append(filename, $j('#clash_file')[0].files[0]);
+            $j.ajax({
+                url: '/_upload',
+                type: 'POST',
+                cache: false,
+                data: formData,
+                processData: false,
+                contentType: false,
+                complete: function(res) {
+                    if (res.status == 200) {
+                        show_result("已上传成功! 3秒后重启服务...", 3000);
+                        dbus["clash_bin_file"] = filename;
+                        apply_action("update_clash_file", "0", function() {
+                            show_result("应用新配置成功，3秒后重启服务...", 3000);
+                        }, {
+                            "clash_bin_file": filename
+                        });
+                    }
+                },
+                error: function(res) {
+                    show_result("上传失败，请检查文件是否存在！", 3000);
+                }
+            });
+        }
+
         // 重新加载blacklist规则
         function reload_content() {
             apply_action("reload_content", "1");
@@ -1523,8 +1565,17 @@
                                 <label>上传<b>config.yaml</b>文件</label>
                             </th>
                             <td colspan="2">
-                                <input type="button" id="upload_btn" class="button_gen" onclick="upload_config_file();" value="开始上传">
+                                <input type="button" class="button_gen" onclick="upload_config_file();" value="开始上传">
                                 <input style="color:#FFCC00;*color:#000;width: 200px;" id="file" type="file" name="file">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>手工升级<b>Clash</b>版本</label>
+                            </th>
+                            <td colspan="2">
+                                <input type="button" class="button_gen" onclick="upload_clash_file();" value="开始上传">
+                                <input style="color:#FFCC00;*color:#000;width: 200px;" id="clash_file" type="file" name="file">
                             </td>
                         </tr>
                         <tr>

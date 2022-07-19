@@ -812,6 +812,37 @@ restore_config_file() {
     dbus remove clash_restore_file
 }
 
+update_clash_file() {
+    # 升级clash文件
+    LOGGER "开始升级Clash内核文件"
+    if [ "$clash_bin_file" = "" ] ; then
+        LOGGER "Clash升级文件上传失败"
+        return 1
+    fi
+    if [ -f "/tmp/upload/$clash_bin_file" ] ; then
+        gunzip "/tmp/upload/$clash_bin_file" -c > "/koolshare/bin/clash.new"
+        if [ "$?" != "0" ] ; then
+            LOGGER "解压Clash文件过程出错! 文件名:${clash_bin_file}"
+        else
+            if [ -f "/koolshare/bin/clash" ] ; then
+                LOGGER "开始更新Clash文件"
+                mv "/koolshare/bin/clash" "/koolshare/bin/clash.old"
+            else
+                LOGGER "没有找到Clash文件,开始更新Clash文件"
+            fi
+            mv "/koolshare/bin/clash.new" "/koolshare/bin/clash"
+            chmod +x "/koolshare/bin/clash"
+            LOGGER "更新Clash文件完成"
+            rm -f "/koolshare/bin/clash.old"
+        fi
+    else
+        LOGGER "没找到上传的Clash文件!"
+        return 2
+    fi
+    # rm -f "/tmp/upload/$clash_bin_file"
+    dbus remove clash_bin_file
+}
+
 # 上传并应用新的config.yaml配置文件
 applay_new_config() {
     
@@ -1156,7 +1187,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    update_clash_bin | switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file|switch_ipv6_mode)
+    update_clash_bin |update_clash_file| switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
