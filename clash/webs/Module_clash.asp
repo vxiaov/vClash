@@ -236,7 +236,7 @@
 
             var params = [
                 'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
-                'clash_cfddns_ttl', 'clash_cfddns_ip', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 'clash_cfddns_switch', 'clash_watchdog_switch'
+                'clash_cfddns_ttl', 'clash_cfddns_ipv4', 'clash_cfddns_ipv6', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 'clash_cfddns_switch', 'clash_watchdog_switch'
             ];
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_cfddns_enable', 'clash_ipv6_mode',
@@ -689,14 +689,36 @@
             } else {
                 dbus["clash_cfddns_enable"] = "off";
             }
+            
+            if (document.getElementById('clash_cfddns_ipv6_enable').checked) {
+                dbus["clash_cfddns_support_ipv6"] = "on";
+            } else {
+                dbus["clash_cfddns_support_ipv6"] = "off";
+            }
+            // 启用ipv6解析支持
+            if (document.getElementById('clash_cfddns_proxy_enable').checked) {
+                dbus["clash_cfddns_support_proxy"] = "on";
+            } else {
+                dbus["clash_cfddns_support_proxy"] = "off";
+            }
             document.getElementById("clash_cfddns_enable").disabled = true;
             dbus["clash_cfddns_email"] = document.getElementById("clash_cfddns_email").value;
             dbus["clash_cfddns_apikey"] = document.getElementById("clash_cfddns_apikey").value;
             dbus["clash_cfddns_domain"] = document.getElementById("clash_cfddns_domain").value;
             dbus["clash_cfddns_ttl"] = document.getElementById("clash_cfddns_ttl").value;
-            dbus["clash_cfddns_ip"] = document.getElementById("clash_cfddns_ip").value;
+            dbus["clash_cfddns_ipv4"] = document.getElementById("clash_cfddns_ipv4").value;
+            dbus["clash_cfddns_ipv6"] = document.getElementById("clash_cfddns_ipv6").value;
             apply_action("save_cfddns");
             document.getElementById("clash_cfddns_enable").disabled = false;
+        }
+
+        function switch_cfddns_ipv6_mode() {
+            // 启用ipv6解析支持
+            if (document.getElementById('clash_cfddns_ipv6_enable').checked) {
+                $j("#clash_cfddns_ipv6").show();
+            } else {
+                $j("#clash_cfddns_ipv6").hide();
+            }
         }
 
         function switch_route_watchdog() { //启用旁路由监控工具
@@ -1359,6 +1381,34 @@
                             </td>
                         </tr>
                         <tr>
+                            <th title="启动DDNS支持代理功能">支持代理(小云朵)</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_cfddns_proxy_enable">
+                                        <input id="clash_cfddns_proxy_enable" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th title="启动DDNS支持的IPv6地址,但此IPv6地址为路由器公网地址,非内网主机IPv6地址!">支持IPv6地址</th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_cfddns_ipv6_enable">
+                                        <input id="clash_cfddns_ipv6_enable" onclick="switch_cfddns_ipv6_mode();" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
                             <th>
                                 <label>Email邮箱地址</label>
                             </th>
@@ -1397,7 +1447,8 @@
                                 <label>获取公网IP命令<b>(可不填)</b></label>
                             </th>
                             <td colspan="2">
-                                <input type="text" class="input_text" id="clash_cfddns_ip" placeholder="curl https://httpbin.org/ip|grep origin|cut -d\&quot; -f4">
+                                <input type="text" class="input_text" id="clash_cfddns_ipv4" placeholder="curl https://httpbin.org/ip|grep origin|cut -d\&quot; -f4">
+                                <input type="text" class="input_text" id="clash_cfddns_ipv6" placeholder="curl 6.ipw.cn" style="display: none;">
                             </td>
                         </tr>
                         <tr>

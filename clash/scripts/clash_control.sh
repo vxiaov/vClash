@@ -574,6 +574,77 @@ update_clash_bin() {
     fi
 }
 
+cfddns_create_record() {
+    # 添加DNS解析记录(A or AAAA record)
+    clash_cfddns_zid="$1"
+    clash_cfddns_email="$2"
+    clash_cfddns_apikey="$3"
+    current_domain="$4"
+    dns_type="$5"
+    ip_addr="$6"
+    clash_cfddns_support_proxy="$7"
+    if [ "$dns_type" = "A" ] ; then
+        dns_type="A"
+    else
+        dns_type="AAAA"
+    fi
+    if [ "$clash_cfddns_support_proxy" = "off" ] ; then
+        result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records" \
+                -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
+                --data "{\"type\":\"$dns_type\",\"name\":\"$current_domain\",\"content\":\"$ip_addr\",\"proxied\":false}" | jq -r '.success')
+    else
+        result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records" \
+                -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
+                --data "{\"type\":\"$dns_type\",\"name\":\"$current_domain\",\"content\":\"$ip_addr\",\"proxied\":true}" | jq -r '.success')
+    fi
+    if [ "$result" = "true" ] ; then
+        LOGGER "添加域名[$current_domain]的DNS解析 $dns_type 记录成功! IP地址:$ip_addr"
+        return 0
+    else
+        LOGGER "添加域名[$current_domain]的DNS解析 $dns_type 记录失败! IP地址:$ip_addr"
+        return 1
+    fi
+}
+
+cfddns_update_record() {
+    # 更新DNS解析记录(A or AAAA record)
+    clash_cfddns_zid="$1"
+    clash_cfddns_email="$2"
+    clash_cfddns_apikey="$3"
+    current_domain="$4"
+    dns_type="$5"
+    ip_addr="$6"
+    clash_cfddns_support_proxy="$7"
+    if [ "$dns_type" = "A" ] ; then
+        dns_type="A"
+    else
+        dns_type="AAAA"
+    fi
+    clash_cfddns_record_id=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?type=${dns_type}&name=$current_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
+    if [ "$clash_cfddns_record_id" = "" -o "$clash_cfddns_record_id" = "null" ] ; then
+        # LOGGER "没找到 [$current_domain] [$dns_type] 记录! 添加一条新的 $dns_type 记录!"
+        cfddns_create_record $clash_cfddns_zid $clash_cfddns_email $clash_cfddns_apikey $current_domain $dns_type $ip_addr $clash_cfddns_support_proxy
+        return
+    fi
+    # 更新现有的记录
+    reuslt=""
+    if [ "$clash_cfddns_support_proxy" = "off" ] ; then
+        result=$(curl -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_record_id" \
+            -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
+            --data '{"type":"'$dns_type'","name":"'$current_domain'","content":"'$ip_addr'","proxied":false}' | jq -r '.success')
+    else
+        result=$(curl -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_record_id" \
+            -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
+            --data '{"type":"'$dns_type'","name":"'$current_domain'","content":"'$ip_addr'","proxied":true}' | jq -r '.success')
+    fi
+    if [ "$result" = "true" ] ; then
+        LOGGER "更新域名[$current_domain]的DNS解析 $dns_type 记录成功! IP地址:$ip_addr"
+        return 0
+    else
+        LOGGER "更新域名[$current_domain]的DNS解析 $dns_type 记录失败! IP地址:$ip_addr"
+        return 1
+    fi
+}
 
 start_cfddns(){
     # 配置检测
@@ -581,35 +652,42 @@ start_cfddns(){
     [[ -z "$clash_cfddns_apikey" ]]  && LOGGER "apikey 没填写!" && return 1
     [[ -z "$clash_cfddns_domain" ]]  && LOGGER "domain 没填写!" && return 1
     [[ -z "$clash_cfddns_ttl" ]]  && clash_cfddns_ttl="120"
-    [[ -z "$clash_cfddns_ip" ]]  && clash_cfddns_ip='curl https://httpbin.org/ip 2>/dev/null |grep origin|cut -d\" -f4'
-    [[ -z "$clash_cfddns_ip" ]]  && LOGGER "可能网络链接有问题，暂时无法访问外网,稍后再试!" && return 1
+    [[ -z "$clash_cfddns_ipv4" ]]  && clash_cfddns_ipv4='curl https://httpbin.org/ip 2>/dev/null |grep origin|cut -d\" -f4'
+    [[ -z "$clash_cfddns_ipv4" ]]  && LOGGER "可能网络链接有问题，暂时无法访问外网,稍后再试!" && return 1
+    [[ -z "$clash_cfddns_ipv6" ]]  && clash_cfddns_ipv6='curl 6.ipw.cn'
+    [[ -z "$clash_cfddns_ipv6" ]]  && LOGGER "可能网络链接有问题，暂时无法访问外网,稍后再试!" && return 1
+    # 支持IPv6地址解析
+    [[ -z "$clash_cfddns_support_ipv6" ]] && clash_cfddns_support_ipv6="off"  && dbus set clash_cfddns_support_ipv6="off"
+    # 支持proxy代理(打开小云朵)
+    [[ -z "$clash_cfddns_support_proxy" ]] && clash_cfddns_support_proxy="off"  && dbus set clash_cfddns_support_proxy="off"
+    
     # 支持多个域名更新
+    real_ipv4=`echo ${clash_cfddns_ipv4}|sh 2>/dev/null`
+    if [ "$clash_cfddns_support_ipv6" = "on" ] ; then
+        real_ipv6=`echo ${clash_cfddns_ipv6}|sh 2>/dev/null`
+    fi
     for current_domain in `echo $clash_cfddns_domain | sed 's/[,，]/ /g'`
     do
-        # echo "当前域名: $current_domain"
         clash_cfddns_zone=`echo $current_domain| cut -d. -f2,3`
         clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
-        clash_cfddns_recid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?name=$current_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
         dbus set clash_cfddns_ttl=$clash_cfddns_ttl
-        real_ip=`echo ${clash_cfddns_ip}|sh 2>/dev/null`
-        if [ "$?" != "0" -o "$real_ip" = "" ] ; then
-            LOGGER "获取IP地址失败! 执行命令:[$clash_cfddns_ip], 提取结果:[$real_ip]"
+        if [ "$real_ipv4" = "" ] ; then
+            LOGGER "获取IPv4地址失败! 执行命令:[$clash_cfddns_ipv4], 提取结果:[$real_ipv4]"
             return 1
         fi
-        update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_recid" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" --data "{\"id\":\"$clash_cfddns_zid\",\"type\":\"A\",\"name\":\"$current_domain\",\"content\":\"$real_ip\"}")
-        res=`echo $update| jq -r .success`
-        if [[ "$res" != "true" ]]; then
-            LOGGER "更新结果失败!"
-            echo "失败详细信息:"
-            echo "$update| jq ."
-        else
-            LOGGER "当前域名: $current_domain, 更新DDNS成功!"
-            # 添加cron调度
-            add_ddns_cron
-            clash_cfddns_lastmsg="$(date +'%Y/%m/%d %H:%M:%S')"
-            dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
+        cfddns_update_record $clash_cfddns_zid $clash_cfddns_email $clash_cfddns_apikey $current_domain "A" $real_ipv4 $clash_cfddns_support_proxy
+        if [ "$clash_cfddns_support_ipv6" = "on" ] ; then
+            if [ "$real_ipv6" = "" ] ; then
+                LOGGER "获取IPv6地址失败! 执行命令:[$clash_cfddns_ipv6], 提取结果:[$real_ipv6]"
+                return 1
+            fi
+            cfddns_update_record $clash_cfddns_zid $clash_cfddns_email $clash_cfddns_apikey $current_domain "AAAA" $real_ipv6 $clash_cfddns_support_proxy
         fi
     done
+    # 添加cron调度
+    add_ddns_cron
+    clash_cfddns_lastmsg="$(date +'%Y/%m/%d %H:%M:%S')"
+    dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
 }
 
 # 保存DDNS配置
