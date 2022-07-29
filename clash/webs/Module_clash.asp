@@ -583,7 +583,8 @@
 
         function service_stop() {
             apply_action("stop", "0", null, {
-                "clash_enable": dbus["clash_enable"]
+                "clash_enable": dbus["clash_enable"],
+                "clash_rule_mode": dbus["clash_rule_mode"]
             });
         }
 
@@ -596,7 +597,8 @@
                 dbus = data;
                 conf2obj();
             }, {
-                "clash_enable": dbus["clash_enable"]
+                "clash_enable": dbus["clash_enable"],
+                "clash_rule_mode": dbus["clash_rule_mode"]
             });
         }
 
@@ -1045,7 +1047,7 @@
 
         // 切换为黑名单模式
         function switch_blacklist_mode() {
-            if (dbus["clash_rule_mode"] == "whitelist") {
+            if (dbus["clash_rule_mode"] != "blacklist") {
                 dbus["clash_rule_mode"] = "blacklist";
                 apply_action("switch_blacklist_mode", "0", function() {
                     show_result("切换为黑名单模式成功!", 1000);
@@ -1059,7 +1061,7 @@
 
         // 切换为白名单模式
         function switch_whitelist_mode() {
-            if (dbus["clash_rule_mode"] == "blacklist") {
+            if (dbus["clash_rule_mode"] != "whitelist") {
                 dbus["clash_rule_mode"] = "whitelist";
                 apply_action("switch_whitelist_mode", "0", function() {
                     show_result("切换为白名单模式成功!", 1000);
