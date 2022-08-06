@@ -438,7 +438,9 @@ update_provider_file() {
     fi
     dbus set clash_provider_file=$clash_provider_file
     socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
-    uri_decoder -proxy "$socks5_proxy" -uri "$clash_provider_file" -db "/koolshare/clash/Country.mmdb" > ${temp_provider_file}
+    # uri_decoder -proxy "$socks5_proxy" -uri "$clash_provider_file" -db "/koolshare/clash/Country.mmdb" > ${temp_provider_file}
+    remove_uri=$(echo -n "$clash_provider_file" | base64_decode)
+    curl -sL ${remove_uri} > ${temp_provider_file}
     if [ "$?" != "0" ]; then
         LOGGER "下载订阅源URL信息失败!可能原因:1.URL地址被屏蔽!2.使用代理不稳定. 重新尝试一次。"
         return 2
