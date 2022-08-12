@@ -1,11 +1,12 @@
-// changelog 配置，commit 规则也在这里进行配置
-// 参考文档：https://www.npmjs.com/package/git-cz
+// 文件名: changelog.config.js 
+// 作用: commit 规范化配置
+// 参考文档：https://github.com/streamich/git-cz
 
 module.exports = {
   disableEmoji: true,
   // format: '{type}{scope}: {emoji}{subject}',
-  list: ['test', 'feat', 'fix', 'chore', 'docs', 'refactor', 'style', 'ci', 'perf'],
-  maxMessageLength: 64,
+  list: ['test', 'feat', 'fix', 'chore', 'docs', 'refactor', 'style', 'ci', 'perf', 'build'],
+  maxMessageLength: 72,
   minMessageLength: 3,
   questions: ['type', 'scope', 'subject', 'body', 'breaking', 'issues', 'lerna'],
   scopes: [],
@@ -16,7 +17,7 @@ module.exports = {
       value: 'chore'
     },
     ci: {
-      description: 'CI related changes',
+      description: 'CI持续集成相关变更',
       emoji: '🎡',
       value: 'ci'
     },
@@ -31,7 +32,7 @@ module.exports = {
       value: 'feat'
     },
     fix: {
-      description: 'bug 修复',
+      description: 'BUG修复',
       emoji: '🐛',
       value: 'fix'
     },
@@ -46,7 +47,7 @@ module.exports = {
       value: 'refactor'
     },
     release: {
-      description: 'Create a release commit',
+      description: '发布Release版本提交',
       emoji: '🏹',
       value: 'release'
     },
@@ -59,7 +60,11 @@ module.exports = {
       description: '新增或修改已有的测试代码',
       emoji: '💍',
       value: 'test'
+    },
+    build: {
+      description: '影响构建系统或外部依赖项的更改（示例范围：gulp、broccoli、npm）',
+      emoji: '💍',
+      value: 'build'
     }
   }
 };
-
