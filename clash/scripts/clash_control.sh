@@ -535,6 +535,94 @@ switch_ipv6_mode(){
     LOGGER "切换IPv6模式成功!"
 }
 # 忽略clash新版本提醒
+ignore_vclash_new_version() {
+    dbus set clash_version=$clash_vclash_new_version
+    LOGGER "已忽略当前版本:$clash_vclash_new_version"
+}
+
+md5sum_update() {
+    # 如果md5sum结果不一致就更新替换文件
+    old_file="$1"
+    new_file="$2"
+    if [ ! -f "$old_file" ] ; then
+        LOGGER "文件不存在: $old_file"
+        return 1
+    fi
+    if [ ! -f "$new_file" ] ; then
+        LOGGER "文件不存在: $new_file"
+        return 1
+    fi
+    old_md5sum="$(md5sum $old_file|cut -d' ' -f1)"
+    new_md5sum="$(md5sum $new_file|cut -d' ' -f1)"
+    if [ "$old_md5sum" = "$new_md5sum" ] ; then
+        LOGGER "文件一致,无需更新: $old_file"
+        return 0
+    fi
+    LOGGER "文件不一致,开始更新: $old_file"
+    mv -f $old_file $old_file.bak && cp $new_file $old_file && rm -f $old_file.bak
+    if [ "$?" != "0" ] ; then
+        LOGGER "文件更新失败: $old_file"
+        return 1
+    fi
+    LOGGER "文件更新成功: $old_file"
+}
+
+# 更新vclash 至最新版本
+update_vclash_bin() {
+    # 从github下载vclash的Release版本
+    LOGGER "开始下载vclash更新包..."
+    rm -rf /tmp/upload/clash /tmp/upload/clash.tar.gz
+    vclash_url="https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz"
+    wget -c --no-check-certificate -O /tmp/upload/clash.tar.gz $vclash_url
+    if [ "$?" != "0" ] ; then
+        LOGGER "下载vclash更新包失败!"
+        return 1
+    fi
+    LOGGER "下载vclash更新包成功!"
+    LOGGER "开始更新vclash..."
+    cd /tmp/upload
+    tar -zxf ./clash.tar.gz
+    if [ "$?" != "0" ] ; then
+        LOGGER "解压vclash更新包失败!"
+        return 1
+    fi
+    LOGGER "解压vclash更新包成功!"
+
+    # 版本判断
+    vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
+    if [ "$clash_vclash_new_version" != "$vclash_new_version" ] ; then
+        LOGGER "vclash版本不一致,无法更新!"
+        LOGGER "检测到的最新vClash版本:$clash_vclash_new_version"
+        LOGGER "实际下载后的vClash版本:$vclash_new_version"
+        LOGGER "别着急，可能版本还在发布的路上，过一会再试试吧！"
+        return 1
+    fi
+    ARCH="`get_arch`"
+    # 更新clash/ jq / yq / uri_decoder
+    md5sum_update /koolshare/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
+    md5sum_update /koolshare/bin/jq /tmp/upload/clash/bin/jq_for_${ARCH}
+    md5sum_update /koolshare/bin/yq /tmp/upload/clash/bin/yq_for_${ARCH}
+    md5sum_update /koolshare/bin/uri_decoder /tmp/upload/clash/bin/uri_decoder_for_${ARCH}
+    
+    # 更新 clash_control.sh 脚本
+    md5sum_update /koolshare/scripts/clash_control.sh /tmp/upload/clash/scripts/clash_control.sh
+    # 更新 Module_clash.asp 网页
+    md5sum_update /koolshare/webs/Module_clash.asp /tmp/upload/clash/webs/Module_clash.asp
+    # 更新 res/clash_style.css 网页样式
+    md5sum_update /koolshare/res/clash_style.css /tmp/upload/clash/res/clash_style.css
+    # 更新 res/icon-clash.png 网页图标
+    md5sum_update /koolshare/res/icon-clash.png /tmp/upload/clash/res/icon-clash.png
+
+    # 更新 version 文件
+    md5sum_update /koolshare/clash/version /tmp/upload/clash/clash/version
+    
+    # 更新环境变量
+    dbus set clash_vclash_new_version=$vclash_new_version
+    dbus set clash_vclash_version=$vclash_new_version
+    dbus set softcenter_module_clash_version=vclash_new_version
+}
+
+# 忽略clash新版本提醒
 ignore_new_version() {
     dbus set clash_version=$clash_new_version
     LOGGER "已忽略当前版本:$clash_new_version"
@@ -551,7 +639,7 @@ update_clash_bin() {
     # https://github.com/Dreamacro/clash/releases/tag/premium
     LOGGER "CURL_OPTS:${CURL_OPTS}"
     LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
-    ARCH="$(get_arch)"
+    ARCH="`get_arch`"
     download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium | grep "clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
     bin_file="new_$app_name"
     LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
@@ -1243,6 +1331,12 @@ do_action() {
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;
+            ignore_vclash_new_version)
+                ignore_vclash_new_version
+                ret_data="{$(dbus list clash_vclash_version  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
             *)
                 http_response "$1" >/dev/null 2>&1
                 ;;
@@ -1267,7 +1361,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    update_clash_bin |update_clash_file| switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file|switch_ipv6_mode)
+    update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then

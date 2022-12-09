@@ -1,11 +1,21 @@
 payload:
   # Telegram
+  - DOMAIN-SUFFIX,comments.app
+  - DOMAIN-SUFFIX,contest.com
+  - DOMAIN-SUFFIX,graph.org
+  - DOMAIN-SUFFIX,quiz.directory
   - DOMAIN-SUFFIX,t.me
   - DOMAIN-SUFFIX,tdesktop.com
+  - DOMAIN-SUFFIX,telega.one
   - DOMAIN-SUFFIX,telegra.ph
+  - DOMAIN-SUFFIX,telegram.dog
   - DOMAIN-SUFFIX,telegram.me
   - DOMAIN-SUFFIX,telegram.org
+  - DOMAIN-SUFFIX,telegram.space
   - DOMAIN-SUFFIX,telesco.pe
+  - DOMAIN-SUFFIX,tg.dev
+  - DOMAIN-SUFFIX,tx.me
+  - DOMAIN-SUFFIX,usercontent.dev
   - IP-CIDR,91.108.56.0/22
   - IP-CIDR,91.108.4.0/22
   - IP-CIDR,91.108.8.0/22

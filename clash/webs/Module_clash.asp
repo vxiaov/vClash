@@ -37,6 +37,7 @@
             clash_config_init(); // 初始化配置
             get_dbus_data();
             version_show();
+            vclash_version_check();
             register_event();
 
             if (dbus["clash_current_tab"] == "" || dbus["clash_current_tab"] == undefined) {
@@ -536,11 +537,11 @@
             });
         }
 
-        function vClash_version_check() {
+        function vclash_version_check() {
             // TODO: 更新vClash 检测
-            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version']);
+            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']);
             $j.ajax({
-                url: 'https://api.github.com/repos/Dreamacro/clash/tags',
+                url: 'https://api.github.com/repos/learnhard-cn/vclash/tags',
                 type: 'GET',
                 async: true,
                 cache: false,
@@ -549,18 +550,18 @@
                 success: function(res) {
                     if (typeof(res) != "undefined" && res.length > 0) {
                         var obj = res[0];
-                        if (obj.name != dbus["clash_version"]) {
-                            $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，<i>有新版本：" + obj.name);
-                            dbus["clash_new_version"] = obj.name;
-                            $j("#clash_install_show").show();
+                        if (obj.name != dbus["clash_vclash_version"]) {
+                            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，<i>有新版本：" + obj.name);
+                            dbus["clash_vclash_new_version"] = obj.name;
+                            $j("#clash_vclash_install_show").show();
                         } else {
-                            $j("#clash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
-                            $j("#clash_install_show").hide();
+                            $j("#clash_vclash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
+                            $j("#clash_vclash_install_show").hide();
                         }
                     }
                 },
                 error: function(res) {
-                    $j("#clash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。");
+                    $j("#clash_vclash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。");
                 }
             }).fail(() => {
                 console.log('failed');
@@ -804,6 +805,22 @@
             }, {
                 "clash_new_version": dbus["clash_new_version"]
             });
+        }
+
+        function ignore_vclash_new_version() {
+            // 忽略新版本提示
+            apply_action("ignore_vclash_new_version", "0", function(data) {
+                dbus["clash_vclash_version"] = data["clash_vclash_version"];
+                vclash_version_check();
+            }, {
+                "clash_vclash_new_version": dbus["clash_vclash_new_version"]
+            });
+        }
+
+        function update_vclash_bin() {
+            // 更新 vClash 至最新版本
+            apply_action("update_vclash_bin");
+            document.getElementById("vclash_install_show").style.display = "none";
         }
 
         function show_router_info() {
@@ -1280,13 +1297,36 @@
                                         </div>
                                     </label>
                                 </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>Clash版本:</label>
+                            </th>
+                            <td colspan="2">
                                 <div id="clash_version_status">
                                     <i style="color:rgb(7, 234, 7)">当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
                                 </div>
-
                                 <div id="clash_install_show" style="display: none;">
                                     <a type="button" class="button_gen" onclick="ignore_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
                                     <a type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新最新版</a>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>
+                                <label>vClash版本:</label>
+                            </th>
+                            <td colspan="2">
+                                <div id="clash_vclash_version_status">
+                                    <i style="color:rgb(7, 234, 7)">当前版本：<% dbus_get_def("clash_vclash_version", "未知" ); %></i>
+                                </div>
+
+
+                                <div id="clash_vclash_install_show" style="display: none;">
+                                    <a type="button" class="button_gen" onclick="ignore_vclash_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <a type="button" class="button_gen" onclick="update_vclash_bin()" href="javascript:void(0);">更新最新版</a>
                                 </div>
                             </td>
                         </tr>
@@ -1747,12 +1787,13 @@
                     </div>
 
                     <div class="KoolshareBottom" style="margin-top:5px; ">
-                        <a class="tab item-tab " href="https://github.com/Dreamacro/clash " target="_blank ">Clash项目</a>
-                        <a class="tab item-tab " href="https://github.com/haishanh/yacd " target="_blank ">Yacd项目</a>
-                        <a class="tab item-tab " href="https://github.com/learnhard-cn/uridecoder " target="_blank ">uridecoder项目</a>
-                        <a class="tab item-tab " href="https://t.me/share_proxy_001 " target="_blank ">TG讨论群</a>
-                        <a class="tab item-tab " href="https://vlike.work/ " target="_blank ">小V的博客</a>
-                        <a class="tab item-tab " href="https://t.me/share_proxy_001 " target="_blank ">小V的油管</a>
+                        <a class="tab item-tab " href="https://github.com/Dreamacro/clash" target="_blank ">Clash项目</a>
+                        <a class="tab item-tab " href="https://github.com/haishanh/yacd" target="_blank ">Yacd项目</a>
+                        <a class="tab item-tab " href="https://github.com/learnhard-cn/vClash" target="_blank ">vClash项目</a>
+                        <a class="tab item-tab " href="https://github.com/learnhard-cn/uridecoder" target="_blank ">UriDecoder</a>
+                        <a class="tab item-tab " href="https://t.me/share_proxy_001" target="_blank ">TG讨论群</a>
+                        <a class="tab item-tab " href="https://vlike.work/" target="_blank ">小V的博客</a>
+                        <a class="tab item-tab " href="https://www.youtube.com/channel/UCsb-LlhxstK3VRLz5_3kZxQ" target="_blank ">小V的油管</a>
                     </div>
             </td>
             <div class="author-info"></div>

@@ -30,7 +30,7 @@ generate_tglist() {
     tmpfile="./tglist.tmp"
     rm -f "$tmpfile"
 
-    for domain_name in t.me tdesktop.com telegra.ph telegram.me telegram.org telesco.pe
+    for domain_name in comments.app contest.com graph.org quiz.directory t.me tdesktop.com telega.one telegra.ph telegram.dog telegram.me telegram.org telegram.space telesco.pe tg.dev tx.me usercontent.dev
     do
         echo "$domain_name" >> ${tmpfile}
     done
