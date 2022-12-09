@@ -803,17 +803,17 @@ show_router_info() {
     echo "| memory : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "| /jffs  : $(df /jffs|awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "+---------------------------------------------------------------+"
-    echo "|>> vClash实际使用的软件版本:                                   << |"
+    echo "|>> vClash当前正在使用的软件版本:                                   << |"
     debug_info "vClash" "$(dbus get softcenter_module_${app_name}_version)"
     debug_info "clash_premium" $(clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')
     debug_info "yq" "$(yq -V|awk '{ print $NF}')"
     debug_info "jq" "$(jq -V)"
-    echo "|>> vClash安装包自带软件版本:                                   << |"
+    echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                                   << |"
     cat /koolshare/${app_name}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
     echo "+---------------------------------------------------------------+"
-    echo "vClash的转发规则(iptables -t nat -S ${app_name}):"
-    iptables -t nat -S ${app_name}
-    echo "---------------------------------------------------------------"
+    echo "vClash的转发规则(iptables -t nat -S | grep ${app_name}),分析转发规则是否正常:"
+    iptables -t nat -S | grep ${app_name}
+    echo "+---------------------------------------------------------------+"
 }
 
 

@@ -1,5 +1,5 @@
 rules:
   # 黑名单模式最后规则
   - RULE-SET,gfw,默认代理组
-  - RULE-SET,telegramcidr,默认代理组
+  - RULE-SET,telegram_rules,默认代理组
   - MATCH,DIRECT

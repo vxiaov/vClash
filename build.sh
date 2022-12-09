@@ -12,6 +12,7 @@ usage() {
     `basename $0` pack <version>  # 打包指定版本安装包
     `basename $0` yaml    # 精简yaml文件
     `basename $0` yaml0   # 输出完整的yaml文件
+    `basename $0` generate_tglist  # 生成TG规则集
 
  Params:
     version : new version number , v2.2.4
@@ -23,6 +24,29 @@ if [ "$1" = "" ] ; then
     usage
     exit
 fi
+
+generate_tglist() {
+    outfile="./clash/clash/ruleset/rule_diy_tg.yaml"
+    tmpfile="./tglist.tmp"
+    rm -f "$tmpfile"
+
+    for domain_name in t.me tdesktop.com telegra.ph telegram.me telegram.org telesco.pe
+    do
+        echo "$domain_name" >> ${tmpfile}
+    done
+    curl -s https://core.telegram.org/resources/cidr.txt  >> ${tmpfile}
+    if [ "$?" != "0" ] ; then
+        echo "Error:获取 Telegram CIDR 文件失败啦!"
+        rm -f ${tmpfile}
+        return 1
+    fi
+    # 生成 ruleset
+    awk 'BEGIN{ printf("payload:\n  # Telegram\n") }
+      /^[a-z]/{ printf("  - DOMAIN-SUFFIX,%s\n", $0) }
+     /[0-9]\./{ printf("  - IP-CIDR,%s\n", $0)}
+           /:/{ printf("  - IP-CIDR6,%s\n", $0)}' ${tmpfile}  > ${outfile}
+    rm -f ${tmpfile}
+}
 
 generate_gfwlist() {
     # 生成gfw.yaml #
@@ -84,6 +108,9 @@ generate_package() {
 
 
 case "$1" in
+    generate_*)
+        $1
+        ;;
     pack)
         generate_package $2
         ;;

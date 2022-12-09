@@ -248,12 +248,10 @@ rule-providers:
     url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt
     path: ./ruleset/direct.yaml
     interval: 86400
-  telegramcidr:
-    type: http
-    behavior: domain
-    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt
-    path: ./ruleset/telegramcidr.yaml
-    interval: 86400
+  telegram_rules:
+    type: file
+    behavior: classical
+    path: ./ruleset/rule_diy_tg.yaml
   lancidr:
     type: file
     behavior: domain
@@ -303,5 +301,5 @@ rules:
   - RULE-SET,whitelist_rules,DIRECT
   - RULE-SET,blacklist_rules,默认代理组
   - RULE-SET,gfw,默认代理组
-  - RULE-SET,telegramcidr,默认代理组
+  - RULE-SET,telegram_rules,默认代理组
   - MATCH,DIRECT

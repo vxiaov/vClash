@@ -4,7 +4,9 @@
     font-size: 13px;
     font-family: 'Courier New', Courier, monospace;
 }
-
+.KoolshareBottom {
+    width: 400px !important;
+}
 #clash_version_status {
     display: table-cell;
     width: 95%;
