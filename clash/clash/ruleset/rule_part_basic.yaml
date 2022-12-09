@@ -2,8 +2,6 @@ rules:
   - DOMAIN,clash.razord.top,DIRECT
   - DOMAIN,yacd.haishan.me,DIRECT
 
-  # 所有IPv6直连-避免不支持IPv6代理节点无法处理请求而导致无法上网问题
-  - IP-CIDR6,::/0,DIRECT,no-resolve
   - RULE-SET,lancidr,DIRECT
   - RULE-SET,video_netflix,NETFLIX_PROXY
   - RULE-SET,video_tiktok,Tiktok_PROXY
