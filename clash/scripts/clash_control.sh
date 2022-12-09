@@ -536,7 +536,7 @@ switch_ipv6_mode(){
 }
 # 忽略clash新版本提醒
 ignore_vclash_new_version() {
-    dbus set clash_version=$clash_vclash_new_version
+    dbus set clash_vclash_version=$clash_vclash_new_version
     LOGGER "已忽略当前版本:$clash_vclash_new_version"
 }
 
