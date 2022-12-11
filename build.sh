@@ -113,6 +113,13 @@ case "$1" in
         ;;
     pack)
         generate_package $2
+        git add ./
+        git commit -m "docs: 提交$2版本离线包"
+        git tag $2
+        work_branch="$(git branch --show-current)"
+        git checkout ksmerlin386
+        git merge ${work_branch}
+        git push --set-upstream origin ksmerlin386 --tag        
         ;;
     yaml)
         generate_gfwlist 1

@@ -595,7 +595,7 @@ update_vclash_bin() {
     # 版本判断
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
     if [ "$clash_vclash_new_version" = "$vclash_new_version" ] ; then
-        LOGGER "警告: vclash版本不一致!"
+        LOGGER "警告: 安装的vclash版本与最新版本不一致!"
         LOGGER "检测到的最新vClash版本:$clash_vclash_new_version"
         LOGGER "实际下载后的vClash版本:$vclash_new_version"
     fi
@@ -628,6 +628,7 @@ update_vclash_bin() {
     dbus set clash_vclash_new_version=$vclash_new_version
     dbus set clash_vclash_version=$vclash_new_version
     dbus set softcenter_module_clash_version=$vclash_new_version
+    LOGGER "vClash更新完毕!"
 }
 
 # 忽略clash新版本提醒
