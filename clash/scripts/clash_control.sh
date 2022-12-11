@@ -627,7 +627,7 @@ update_vclash_bin() {
     # 更新环境变量
     dbus set clash_vclash_new_version=$vclash_new_version
     dbus set clash_vclash_version=$vclash_new_version
-    dbus set softcenter_module_clash_version=vclash_new_version
+    dbus set softcenter_module_clash_version=$vclash_new_version
 }
 
 # 忽略clash新版本提醒
