@@ -232,6 +232,7 @@ init_env() {
     dbus set clash_rule_mode="blacklist" # 默认为黑名单模式
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
+    dbus set clash_vclash_switch_cdn="off"  # 默认使用Github地址更新vClash
     
     vClash_VERSION=$(sed -n '1p' /koolshare/${app_name}/version| cut -d: -f2)
     CLASH_VERSION=$(sed -n '2p' /koolshare/${app_name}/version| cut -d: -f2)

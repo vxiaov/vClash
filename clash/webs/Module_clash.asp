@@ -834,14 +834,16 @@
         }
 
         function update_vclash_bin() {
-            // 更新 vClash 至最新版本
-            apply_action("update_vclash_bin", "0", function(data) {
-                dbus["clash_vclash_version"] = data["clash_vclash_version"];
-                vclash_version_check();
-            }, {
-                "clash_vclash_new_version": dbus["clash_vclash_new_version"]
+            if (document.getElementById('clash_vclash_switch_cdn').checked) {
+                dbus["clash_vclash_switch_cdn"] = "on";
+            } else {
+                dbus["clash_vclash_switch_cdn"] = "off";
+            }
+            // 更新 vClash 至最新版本,更新后刷新页面:更新了Module_clash.asp页面需要重新加载
+            apply_action("update_vclash_bin", "1", null, {
+                "clash_vclash_new_version": dbus["clash_vclash_new_version"],
+                "clash_vclash_switch_cdn" : dbus["clash_vclash_switch_cdn"]
             });
-            document.getElementById("vclash_install_show").style.display = "none";
         }
 
         function show_router_info() {
@@ -1334,7 +1336,22 @@
                                 </div>
                             </td>
                         </tr>
-
+                         <tr>
+                            <th>
+                                <label title="默认使用github地址,开启后切换为国内CDN源(文件延迟1天)">vClash源切换</label>
+                            </th>
+                            <td colspan="2">
+                                <div class="switch_field">
+                                    <label for="clash_vclash_switch_cdn">
+                                        <input id="clash_vclash_switch_cdn" class="switch" type="checkbox" style="display: none;">
+                                        <div class="switch_container">
+                                            <div class="switch_bar"></div>
+                                            <div class="switch_circle transition_style"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
                         <tr>
                             <th>
                                 <label>vClash版本:</label>

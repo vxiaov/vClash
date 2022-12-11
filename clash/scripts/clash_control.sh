@@ -574,7 +574,12 @@ update_vclash_bin() {
     # 从github下载vclash的Release版本
     
     rm -rf /tmp/upload/clash /tmp/upload/clash.tar.gz
-    vclash_url="https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz"
+    local vclash_url="" # 更新vclash地址
+    if [ "$clash_vclash_switch_cdn" = "on" ] ; then
+        vclash_url="https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz"
+    else
+        vclash_url="https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz"
+    fi
     LOGGER "开始下载vclash更新包..."
     LOGGER "下载地址:[$vclash_url]"
     curl ${CURL_OPTS} -o /tmp/upload/clash.tar.gz $vclash_url
