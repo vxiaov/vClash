@@ -572,11 +572,12 @@ md5sum_update() {
 # 更新vclash 至最新版本
 update_vclash_bin() {
     # 从github下载vclash的Release版本
-    LOGGER "开始下载vclash更新包..."
+    
     rm -rf /tmp/upload/clash /tmp/upload/clash.tar.gz
-    #vclash_url="https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz"
     vclash_url="https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz"
-    wget -q -c --no-check-certificate -O /tmp/upload/clash.tar.gz $vclash_url
+    LOGGER "开始下载vclash更新包..."
+    LOGGER "下载地址:[$vclash_url]"
+    curl ${CURL_OPTS} -o /tmp/upload/clash.tar.gz $vclash_url
     if [ "$?" != "0" ] ; then
         LOGGER "下载vclash更新包失败!"
         return 1
@@ -593,12 +594,10 @@ update_vclash_bin() {
 
     # 版本判断
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
-    if [ "$clash_vclash_new_version" != "$vclash_new_version" ] ; then
-        LOGGER "vclash版本不一致,无法更新!"
+    if [ "$clash_vclash_new_version" = "$vclash_new_version" ] ; then
+        LOGGER "警告: vclash版本不一致!"
         LOGGER "检测到的最新vClash版本:$clash_vclash_new_version"
         LOGGER "实际下载后的vClash版本:$vclash_new_version"
-        LOGGER "别着急，可能版本还在发布的路上，过一会再试试吧！"
-        return 1
     fi
     ARCH="`get_arch`"
     # 更新clash/ jq / yq / uri_decoder
@@ -646,14 +645,12 @@ update_clash_bin() {
     # 专业版更新
     # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
     # https://github.com/Dreamacro/clash/releases/tag/premium
-    # LOGGER "CURL_OPTS:${CURL_OPTS}"
-    # LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
+    LOGGER "CURL_OPTS:${CURL_OPTS}"
+    LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
     ARCH="`get_arch`"
-    # download_url="https://release.dreamacro.workers.dev/latest/clash-linux-${ARCH}-latest.gz"
-    download_url="https://cdn.jsdelivr.net/gh/learnhard-cn/clash_history@main/premium/clash-linux-${ARCH}-latest.gz"
-    LOGGER "下载地址: ${download_url}"
+    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium | grep "clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
     bin_file="new_$app_name"
-    LOGGER "开始下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
+    LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
     curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
