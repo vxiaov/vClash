@@ -119,7 +119,8 @@ get_arch() {
             fi
             ;;
         aarch64)
-            ARCH="armv8"
+            # ARCH="armv8"
+            ARCH="arm64"        # 更新aarch64架构名称，由 armv8 改为 arm64 架构,2022/12/12
             ;;
         *)
             LOGGER "糟糕!平台类型不支持呀!赶紧通知开发者适配!或者自己动手丰衣足食!"
@@ -127,7 +128,7 @@ get_arch() {
             exit 0
             ;;
     esac
-    return $ARCH
+    echo "$ARCH"
 }
 
 get_proc_status() {
@@ -321,6 +322,7 @@ service_start() {
     add_iptables
     add_cron
     list_nodes
+    LOGGER "启动完毕!"
 }
 
 service_stop() {
@@ -573,8 +575,8 @@ update_vclash_bin() {
     LOGGER "开始下载vclash更新包..."
     rm -rf /tmp/upload/clash /tmp/upload/clash.tar.gz
     #vclash_url="https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz"
-    vclash_url="https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@raw/ksmerlin386/release/clash.tar.gz"
-    wget -c --no-check-certificate -O /tmp/upload/clash.tar.gz $vclash_url
+    vclash_url="https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz"
+    wget -q -c --no-check-certificate -O /tmp/upload/clash.tar.gz $vclash_url
     if [ "$?" != "0" ] ; then
         LOGGER "下载vclash更新包失败!"
         return 1
@@ -614,6 +616,12 @@ update_vclash_bin() {
     # 更新 res/icon-clash.png 网页图标
     md5sum_update /koolshare/res/icon-clash.png /tmp/upload/clash/res/icon-clash.png
 
+    # 更新配置文件
+    md5sum_update /koolshare/clash/config.yaml /tmp/upload/clash/clash/config.yaml
+    md5sum_update /koolshare/clash/ruleset/rule_part_basic.yaml /tmp/upload/clash/ruleset/rule_part_basic.yaml
+    md5sum_update /koolshare/clash/ruleset/rule_part_blacklist.yaml /tmp/upload/clash/ruleset/rule_part_blacklist.yaml
+    md5sum_update /koolshare/clash/ruleset/rule_part_whitelist.yaml /tmp/upload/clash/ruleset/rule_part_whitelist.yaml
+
     # 更新 version 文件
     md5sum_update /koolshare/clash/version /tmp/upload/clash/clash/version
     
@@ -638,12 +646,14 @@ update_clash_bin() {
     # 专业版更新
     # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
     # https://github.com/Dreamacro/clash/releases/tag/premium
-    LOGGER "CURL_OPTS:${CURL_OPTS}"
-    LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
+    # LOGGER "CURL_OPTS:${CURL_OPTS}"
+    # LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
     ARCH="`get_arch`"
-    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium | grep "clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
+    # download_url="https://release.dreamacro.workers.dev/latest/clash-linux-${ARCH}-latest.gz"
+    download_url="https://cdn.jsdelivr.net/gh/learnhard-cn/clash_history@main/premium/clash-linux-${ARCH}-latest.gz"
+    LOGGER "下载地址: ${download_url}"
     bin_file="new_$app_name"
-    LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
+    LOGGER "开始下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
     curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
@@ -893,7 +903,7 @@ show_router_info() {
     echo "| /jffs  : $(df /jffs|awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "+---------------------------------------------------------------+"
     echo "|>> vClash当前正在使用的软件版本:                                   << |"
-    debug_info "vClash" "$(dbus get softcenter_module_${app_name}_version)"
+    debug_info "vClash" "$(dbus get ${app_name}_vclash_version)"
     debug_info "clash_premium" $(clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')
     debug_info "yq" "$(yq -V|awk '{ print $NF}')"
     debug_info "jq" "$(jq -V)"

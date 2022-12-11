@@ -539,7 +539,7 @@
 
         function vclash_version_check() {
             // TODO: 更新vClash 检测
-            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']);
+            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']);
             $j.ajax({
                 url: 'https://api.github.com/repos/learnhard-cn/vclash/tags',
                 type: 'GET',
@@ -711,7 +711,17 @@
             dbus["clash_cfddns_ttl"] = document.getElementById("clash_cfddns_ttl").value;
             dbus["clash_cfddns_ipv4"] = document.getElementById("clash_cfddns_ipv4").value;
             dbus["clash_cfddns_ipv6"] = document.getElementById("clash_cfddns_ipv6").value;
-            apply_action("save_cfddns");
+            apply_action("save_cfddns", "0", null, {
+                "clash_cfddns_enable": dbus["clash_cfddns_enable"],
+                "clash_cfddns_support_ipv6": dbus["clash_cfddns_support_ipv6"],
+                "clash_cfddns_email": dbus["clash_cfddns_email"],
+                "clash_cfddns_apikey": dbus["clash_cfddns_apikey"],
+                "clash_cfddns_domain": dbus["clash_cfddns_domain"],
+                "clash_cfddns_ttl": dbus["clash_cfddns_ttl"],
+                "clash_cfddns_ipv6": dbus["clash_cfddns_ipv6"],
+                "clash_cfddns_ipv4": dbus["clash_cfddns_ipv4"],
+                "clash_cfddns_support_proxy": dbus["clash_cfddns_support_proxy"],
+            });
             document.getElementById("clash_cfddns_enable").disabled = false;
         }
 
@@ -737,7 +747,11 @@
             }
             document.getElementById("clash_watchdog_enable").disabled = true;
             dbus["clash_watchdog_soft_ip"] = document.getElementById("clash_watchdog_soft_ip").value;
-            apply_action("switch_route_watchdog");
+            apply_action("switch_route_watchdog", "0", null, {
+                "clash_watchdog_enable": dbus["clash_watchdog_enable"],
+                "clash_watchdog_start_clash": dbus["clash_watchdog_start_clash"],
+                "clash_watchdog_soft_ip": dbus["clash_watchdog_soft_ip"]
+            });
             document.getElementById("clash_watchdog_enable").disabled = false;
         }
 
@@ -792,7 +806,9 @@
 
         // 更新 clash 新版本
         function update_clash_bin() { // 按名称删除 DIY节点
-            apply_action("update_clash_bin");
+            apply_action("update_clash_bin", "0", null, {
+                "clash_new_version" : dbus["clash_new_version"]
+            });
             document.getElementById("clash_install_show").style.display = "none";
         }
 
@@ -819,7 +835,12 @@
 
         function update_vclash_bin() {
             // 更新 vClash 至最新版本
-            apply_action("update_vclash_bin");
+            apply_action("update_vclash_bin", "0", function(data) {
+                dbus["clash_vclash_version"] = data["clash_vclash_version"];
+                vclash_version_check();
+            }, {
+                "clash_vclash_new_version": dbus["clash_vclash_new_version"]
+            });
             document.getElementById("vclash_install_show").style.display = "none";
         }
 
@@ -1793,7 +1814,7 @@
                         <a class="tab item-tab " href="https://github.com/learnhard-cn/uridecoder" target="_blank ">UriDecoder</a>
                         <a class="tab item-tab " href="https://t.me/share_proxy_001" target="_blank ">TG讨论群</a>
                         <a class="tab item-tab " href="https://vlike.work/" target="_blank ">小V的博客</a>
-                        <a class="tab item-tab " href="https://www.youtube.com/channel/UCsb-LlhxstK3VRLz5_3kZxQ" target="_blank ">小V的油管</a>
+                        <a class="tab item-tab " href="https://www.youtube.com/@xiaov" target="_blank ">小V的油管</a>
                     </div>
             </td>
             <div class="author-info"></div>
