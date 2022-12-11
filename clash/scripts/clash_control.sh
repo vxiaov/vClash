@@ -601,7 +601,7 @@ update_vclash_bin() {
     fi
     ARCH="`get_arch`"
     # 更新clash/ jq / yq / uri_decoder
-    md5sum_update /koolshare/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
+    # md5sum_update /koolshare/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
     md5sum_update /koolshare/bin/jq /tmp/upload/clash/bin/jq_for_${ARCH}
     md5sum_update /koolshare/bin/yq /tmp/upload/clash/bin/yq_for_${ARCH}
     md5sum_update /koolshare/bin/uri_decoder /tmp/upload/clash/bin/uri_decoder_for_${ARCH}
