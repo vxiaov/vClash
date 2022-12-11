@@ -343,7 +343,7 @@
 
 
         //提交任务方法,实时日志显示
-        // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
+        // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数),3:提交任务执行完毕后在调用回调函数
         function post_dbus_data(script, arg, obj, flag, callback) {
             var id = parseInt(Math.random() * 100000000);
             var postData = {
@@ -369,6 +369,9 @@
                                 refreshpage(3);
                             } else if (flag && flag == "2") {
                                 // 什么也不做...
+                            } else if (flag && flag == "3") {
+                                show_status(callback, response.data);
+                                return ;
                             }
                             // 动态获取数据模式: JSON数据保存在 response.data 变量中
                             // data内部数据使用方式: resp_data.key1 , resp_data.key2 , resp_data.key3 ...
@@ -412,7 +415,7 @@
             }, duration);
         }
 
-        function show_status() {
+        function show_status(callback, data) {
             //显示脚本执行过程的日志信息
             document.getElementById("loadingIcon").style.display = "";
             if(dbus["clash_log_type"] == "on") {
@@ -439,6 +442,16 @@
                         logMsg.value = retArea.value;
                         logMsg.scrollTop = logMsg.scrollHeight;
                         retArea.scrollTop = retArea.scrollHeight;
+                        // 任务执行完毕后调用回调函数，支持参数传递
+                        if (callback) {
+                            setTimeout(function() {
+                                if (data) {
+                                    callback(data);
+                                }else {
+                                    callback();
+                                }
+                            })
+                        }
                         ready_close_log_msg();
                         return true;
                     }
@@ -451,7 +464,9 @@
                         document.getElementById("loadingIcon").style.display = "none";
                         return false;
                     } else {
-                        setTimeout("show_status();", 500);
+                        setTimeout(function() {
+                            show_status(callback, data);
+                        }, 500);
                     }
                     retArea.value = response.replace("XU6J03M6", " ");
                     retArea.scrollTop = retArea.scrollHeight;
@@ -460,7 +475,9 @@
                     _responseLen = response.length;
                 },
                 error: function() {
-                    setTimeout("show_status();", 500);
+                    setTimeout(function() {
+                        show_status(callback, data);
+                    }, 500);
                 }
             });
         }
@@ -570,7 +587,7 @@
 
 
         /*********************主要功能逻辑模块实现**************/
-        // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数)
+        // flag: 0:提交任务并查看日志，1:提交任务3秒后刷新页面, 2:提交任务后无特殊操作(可指定callback回调函数),3:提交任务执行完毕后在调用回调函数
         function apply_action(action, flag, callback, ret_data) {
             if (!action) {
                 return;
@@ -840,7 +857,9 @@
                 dbus["clash_vclash_switch_cdn"] = "off";
             }
             // 更新 vClash 至最新版本,更新后刷新页面:更新了Module_clash.asp页面需要重新加载
-            apply_action("update_vclash_bin", "1", null, {
+            apply_action("update_vclash_bin", "3", function() {
+                dbus["clash_vclash_version"] = data["clash_vclash_version"];
+            }, {
                 "clash_vclash_new_version": dbus["clash_vclash_new_version"],
                 "clash_vclash_switch_cdn" : dbus["clash_vclash_switch_cdn"]
             });

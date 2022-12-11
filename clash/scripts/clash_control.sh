@@ -17,9 +17,9 @@ dbus set clash_lan_ipaddr=$lan_ipaddr
 
 eval $(dbus export ${app_name}_)
 
-alias curl="curl --connect-timeout 300 -sSL"
+alias curl="curl --connect-timeout 300"
 
-CURL_OPTS=" "
+CURL_OPTS=" -sSL "
 
 # CURL添加代理选项
 # if [ "$clash_use_local_proxy" == "on" ] ; then
@@ -582,7 +582,7 @@ update_vclash_bin() {
     fi
     LOGGER "开始下载vclash更新包..."
     LOGGER "下载地址:[$vclash_url]"
-    curl ${CURL_OPTS} -o /tmp/upload/clash.tar.gz $vclash_url
+    curl -L -o /tmp/upload/clash.tar.gz $vclash_url
     if [ "$?" != "0" ] ; then
         LOGGER "下载vclash更新包失败!"
         return 1
@@ -599,11 +599,7 @@ update_vclash_bin() {
 
     # 版本判断
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
-    if [ "$clash_vclash_new_version" = "$vclash_new_version" ] ; then
-        LOGGER "警告: 安装的vclash版本与最新版本不一致!"
-        LOGGER "检测到的最新vClash版本:$clash_vclash_new_version"
-        LOGGER "实际下载后的vClash版本:$vclash_new_version"
-    fi
+
     ARCH="`get_arch`"
     # 更新clash/ jq / yq / uri_decoder
     # md5sum_update /koolshare/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
@@ -633,7 +629,7 @@ update_vclash_bin() {
     dbus set clash_vclash_new_version=$vclash_new_version
     dbus set clash_vclash_version=$vclash_new_version
     dbus set softcenter_module_clash_version=$vclash_new_version
-    LOGGER "vClash更新完毕!"
+    LOGGER "vClash更新完毕! 请手工刷新页面后再使用!"
 }
 
 # 忽略clash新版本提醒
