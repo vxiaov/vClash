@@ -56,7 +56,7 @@ get_arch(){
             ARCH="armv5"
         ;;
         aarch64)    # hnd(High end)平台
-            ARCH="armv8"  # hnd 平台 可以使用 armv5/v6/v7/v8 可执行程序
+            ARCH="arm64"  # hnd 平台 可以使用 armv5/v6/v7/v8 可执行程序
         ;;
         *)
             exit_install 1
