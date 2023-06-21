@@ -650,7 +650,8 @@ update_clash_bin() {
     LOGGER "CURL_OPTS:${CURL_OPTS}"
     LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
     ARCH="`get_arch`"
-    download_url="$(curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium | grep "clash-linux-${ARCH}" | awk '{ gsub(/href=|["]/,""); print "https://github.com"$2 }'|head -1)"
+    NEW_VERSION="$(curl -sL https://github.com/Dreamacro/clash/releases/tag/premium | grep -E "<title>" | awk -F ' ' '{print $3}')"
+    download_url="https://github.com/Dreamacro/clash/releases/download/premium/clash-linux-${ARCH}-${NEW_VERSION}.gz"
     bin_file="new_$app_name"
     LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
     curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
