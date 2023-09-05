@@ -250,8 +250,8 @@ add_iptables() {
     iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
     iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
     iptables -t nat -A ${app_name} -d ${lan_ipaddr}/24 -j RETURN
-    # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
+    # 服务端口${redir_port}接管HTTP/HTTPS请求转发
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p tcp -j REDIRECT --to-ports ${redir_port}
     # 转发DNS请求到端口 dns_port 解析
     iptables -t nat -N ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
