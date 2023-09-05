@@ -9,6 +9,8 @@ KSHOME="/koolshare"
 
 source ${KSHOME}/scripts/base.sh
 
+# 配置文件根目录(如果希望使用最新版Clash，这是必要的，因为默认的/koolshare/分区为jffs2类型，不支持 mmap操作，结果就是无法缓存上次选择的节点，每次重启服务后都需要重新设置) #
+CONFIG_HOME="/tmp/v${app_name}/"
 app_name="clash"
 WKDIR="$(dirname $0)"    # 获取脚本所在目录
 
@@ -72,13 +74,13 @@ platform_test(){
     get_arch
 
     # 判断KoolShare支持的固件平台
-    if [ -d "/koolshare"  ] ; then
+    if [ -d "${KSHOME}"  ] ; then
         LOGGER "KoolShare目录存在，继续检测固件平台支持!"
     else
         exit_install 1
     fi
 
-    if [ -x "/koolshare/bin/httpdb" ] ; then
+    if [ -x "${KSHOME}/bin/httpdb" ] ; then
         LOGGER "httpdb已安装，继续检测固件平台支持!"
     else
         exit_install 2
@@ -136,17 +138,17 @@ get_fw_type() {
 # 清理旧文件，升级情况需要
 remove_files() {
     
-    if [ -d "/koolshare/${app_name}" ] ; then
+    if [ -d "${CONFIG_HOME}" ] ; then
         LOGGER 开始 清理旧文件
-        rm -rf /koolshare/${app_name}
-        rm -rf /koolshare/scripts/${app_name}_*
-        rm -rf /koolshare/webs/Module_${app_name}.asp
+        rm -rf ${CONFIG_HOME}
+        rm -rf ${KSHOME}/scripts/${app_name}_*
+        rm -rf ${KSHOME}/webs/Module_${app_name}.asp
         for fn in ${BIN_LIST}; do
-            rm -f /koolshare/bin/${fn}
+            rm -f ${KSHOME}/bin/${fn}
         done
-        rm -rf /koolshare/res/icon-${app_name}.png
-        rm -rf /koolshare/res/${app_name}_*
-        rm -rf /koolshare/init.d/S??${app_name}.sh
+        rm -rf ${KSHOME}/res/icon-${app_name}.png
+        rm -rf ${KSHOME}/res/${app_name}_*
+        rm -rf ${KSHOME}/init.d/S??${app_name}.sh
         LOGGER 完成 清理旧文件
     else
         LOGGER "没有找到旧文件，跳过清理旧文件"
@@ -156,28 +158,28 @@ remove_files() {
 # 安装前的目录检查工作 
 dir_test() {
 
-    if [ ! -d "/koolshare" ]; then
-        LOGGER "错误: 找不到 /koolshare 目录！"
+    if [ ! -d "${KSHOME}" ]; then
+        LOGGER "错误: 找不到 ${KSHOME} 目录！"
         exit_install 1
     fi
-    if [ ! -d "/koolshare/init.d" ]; then
-        echo "错误: 找不到 /koolshare/init.d 目录！"
+    if [ ! -d "${KSHOME}/init.d" ]; then
+        echo "错误: 找不到 ${KSHOME}/init.d 目录！"
         exit_install 2
     fi
-    if [ ! -d "/koolshare/scripts" ]; then
-        echo "错误: 找不到 /koolshare/scripts 目录！"
+    if [ ! -d "${KSHOME}/scripts" ]; then
+        echo "错误: 找不到 ${KSHOME}/scripts 目录！"
         exit_install 3
     fi
-    if [ ! -d "/koolshare/webs" ]; then
-        echo "错误: 找不到 /koolshare/webs 目录！"
+    if [ ! -d "${KSHOME}/webs" ]; then
+        echo "错误: 找不到 ${KSHOME}/webs 目录！"
         exit_install 4
     fi
-    if [ ! -d "/koolshare/res" ]; then
-        echo "错误: 找不到 /koolshare/res 目录！"
+    if [ ! -d "${KSHOME}/res" ]; then
+        echo "错误: 找不到 ${KSHOME}/res 目录！"
         exit_install 5
     fi
-    if [ ! -d "/koolshare/bin" ]; then
-        echo "错误: 找不到 /koolshare/bin 目录！"
+    if [ ! -d "${KSHOME}/bin" ]; then
+        echo "错误: 找不到 ${KSHOME}/bin 目录！"
         exit_install 6
     fi
 }
@@ -186,37 +188,36 @@ copy_files() {
     LOGGER 开始复制文件！
     # 确保进入的目录是当前文件所在目录
     cd ${WKDIR}
-    mkdir -p /koolshare/${app_name}
+    mkdir -p ${CONFIG_HOME}
 
     LOGGER 复制相关二进制文件！此步时间可能较长！
     for fn in ${BIN_LIST}; do
 
-        # cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
         if [ -f "./bin/${fn}_for_${ARCH}" ]; then
-            cp -f ./bin/${fn}_for_${ARCH} /koolshare/bin/${fn}
+            cp -f ./bin/${fn}_for_${ARCH} ${KSHOME}/bin/${fn}
         else
             LOGGER "错误: 找不到 ./bin/${fn}_for_${ARCH} 文件！"
             exit_install 1
         fi
         
-        chmod +x /koolshare/bin/${fn}   # 设置可执行权限
+        chmod +x ${KSHOME}/bin/${fn}   # 设置可执行权限
         LOGGER "安装可执行程序: ${fn} 完成."
     done
 
     LOGGER 复制相关的脚本文件！
-    cp -rf ./${app_name}/ /koolshare/
-    cp -f ./scripts/${app_name}_*.sh /koolshare/scripts/
-    cp -f ./uninstall.sh /koolshare/scripts/uninstall_${app_name}.sh
+    cp -rf ./${app_name}/* ./${app_name}/.* ${CONFIG_HOME}/
+    cp -f ./scripts/${app_name}_*.sh ${KSHOME}/scripts/
+    cp -f ./uninstall.sh ${KSHOME}/scripts/uninstall_${app_name}.sh
 
-    chmod 755 /koolshare/scripts/${app_name}_*.sh
+    chmod 755 ${KSHOME}/scripts/${app_name}_*.sh
 
     LOGGER 复制相关的网页文件！
-    cp -rf ./webs/Module_${app_name}.asp /koolshare/webs/
-    cp -rf ./res/${app_name}_* /koolshare/res/
-    cp -rf ./res/icon-${app_name}.png /koolshare/res/
+    cp -rf ./webs/Module_${app_name}.asp ${KSHOME}/webs/
+    cp -rf ./res/${app_name}_* ${KSHOME}/res/
+    cp -rf ./res/icon-${app_name}.png ${KSHOME}/res/
 
     LOGGER 添加自启动脚本软链接
-    ln -sf /koolshare/scripts/${app_name}_control.sh /koolshare/init.d/S99${app_name}.sh
+    ln -sf ${KSHOME}/scripts/${app_name}_control.sh ${KSHOME}/init.d/S99${app_name}.sh
     LOGGER 完成复制所有文件工作！
 }
 
@@ -234,8 +235,8 @@ init_env() {
     dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
     dbus set clash_vclash_switch_cdn="off"  # 默认使用Github地址更新vClash
     
-    vClash_VERSION=$(sed -n '1p' /koolshare/${app_name}/version| cut -d: -f2)
-    CLASH_VERSION=$(sed -n '2p' /koolshare/${app_name}/version| cut -d: -f2)
+    vClash_VERSION=$(sed -n '1p' ${CONFIG_HOME}/version| cut -d: -f2)
+    CLASH_VERSION=$(sed -n '2p' ${CONFIG_HOME}/version| cut -d: -f2)
     dbus set ${app_name}_version="$CLASH_VERSION"
 
     # 离线安装时设置软件中心内储存的版本号和连接
@@ -251,7 +252,7 @@ need_action() {
     action=$1
     if [ "$(eval echo '$'$app_name}_enable)" == "on" ]; then
         LOGGER 安装前需要的执行操作: ${action} ！
-        sh /koolshare/scripts/${app_name}_control.sh ${action}
+        sh ${KSHOME}/scripts/${app_name}_control.sh ${action}
     fi
 
 }

@@ -1,0 +1,160 @@
+.clash_basic_info{
+    display: block;
+    text-align: left;
+    font-size: 13px;
+    font-family: 'Courier New', Courier, monospace;
+}
+.KoolshareBottom {
+    width: 400px !important;
+}
+#clash_version_status {
+    display: table-cell;
+    width: 95%;
+}
+
+.switch_label {
+    display: table-cell;
+    float: left;
+    padding-left: 20px;
+    font-size: 18px;
+    width: 200px;
+    text-align: right;
+    font-weight: bolder;
+}
+
+.switch_field {
+    display: table-cell;
+    float: left;
+}
+
+.blank_line {
+    margin-left: 0px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding-top: 5px;
+}
+
+.input_text {
+    width: 95%;
+    font-family: Courier New, Courier, mono;
+    font-size: 14px;
+    background: #3b4c50;
+    color: #FFFFFF;
+}
+
+.button_gen {
+    font-size: 18px;
+}
+
+.apply_gen {
+    width: 95%;
+    margin-top: 0px;
+}
+
+.FormTable th {
+    text-align: right;
+    font-size: 16px;
+    width: 25%;
+}
+
+.FormTable {
+    display: none;
+    width: 100%;
+    animation: fadeEffect 1s; /* Fading effect takes 1 second */
+}
+
+.tabs {
+    overflow: hidden;
+    border: 1px rgb(132, 132, 132);
+}
+
+
+
+button.tab.active {
+    background-color: #387387;
+}
+
+/* Go from zero to full opacity */
+@keyframes fadeEffect {
+    from {opacity: 0;}
+    to {opacity: 1;}
+}
+
+.copyToClipboard {
+    color: red !important;
+}
+
+td.hasButton {
+    text-align: center;
+}
+
+td {
+    text-align: left;
+}
+
+.wide_input {
+    width: 50%;
+}
+
+.hintstyle {
+    cursor: help;
+}
+
+.item-tab {
+    width: 80px;
+    border-radius: 5px;
+    margin: 1px !important;
+    padding: 2px !important;
+    color: rgb(0, 255, 8) !important;
+}
+#logArea {
+    display: none;
+    background-color: #21333E;
+    color: #ffffff;
+    border: 1px solid #aaa;
+    border-radius: 8px;
+    position: fixed;
+    width: 70%;
+    min-width: 600px;
+    max-width: 800px;
+    height: auto;
+    /* left: 20%; */
+    top:20%;
+    /* margin-left: -100px; */
+    padding: 20px 10px 10px;
+    box-sizing: border-box;
+    text-align: center;
+    opacity: 95%;
+}
+
+#logArea a {
+    background-color: #FFFFFF;
+    display: inline-block;
+    border-radius: 12px;
+    border: 4px solid #aaa;
+    padding: 5px;
+    text-align: center;
+    width: 60px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+#logArea #clash_text_log {
+    text-align: left;
+}
+
+.formfonttitle {
+    display: block;
+    text-align: left;
+}
+
+.softcenterRetBtn {
+    float: right;
+    cursor: pointer;
+    margin-top: -20px;
+    content: url('/images/backprev.png');
+}
+
+.softcenterRetBtn:hover {
+    content: url('/images/backprevclick.png');
+}

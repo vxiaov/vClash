@@ -1,0 +1,3 @@
+payload:
+  # > Whitelist:直连规则
+  - DOMAIN-SUFFIX,weibo.com

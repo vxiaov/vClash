@@ -10,6 +10,9 @@ app_name="clash"
 
 source ${KSHOME}/scripts/base.sh
 
+# 配置文件根目录(如果希望使用最新版Clash，这是必要的，因为默认的/koolshare/分区为jffs2类型，不支持 mmap操作，结果就是无法缓存上次选择的节点，每次重启服务后都需要重新设置) #
+CONFIG_HOME="/tmp/v${app_name}/"
+
 # 路由器IP地址
 lan_ipaddr="$(nvram get lan_ipaddr)"
 
@@ -32,8 +35,8 @@ dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
 yacd_port="9090"        # Yacd 端口
 # 存放规则文件目录#
-rule_src_dir="${KSHOME}/clash/ruleset"
-config_file="${KSHOME}/${app_name}/config.yaml"
+rule_src_dir="${CONFIG_HOME}/ruleset"
+config_file="${CONFIG_HOME}/config.yaml"
 temp_provider_file="/tmp/clash_provider.yaml"
 
 debug_log=/tmp/upload/clash_debug.log
@@ -42,9 +45,9 @@ backup_file=/tmp/upload/${app_name}_backup.tar.gz
 env_file="${app_name}_env.sh"
 
 # 自定义黑名单规则文件
-blacklist_file="/koolshare/${app_name}/ruleset/rule_diy_blacklist.yaml"
+blacklist_file="${CONFIG_HOME}/ruleset/rule_diy_blacklist.yaml"
 # 自定义白名单规则文件
-whitelist_file="/koolshare/${app_name}/ruleset/rule_diy_whitelist.yaml"
+whitelist_file="${CONFIG_HOME}/ruleset/rule_diy_whitelist.yaml"
 
 default_test_node="proxies:\n  - name:  test代理分享站(别选我):https://vlike.work\n    type:  ss\n    server:  127.0.0.1\n    port:  9999\n    password:  123456\n    cipher:  aes-256-gcm"
 
@@ -52,22 +55,19 @@ check_config_file() {
     # 检查 config.yaml 文件配置信息
     clash_yacd_secret=$(yq e '.secret' $config_file)
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui="/koolshare/clash/dashboard"|.allow-lan=true'
-    # .dns.enhanced-mode="redir-host"|
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port yq e -iP "$yq_expr" $config_file
+    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" yq e -iP "$yq_expr" $config_file
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
 # 开启对旁路由IP自动化监控脚本
 main_script="${KSHOME}/scripts/clash_control.sh"
 
-# provider_url_bak="${KSHOME}/${app_name}/provider_url.yaml"        # URL订阅源配置信息
-# provider_file_bak="${KSHOME}/${app_name}/provider_file.yaml"      # FILE订阅源配置信息
 
-provider_remote_file="${KSHOME}/${app_name}/providers/provider_remote.yaml"    # 远程URL更新文件
-provider_diy_file="${KSHOME}/${app_name}/providers/provider_diy.yaml"          # 远程URL更新文件
+provider_remote_file="${CONFIG_HOME}/providers/provider_remote.yaml"    # 远程URL更新文件
+provider_diy_file="${CONFIG_HOME}/providers/provider_diy.yaml"          # 远程URL更新文件
 
-CMD="${app_name} -d ${KSHOME}/${app_name}/"
+CMD="${app_name} -d ${CONFIG_HOME}"
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
@@ -369,7 +369,7 @@ list_proxy_num() {
 
 # DIY节点 添加节点(一个或多个)
 add_nodes() {
-    tmp_node_file="/koolshare/clash/tmp_node.yaml"
+    tmp_node_file="${CONFIG_HOME}/tmp_node.yaml"
     # 替换掉回车、多行文本变量页面加载时会出错!
 
     node_list="$clash_node_list"
@@ -380,7 +380,7 @@ add_nodes() {
 
     # 生成节点文件
     socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
-    uri_decoder -proxy "$socks5_proxy" -uri "$node_list" -db "/koolshare/clash/Country.mmdb" > ${tmp_node_file}
+    uri_decoder -proxy "$socks5_proxy" -uri "$node_list" -db "${CONFIG_HOME}/Country.mmdb" > ${tmp_node_file}
     if [ "$?" != "0" -o ! -s "${tmp_node_file}" ] ; then
         LOGGER "抱歉!你添加的链接解析失败啦!给个正确的链接吧!"
         return 2
@@ -440,7 +440,6 @@ update_provider_file() {
     fi
     dbus set clash_provider_file=$clash_provider_file
     socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
-    # uri_decoder -proxy "$socks5_proxy" -uri "$clash_provider_file" -db "/koolshare/clash/Country.mmdb" > ${temp_provider_file}
     remove_uri=$(echo -n "$clash_provider_file" | base64_decode)
     curl -sL ${remove_uri} > ${temp_provider_file}
     if [ "$?" != "0" ]; then
@@ -493,7 +492,7 @@ update_provider_file() {
 # 更新Country.mmdb文件
 update_geoip() {
     #
-    geoip_file="${KSHOME}/clash/Country.mmdb"
+    geoip_file="${CONFIG_HOME}/Country.mmdb"
     cp ${geoip_file} ${geoip_file}.bak
     # 精简中国IP列表生成MaxMind数据库: https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
     # 全量MaxMind数据库文件: https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
@@ -602,28 +601,28 @@ update_vclash_bin() {
 
     ARCH="`get_arch`"
     # 更新clash/ jq / yq / uri_decoder
-    # md5sum_update /koolshare/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
-    md5sum_update /koolshare/bin/jq /tmp/upload/clash/bin/jq_for_${ARCH}
-    md5sum_update /koolshare/bin/yq /tmp/upload/clash/bin/yq_for_${ARCH}
-    md5sum_update /koolshare/bin/uri_decoder /tmp/upload/clash/bin/uri_decoder_for_${ARCH}
+    # md5sum_update ${KSHOME}/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
+    md5sum_update ${KSHOME}/bin/jq /tmp/upload/clash/bin/jq_for_${ARCH}
+    md5sum_update ${KSHOME}/bin/yq /tmp/upload/clash/bin/yq_for_${ARCH}
+    md5sum_update ${KSHOME}/bin/uri_decoder /tmp/upload/clash/bin/uri_decoder_for_${ARCH}
     
     # 更新 clash_control.sh 脚本
-    md5sum_update /koolshare/scripts/clash_control.sh /tmp/upload/clash/scripts/clash_control.sh
+    md5sum_update ${KSHOME}/scripts/clash_control.sh /tmp/upload/clash/scripts/clash_control.sh
     # 更新 Module_clash.asp 网页
-    md5sum_update /koolshare/webs/Module_clash.asp /tmp/upload/clash/webs/Module_clash.asp
+    md5sum_update ${KSHOME}/webs/Module_clash.asp /tmp/upload/clash/webs/Module_clash.asp
     # 更新 res/clash_style.css 网页样式
-    md5sum_update /koolshare/res/clash_style.css /tmp/upload/clash/res/clash_style.css
+    md5sum_update ${KSHOME}/res/clash_style.css /tmp/upload/clash/res/clash_style.css
     # 更新 res/icon-clash.png 网页图标
-    md5sum_update /koolshare/res/icon-clash.png /tmp/upload/clash/res/icon-clash.png
+    md5sum_update ${KSHOME}/res/icon-clash.png /tmp/upload/clash/res/icon-clash.png
 
     # 更新配置文件
-    md5sum_update /koolshare/clash/config.yaml /tmp/upload/clash/clash/config.yaml
-    md5sum_update /koolshare/clash/ruleset/rule_part_basic.yaml /tmp/upload/clash/ruleset/rule_part_basic.yaml
-    md5sum_update /koolshare/clash/ruleset/rule_part_blacklist.yaml /tmp/upload/clash/ruleset/rule_part_blacklist.yaml
-    md5sum_update /koolshare/clash/ruleset/rule_part_whitelist.yaml /tmp/upload/clash/ruleset/rule_part_whitelist.yaml
+    md5sum_update ${CONFIG_HOME}/config.yaml /tmp/upload/clash/clash/config.yaml
+    md5sum_update ${CONFIG_HOME}/ruleset/rule_part_basic.yaml /tmp/upload/clash/ruleset/rule_part_basic.yaml
+    md5sum_update ${CONFIG_HOME}/ruleset/rule_part_blacklist.yaml /tmp/upload/clash/ruleset/rule_part_blacklist.yaml
+    md5sum_update ${CONFIG_HOME}/ruleset/rule_part_whitelist.yaml /tmp/upload/clash/ruleset/rule_part_whitelist.yaml
 
     # 更新 version 文件
-    md5sum_update /koolshare/clash/version /tmp/upload/clash/clash/version
+    md5sum_update ${CONFIG_HOME}/version /tmp/upload/clash/clash/version
     
     # 更新环境变量
     dbus set clash_vclash_new_version=$vclash_new_version
@@ -908,7 +907,7 @@ show_router_info() {
     debug_info "yq" "$(yq -V|awk '{ print $NF}')"
     debug_info "jq" "$(jq -V)"
     echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                                   << |"
-    cat /koolshare/${app_name}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
+    cat ${CONFIG_HOME}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
     echo "+---------------------------------------------------------------+"
     echo "vClash的转发规则(iptables -t nat -S | grep ${app_name}),分析转发规则是否正常:"
     iptables -t nat -S | grep ${app_name}
@@ -917,16 +916,15 @@ show_router_info() {
 
 
 backup_env() {
-    # 输出环境变量到/koolshare/${app_name}/$env_file文件
+    # 输出环境变量到${CONFIG_HOME}/$env_file文件
     LOGGER "开始备份环境变量"
-    echo "source /koolshare/scripts/base.sh" > /koolshare/${app_name}/$env_file
-    dbus list clash_ | grep -v "=o[nf]" | sed 's/^/dbus set /; s/=/=\"/;s/$/\"/' >> /koolshare/${app_name}/$env_file
+    echo "source ${KSHOME}/scripts/base.sh" > ${CONFIG_HOME}/$env_file
+    dbus list clash_ | grep -v "=o[nf]" | sed 's/^/dbus set /; s/=/=\"/;s/$/\"/' >> ${CONFIG_HOME}/$env_file
     if [ "$?" != "0" ] ; then
         LOGGER "备份环境变量失败"
     else
         LOGGER "备份环境变量成功"
     fi
-    # echo "echo '恢复环境变量完成'" >> /koolshare/${app_name}/$env_file
 }
 
 backup_config_file() {
@@ -934,13 +932,13 @@ backup_config_file() {
     # 备份文件名列表
     file_list="providers config.yaml ruleset $env_file .cache"    
     LOGGER "开始备份配置信息: $file_list"
-    if [ -d "/koolshare/${app_name}" ] ; then
+    if [ -d "${CONFIG_HOME}" ] ; then
         backup_env
         cur_filelist=""
         for fn in $file_list
         do
-            if [ ! -r "/koolshare/${app_name}/${fn}" ] ; then
-                LOGGER "没不到备份文件或目录: /koolshare/${app_name}/${fn}"
+            if [ ! -r "${CONFIG_HOME}/${fn}" ] ; then
+                LOGGER "没不到备份文件或目录: ${CONFIG_HOME}/${fn}"
                 # return 1
                 continue
             fi
@@ -951,12 +949,12 @@ backup_config_file() {
             fi
         done
         # 压缩文件名
-        tar -zcvf $backup_file -C /koolshare/${app_name} ${cur_filelist}
+        tar -zcvf $backup_file -C ${CONFIG_HOME} ${cur_filelist}
         if [ "$?" != "0" ] ; then
             LOGGER "备份配置信息失败"
         else
             LOGGER "备份配置信息成功"
-            rm -f /koolshare/${app_name}/$env_file
+            rm -f ${CONFIG_HOME}/$env_file
         fi
     else
         LOGGER "备份配置信息失败"
@@ -971,14 +969,14 @@ restore_config_file() {
         return 1
     fi
     if [ -f "/tmp/upload/$clash_restore_file" ] ; then
-        tar -zxvf "/tmp/upload/$clash_restore_file" -C /koolshare/${app_name}
+        tar -zxvf "/tmp/upload/$clash_restore_file" -C ${CONFIG_HOME}
         if [ "$?" != "0" ] ; then
             LOGGER "恢复配置信息失败!解压过程出错! 文件名:${clash_restore_file}"
         else
-            if [ -f "/koolshare/${app_name}/$env_file" ] ; then
+            if [ -f "${CONFIG_HOME}/$env_file" ] ; then
                 LOGGER "开始执行恢复环境变量脚本"
-                sh "/koolshare/${app_name}/$env_file"
-                # rm -f "/koolshare/${app_name}/$env_file"
+                sh "${CONFIG_HOME}/$env_file"
+                # rm -f "${CONFIG_HOME}/$env_file"
                 LOGGER "执行恢复环境变量脚本完成"
             fi
             LOGGER "恢复配置信息成功"
@@ -999,20 +997,20 @@ update_clash_file() {
         return 1
     fi
     if [ -f "/tmp/upload/$clash_bin_file" ] ; then
-        gunzip "/tmp/upload/$clash_bin_file" -c > "/koolshare/bin/clash.new"
+        gunzip "/tmp/upload/$clash_bin_file" -c > "${KSHOME}/bin/clash.new"
         if [ "$?" != "0" ] ; then
             LOGGER "解压Clash文件过程出错! 文件名:${clash_bin_file}"
         else
-            if [ -f "/koolshare/bin/clash" ] ; then
+            if [ -f "${KSHOME}/bin/clash" ] ; then
                 LOGGER "开始更新Clash文件"
-                mv "/koolshare/bin/clash" "/koolshare/bin/clash.old"
+                mv "${KSHOME}/bin/clash" "${KSHOME}/bin/clash.old"
             else
                 LOGGER "没有找到Clash文件,开始更新Clash文件"
             fi
-            mv "/koolshare/bin/clash.new" "/koolshare/bin/clash"
-            chmod +x "/koolshare/bin/clash"
+            mv "${KSHOME}/bin/clash.new" "${KSHOME}/bin/clash"
+            chmod +x "${KSHOME}/bin/clash"
             LOGGER "更新Clash文件完成"
-            rm -f "/koolshare/bin/clash.old"
+            rm -f "${KSHOME}/bin/clash.old"
         fi
     else
         LOGGER "没找到上传的Clash文件!"
@@ -1035,9 +1033,9 @@ applay_new_config() {
         return 2
     fi
     # 先备份后复制
-    cp -p /koolshare/${app_name}/config.yaml /koolshare/${app_name}/config.yaml.bak
-    cp -f "/tmp/upload/${clash_config_file}" "/koolshare/${app_name}/config.yaml"
-    if [ -f "/koolshare/${app_name}/config.yaml" ] ; then
+    cp -p ${CONFIG_HOME}/config.yaml ${CONFIG_HOME}/config.yaml.bak
+    cp -f "/tmp/upload/${clash_config_file}" "${CONFIG_HOME}/config.yaml"
+    if [ -f "${CONFIG_HOME}/config.yaml" ] ; then
         LOGGER "拷贝新配置成功"
     else
         LOGGER "拷贝新配置失败"
@@ -1140,8 +1138,8 @@ switch_blacklist_mode() {
     LOGGER "开始切换为黑名单模式"
     # 切换为黑名单模式: 修改 rule 配置信息
     yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
-    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_part_basic.yaml"
-    rule_blacklist_file="${KSHOME}/${app_name}/ruleset/rule_part_blacklist.yaml"
+    rule_basic_file="${CONFIG_HOME}/ruleset/rule_part_basic.yaml"
+    rule_blacklist_file="${CONFIG_HOME}/ruleset/rule_part_blacklist.yaml"
     yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_blacklist_file}
     if [ "$?" != "0" ] ; then
         LOGGER "切换为黑名单模式失败"
@@ -1156,8 +1154,8 @@ switch_whitelist_mode() {
     LOGGER "开始切换为白名单模式"
     # 切换为白名单模式: 修改 rule 配置信息
     yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
-    rule_basic_file="${KSHOME}/${app_name}/ruleset/rule_part_basic.yaml"
-    rule_whitelist_file="${KSHOME}/${app_name}/ruleset/rule_part_whitelist.yaml"
+    rule_basic_file="${CONFIG_HOME}/ruleset/rule_part_basic.yaml"
+    rule_whitelist_file="${CONFIG_HOME}/ruleset/rule_part_whitelist.yaml"
     yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_whitelist_file}
     if [ "$?" != "0" ] ; then
         LOGGER "切换为白名单模式失败"
