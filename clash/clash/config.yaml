@@ -19,17 +19,18 @@ dns:
   enable: true
   ipv6: true
   listen: 0.0.0.0:1053
-  enhanced-mode: redir-host # redir-host or fake-ip
+  enhanced-mode: fake-ip # fake-ip
   fake-ip-range: 198.18.0.1/16 # Fake IP addresses pool CIDR
   use-hosts: false # lookup hosts and return IP record
   nameserver:
-    # - 114.114.114.114
     # - https://dns.alidns.com/dns-query
     - tcp://223.5.5.5:53
+    - tls://dns.google
   # 提供 fallback 时，如果GEOIP非 CN 中国时使用 fallback 解析
   fallback:
-    - 8.8.8.8 # Google DNS over TCP
+    # - 8.8.8.8 # Google DNS over TCP
     - tls://dns.google # Google DNS over TLS
+    # - https://1.1.1.1/dns-query # DNS over HTTPS
     # - 1.1.1.1 # cloudflare DNS over TCP
     # - '[2001:4860:4860::8888]:53' # Google ipv6 DNS
     # - '[2606:4700:4700::1111]:53'  # cloudflare ipv6 DNS
