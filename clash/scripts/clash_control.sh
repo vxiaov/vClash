@@ -11,7 +11,7 @@ app_name="clash"
 source ${KSHOME}/scripts/base.sh
 
 # 配置文件根目录(如果希望使用最新版Clash，这是必要的，因为默认的/koolshare/分区为jffs2类型，不支持 mmap操作，结果就是无法缓存上次选择的节点，每次重启服务后都需要重新设置) #
-CONFIG_HOME="$KSHOME/${app_name}"
+CONFIG_HOME="$KSHOME/vclash/clash"
 
 # 路由器IP地址
 lan_ipaddr="$(nvram get lan_ipaddr)"
@@ -242,8 +242,8 @@ add_iptables() {
     iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
     
     # 让路由器本地DNS请求也通过 clash去解析
-    iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${redir_port}
-    iptables -t nat -A OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${dns_port}
+    iptables -t nat -A OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${dns_port}
 
     iptables -t nat -N ${app_name}
     iptables -t nat -F ${app_name}
@@ -274,8 +274,8 @@ del_iptables() {
     # Fake-IP 规则清理
     iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
     # 让路由器本地DNS请求也通过 clash去解析
-    iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${redir_port}
-    iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${dns_port}
+    iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${dns_port}
 
     iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 -j ${app_name}
     iptables -t nat -F ${app_name}
