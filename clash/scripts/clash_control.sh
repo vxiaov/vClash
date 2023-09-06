@@ -11,7 +11,7 @@ app_name="clash"
 source ${KSHOME}/scripts/base.sh
 
 # 配置文件根目录(如果希望使用最新版Clash，这是必要的，因为默认的/koolshare/分区为jffs2类型，不支持 mmap操作，结果就是无法缓存上次选择的节点，每次重启服务后都需要重新设置) #
-CONFIG_HOME="$KSHOME/vclash/clash"
+CONFIG_HOME="$KSHOME/${app_name}"
 
 # 路由器IP地址
 lan_ipaddr="$(nvram get lan_ipaddr)"
