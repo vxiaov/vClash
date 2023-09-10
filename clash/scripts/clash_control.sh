@@ -22,7 +22,7 @@ eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
 
-CURL_OPTS=" -sSL "
+CURL_OPTS=" -L "
 
 # CURL添加代理选项
 # if [ "$clash_use_local_proxy" == "on" ] ; then
@@ -650,17 +650,21 @@ update_clash_bin() {
     # 专业版更新
     # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
     # https://github.com/Dreamacro/clash/releases/tag/premium
+    # Github更新了API调用获取release文件
+    # https://github.com/Dreamacro/clash/releases/expanded_assets/premium
+    # 更新URL地址
+    tag_url="https://github.com/Dreamacro/clash/releases/expanded_assets/premium"
     LOGGER "CURL_OPTS:${CURL_OPTS}"
-    LOGGER "正在执行命令: curl ${CURL_OPTS} https://github.com/Dreamacro/clash/releases/tag/premium"
+    LOGGER "正在执行命令: curl ${CURL_OPTS} $tag_url"
     ARCH="`get_arch`"
-    NEW_VERSION="$(curl -sL https://github.com/Dreamacro/clash/releases/tag/premium | grep -E "<title>" | awk -F ' ' '{print $3}')"
-    download_url="https://github.com/Dreamacro/clash/releases/download/premium/clash-linux-${ARCH}-${NEW_VERSION}.gz"
+    NEW_VERSION="$(curl -sL $tag_url | grep href= | grep linux-arm64 | awk -F \" '{ print $2 }')"
+    download_url="https://github.com${NEW_VERSION}"
     bin_file="new_$app_name"
     LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
-    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} /tmp/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
+    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} ${KSHOME}/bin/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
-        [[ -f /tmp/${app_name}.${old_version} ]] && mv /tmp/${app_name}.${old_version} ${KSHOME}/bin/${app_name}
+        [[ -f ${KSHOME}/bin/${app_name}.${old_version} ]] && mv ${KSHOME}/bin/${app_name}.${old_version} ${KSHOME}/bin/${app_name}
         if [ -f ${KSHOME}/bin/${app_name} ]; then
             LOGGER "更新 ${KSHOME}/bin/${app_name} 失败啦!"
             LOGGER 当前Clash版本信息: $(${KSHOME}/bin/${app_name} -v)
@@ -674,7 +678,7 @@ update_clash_bin() {
         LOGGER "更新到新版本!"
         dbus set clash_version=$clash_new_version
         dbus remove clash_new_version
-        rm -f /tmp/${app_name}.${old_version}
+        rm -f ${KSHOME}/bin/${app_name}.${old_version}
     fi
 }
 
