@@ -205,7 +205,7 @@ copy_files() {
     done
 
     LOGGER 复制相关的脚本文件！
-    cp -rf ./${app_name}/* ./${app_name}/.* ${CONFIG_HOME}/
+    cp -rf ./${app_name} ${KSHOME}/
     cp -f ./scripts/${app_name}_*.sh ${KSHOME}/scripts/
     cp -f ./uninstall.sh ${KSHOME}/scripts/uninstall_${app_name}.sh
 

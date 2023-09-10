@@ -241,10 +241,6 @@ add_iptables() {
     # Fake-IP 规则添加
     iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
     
-    # 让路由器本地DNS请求也通过 clash去解析
-    iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${dns_port}
-    iptables -t nat -A OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${dns_port}
-
     iptables -t nat -N ${app_name}
     iptables -t nat -F ${app_name}
     iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
@@ -260,8 +256,10 @@ add_iptables() {
     iptables -t nat -N ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
     iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A ${app_name}_dns -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
     iptables -t nat -I OUTPUT -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
+    iptables -t nat -I OUTPUT -p tcp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
 }
 
 # 清理iptables规则
@@ -273,9 +271,6 @@ del_iptables() {
     LOGGER "开始清理 ${app_name} iptables规则 ..."
     # Fake-IP 规则清理
     iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
-    # 让路由器本地DNS请求也通过 clash去解析
-    iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${dns_port}
-    iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${dns_port}
 
     iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 -j ${app_name}
     iptables -t nat -F ${app_name}
@@ -283,6 +278,7 @@ del_iptables() {
 
     iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
     iptables -t nat -D OUTPUT -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
+    iptables -t nat -D OUTPUT -p tcp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
     iptables -t nat -X ${app_name}_dns
 }
