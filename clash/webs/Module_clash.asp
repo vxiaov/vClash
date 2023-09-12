@@ -842,7 +842,7 @@
 
         function ignore_vclash_new_version() {
             // 忽略新版本提示
-            apply_action("ignore_vclash_new_version", "0", function(data) {
+            apply_action("ignore_vclash_new_version", "3", function(data) {
                 dbus["clash_vclash_version"] = data["clash_vclash_version"];
                 vclash_version_check();
             }, {
@@ -851,13 +851,14 @@
         }
 
         function update_vclash_bin() {
-            if (document.getElementById('clash_vclash_switch_cdn').checked) {
-                dbus["clash_vclash_switch_cdn"] = "on";
-            } else {
-                dbus["clash_vclash_switch_cdn"] = "off";
-            }
+            // if (document.getElementById('clash_vclash_switch_cdn').checked) {
+            //     dbus["clash_vclash_switch_cdn"] = "on";
+            // } else {
+            //     dbus["clash_vclash_switch_cdn"] = "off";
+            // }
+            dbus["clash_vclash_switch_cdn"] = "off";
             // 更新 vClash 至最新版本,更新后刷新页面:更新了Module_clash.asp页面需要重新加载
-            apply_action("update_vclash_bin", "3", function() {
+            apply_action("update_vclash_bin", "3", function(data) {
                 dbus["clash_vclash_version"] = data["clash_vclash_version"];
             }, {
                 "clash_vclash_new_version": dbus["clash_vclash_new_version"],
