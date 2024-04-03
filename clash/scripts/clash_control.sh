@@ -1,7 +1,7 @@
 #!/bin/sh
 #########################################################
 # Clash Process Control script for AM380 merlin firmware
-# Writen by Awkee (next4nextjob(at)gmail.com)
+# Writen by vxiaov (next4nextjob(at)gmail.com)
 # Website: https://vlike.work
 #########################################################
 
@@ -327,7 +327,6 @@ service_start() {
     fi
     add_iptables
     add_cron
-    list_nodes
     LOGGER "启动完毕!"
 }
 
@@ -371,68 +370,6 @@ list_proxy_num() {
         }
         printf("|\n")
     }'
-}
-
-# DIY节点 添加节点(一个或多个)
-add_nodes() {
-    tmp_node_file="${CONFIG_HOME}/tmp_node.yaml"
-    # 替换掉回车、多行文本变量页面加载时会出错!
-
-    node_list="$clash_node_list"
-    if [ "$node_list" = "" ] ; then
-        LOGGER "想啥呢!节点可不会凭空产生!你得传入 ss:// 或 ssr:// 或者 vmess:// 前缀的URI链接!"
-        return 1
-    fi
-
-    # 生成节点文件
-    socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
-    uri_decoder -proxy "$socks5_proxy" -uri "$node_list" -db "${CONFIG_HOME}/Country.mmdb" > ${tmp_node_file}
-    if [ "$?" != "0" -o ! -s "${tmp_node_file}" ] ; then
-        LOGGER "抱歉!你添加的链接解析失败啦!给个正确的链接吧!"
-        return 2
-    fi
-    LOGGER "获取DIY代理节点数量信息: $(list_proxy_num ${tmp_node_file})"
-
-    cp $provider_diy_file $provider_diy_file.old
-    yq_expr='select(fi==1).proxies as $plist | select(fi==0)|.proxies += $plist'
-    yq ea -iP "$yq_expr" ${provider_diy_file} ${tmp_node_file}
-    if [ "$?" != "0" ] ; then
-        cp $provider_diy_file.old $provider_diy_file
-        rm -f $provider_diy_file.old ${tmp_node_file}
-        LOGGER "怎么会这样! 添加DIY代理节点失败啦!"
-        return 2
-    fi
-    LOGGER "添加DIY节点成功!"
-    rm -f ${provider_diy_file}.old ${tmp_node_file}
-    dbus remove clash_node_list
-    list_nodes
-}
-
-# DIY节点 删除一个节点
-delete_one_node() {
-    filename="$provider_diy_file"
-    cp $filename $filename.old
-    LOGGER "开始删除DIY节点 (${clash_delete_name}):"
-    f=${clash_delete_name} yq e -i 'del(.proxies[]|select(.name == strenv(f)))' $filename
-    # f=${clash_delete_name} yq e -i 'del(.proxy-groups[].proxies[]|select(. == strenv(f)))' $filename
-    LOGGER "节点删除完成!"
-    list_nodes
-}
-
-# DIY节点 全部删除
-delete_all_nodes() {
-    filename="$provider_diy_file"
-    node_num="$(yq e '.proxies[].name' $filename |grep -v "test"|wc -l)"
-    if [ "$node_num" = "0" ] ; then
-        LOGGER "已经清理过了，不用再清理了"
-    else
-        cp $filename $filename.old
-        LOGGER "开始清理所有DIY节点:"
-        # 偷个懒: 重置DIY配置文件只包含 test节点 就可以了。
-        echo -e "$default_test_node" > $filename
-        LOGGER "清理DIY节点完毕!让世界回归平静!"
-    fi
-    list_nodes
 }
 
 #############  provider 订阅源管理
@@ -606,11 +543,10 @@ update_vclash_bin() {
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
 
     ARCH="`get_arch`"
-    # 更新clash/ jq / yq / uri_decoder
+    # 更新clash/ jq / yq 
     # md5sum_update ${KSHOME}/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
     md5sum_update ${KSHOME}/bin/jq /tmp/upload/clash/bin/jq_for_${ARCH}
     md5sum_update ${KSHOME}/bin/yq /tmp/upload/clash/bin/yq_for_${ARCH}
-    md5sum_update ${KSHOME}/bin/uri_decoder /tmp/upload/clash/bin/uri_decoder_for_${ARCH}
     
     # 更新 clash_control.sh 脚本
     md5sum_update ${KSHOME}/scripts/clash_control.sh /tmp/upload/clash/scripts/clash_control.sh
@@ -1390,7 +1326,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|add_nodes|delete_one_node|delete_all_nodes|update_provider_file|update_geoip|backup_config_file|get_blacklist_rules|get_whitelist_rules|save_blacklist_rule|save_whitelist_rule)
+    get_proc_status|update_provider_file|update_geoip|backup_config_file|get_blacklist_rules|get_whitelist_rules|save_blacklist_rule|save_whitelist_rule)
         # 不需要重启操作
         $action_job
         ;;

@@ -2,7 +2,7 @@
 
 #########################################################
 # Clash script for AM380 merlin firmware
-# Writen by Awkee (next4nextjob(at)gmail.com) 
+# Writen by vxiaov (next4nextjob(at)gmail.com) 
 # Website: https://vlike.work
 #########################################################
 
@@ -16,7 +16,7 @@ LOGGER() {
 app_name="clash"
 
 # 清理文件目录
-bin_list="${app_name} yq uri_decoder jq"
+bin_list="${app_name} yq jq"
 
 # 清理旧文件，升级情况需要
 remove_files() {

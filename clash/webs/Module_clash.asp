@@ -36,7 +36,6 @@
             show_menu(menu_hook);
             clash_config_init(); // 初始化配置
             get_dbus_data();
-            version_show();
             vclash_version_check();
             register_event();
 
@@ -236,7 +235,7 @@
         function conf2obj() {
 
             var params = [
-                'clash_provider_file', 'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
+                'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
                 'clash_cfddns_ttl', 'clash_cfddns_ipv4', 'clash_cfddns_ipv6', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 'clash_cfddns_switch', 'clash_watchdog_switch'
             ];
             var params_chk = [
@@ -257,11 +256,6 @@
                         // a 标签参数设置
                         if (dbus[ params[i] ]) 
                             E(params[i]).href = dbus[params[i]];
-                        break;
-                    case 'clash_provider_file':
-                        // base64 类型数据
-                        if (dbus[ params[i] ]) 
-                            E(params[i]).value = Base64.decode(dbus[ params[i] ]);
                         break;
                     case 'clash_cfddns_switch':
                         // 判断是否启用#btn_ddns_tab tab页面
@@ -524,41 +518,12 @@
             location.href = "/Module_Softcenter.asp";
         }
 
-        function version_show() {
-            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version']);
-            $j.ajax({
-                url: 'https://api.github.com/repos/Dreamacro/clash/tags',
-                type: 'GET',
-                async: true,
-                cache: false,
-                retries: 0,
-                dataType: 'json',
-                success: function(res) {
-                    if (typeof(res) != "undefined" && res.length > 0) {
-                        var obj = res[0];
-                        if (obj.name != dbus["clash_version"]) {
-                            $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，<i>有新版本：" + obj.name);
-                            dbus["clash_new_version"] = obj.name;
-                            $j("#clash_install_show").show();
-                        } else {
-                            $j("#clash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
-                            $j("#clash_install_show").hide();
-                        }
-                    }
-                },
-                error: function(res) {
-                    $j("#clash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。");
-                }
-            }).fail(() => {
-                console.log('failed');
-            });
-        }
-
         function vclash_version_check() {
             // TODO: 更新vClash 检测
-            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']);
+            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']  + "</i>");
+            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version'] + "</i>");
             $j.ajax({
-                url: 'https://api.github.com/repos/learnhard-cn/vclash/tags',
+                url: 'https://api.github.com/repos/vxiaov/vclash/tags',
                 type: 'GET',
                 async: true,
                 cache: false,
@@ -568,17 +533,17 @@
                     if (typeof(res) != "undefined" && res.length > 0) {
                         var obj = res[0];
                         if (obj.name != dbus["clash_vclash_version"]) {
-                            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，<i>有新版本：" + obj.name);
+                            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，</i>有新版本：" + obj.name);
                             dbus["clash_vclash_new_version"] = obj.name;
                             $j("#clash_vclash_install_show").show();
                         } else {
-                            $j("#clash_vclash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。");
+                            $j("#clash_vclash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。</i>");
                             $j("#clash_vclash_install_show").hide();
                         }
                     }
                 },
                 error: function(res) {
-                    $j("#clash_vclash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。");
+                    $j("#clash_vclash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。</i>");
                 }
             }).fail(() => {
                 console.log('failed');
@@ -784,61 +749,6 @@
             });
         }
 
-
-        function update_provider_file() { // 更新节点订阅源URL
-            dbus["clash_provider_file"] = Base64.encode(document.getElementById("clash_provider_file").value);
-            apply_action("update_provider_file", "0", null, {
-                "clash_provider_file": dbus["clash_provider_file"],
-            });
-        }
-
-        function add_nodes() { // 添加DIY节点
-            dbus["clash_node_list"] = Base64.encode(document.getElementById("proxy_node_list").value.replaceAll("\n", " "));
-            apply_action("add_nodes", "0", function() {
-                update_node_list();
-            }, {
-                "clash_node_list": Base64.encode(document.getElementById("proxy_node_list").value.replaceAll("\n", " "))
-            });
-        }
-
-        function delete_one_node() { // 按名称删除 DIY节点
-            dbus["clash_delete_name"] = document.getElementById("proxy_node_name").value;
-            if (dbus["clash_delete_name"] == "") {
-                show_result("无节点可删除啦...");
-                return false;
-            }
-            apply_action("delete_one_node", "0", null, {
-                "clash_delete_name": document.getElementById("proxy_node_name").value
-            });
-            var obj = document.getElementById("proxy_node_name");
-            obj.options.remove(obj.selectedIndex);
-        }
-
-        function delete_all_nodes() { // 按名称删除 DIY节点
-            dbus["clash_name_list"] = "";
-            apply_action("delete_all_nodes", "0", null, {});
-            var obj = document.getElementById("proxy_node_name");
-            obj.options.length = 0;
-        }
-
-        // 更新 clash 新版本
-        function update_clash_bin() { // 按名称删除 DIY节点
-            apply_action("update_clash_bin", "0", null, {
-                "clash_new_version" : dbus["clash_new_version"]
-            });
-            document.getElementById("clash_install_show").style.display = "none";
-        }
-
-        // 忽略新版本提示
-        function ignore_new_version() {
-            // 3秒自动刷新页面
-            apply_action("ignore_new_version", "0", function(data) {
-                dbus["clash_version"] = data["clash_version"];
-                version_show();
-            }, {
-                "clash_new_version": dbus["clash_new_version"]
-            });
-        }
 
         function ignore_vclash_new_version() {
             // 忽略新版本提示
@@ -1302,8 +1212,8 @@
                     <div class="clash_basic_info">
                         <!--插件特点-->
                         <p style="color:#FC0;">
-                            <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/learnhard-cn/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
-                            <b style="color: rgb(0, 255, 60);font-size: 16px;">1.问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/learnhard-cn/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。
+                            <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/vxiaov/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
+                            <b style="color: rgb(0, 255, 60);font-size: 16px;">1.问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/vxiaov/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。
                         </p>
                         <p style="color:#FC0"><b style="color: rgb(0, 255, 60);font-size: 16px;">2.工作模式</b>: <b style="color: rgb(0, 255, 60);">黑名单模式</b>(默认，特定网站列表走代理，大部分流量直连) ; <b style="color: rgb(0, 255, 60);">白名单模式</b>(国内IP直连，大部分其他流量走代理)</p>
                         <hr>
@@ -1311,13 +1221,12 @@
                     <!-- Tab菜单 -->
                     <div class="tabs">
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">主面板</button>
-                        <button id="btn_group_tab" class="tab" onclick="switch_tabs(event, 'menu_group_manager');update_node_list();">节点管理</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
                         <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button id="btn_log_tab" class="tab" onclick="switch_tabs(event, 'menu_log');">日志信息</button>
                         <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">配置DDNS</button>
                         <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
-                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">帮助信息</button>
+                        <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">自助学习</button>
                     </div>
 
                     <!-- 默认设置Tab -->
@@ -1349,32 +1258,10 @@
                             </th>
                             <td colspan="2">
                                 <div id="clash_version_status">
-                                    <i style="color:rgb(7, 234, 7)">当前版本：<% dbus_get_def("clash_version", "未知" ); %></i>
-                                </div>
-                                <div id="clash_install_show" style="display: none;">
-                                    <a type="button" class="button_gen" onclick="ignore_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
-                                    <a type="button" class="button_gen" onclick="update_clash_bin()" href="javascript:void(0);">更新最新版</a>
+                                    <i style="color:rgb(7, 234, 7)">(作者删库，不再为更新犯愁了，能用就用吧)</i>
                                 </div>
                             </td>
                         </tr>
-                        <!--
-                         <tr>
-                            <th>
-                                <label title="默认使用github地址,开启后切换为国内CDN源(文件延迟1天)">vClash源切换</label>
-                            </th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_vclash_switch_cdn">
-                                        <input id="clash_vclash_switch_cdn" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        -->
                         <tr>
                             <th>
                                 <label>vClash(本插件)版本:</label>
@@ -1398,67 +1285,6 @@
                                     <select id="clash_rule_mode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
                                         </select>
                                 </div>
-                            </td>
-                        </tr>
-                    </table>
-                    <!-- 代理组节点管理 -->
-                    <table id="menu_group_manager" class="FormTable">
-                        <thead>
-                            <tr>
-                                <td colspan="3">Clash - 代理节点管理</td>
-                            </tr>
-                        </thead>
-                        <tr>
-                            <th><label class="hintstyle" title="支持:&#010; 1.ss/ssr/vmess格式链接;&#010; 2.包含ss/ssr/vmess格式链接列表的http(s)链接订阅源；&#010; 3.包含yaml格式节点的http(s)订阅源.&#010; 添加节点将保存到 provider_diy.yaml 文件中.">
-                                更新DIY组<br>(一次添加)</label></th>
-                            <td class="wide_input">
-                                <textarea rows="5" class="input_text" id="proxy_node_list" placeholder="#粘贴代理链接，每行一个链接,支持SS/SSR/VMESS类型URI链接解析。支持添加HTTP远程订阅源,解析工具uridecoder代码已开源,请放心使用."></textarea>
-                            </td>
-                            <td class="hasButton">
-                                <button type="button" class="button_gen" onclick="add_nodes()" href="javascript:void(0);">添加</button>
-                            </td>
-                        </tr>
-                        <tr style="display: none;">
-                            <td colspan="3" style="text-align: left; ">
-                                <p style="text-align: left;color: yellow;">温馨提示：添加重复节点<b style="color: rgb(240, 104, 7);">不会覆盖</b> 已有节点。</p>
-                                <p style="text-align: left; color: greenyellow;padding-top: 5px;">支持解析URI格式:
-                                    <b style="color: red;">ss/ssr/vmess</b>格式URI链接&nbsp;&nbsp;
-                                    <b style="color: red;">(新增)http(s)链接远程订阅源</b>(yaml格式内容或ss/ssr/vmess链接列表内容)</p>
-                            </td>
-                        </tr>
-                        <!-- 代理组删除节点操作 -->
-                        <tr>
-                            <th>删除节点</th>
-                            <td>
-                                <div class="switch_field">
-                                    <select id="proxy_node_name" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
-                                        </select>
-                                </div>
-                            </td>
-                            <td class="hasButton">
-                                <button type="button" class="button_gen" onclick="delete_one_node()" href="javascript:void(0);">删除当前</button>
-                                <button type="button" class="button_gen" onclick="delete_all_nodes()" href="javascript:void(0);">删除全部</button>
-                            </td>
-                        </tr>
-                        <!-- 订阅源更新: PROXY节点组更新 -->
-                        <tr>
-                            <th>
-                                <label title="格式为yaml格式的订阅源,参考提供示例. &#010; 订阅源URL会替换provider_remote.yaml文件,对应的proxy-provider名为provider_url。&#010;如果使用自己的config.yaml，而且没添加这个provider_url组，将会导致更新失败哦。" class="hintstyle">更新PROXY组<br>(1小时/次)</label>
-                            </th>
-                            <td class="wide_input">
-                                <span>
-                                    1. Github订阅源(原始链接)免费订阅源<a class="copyToClipboard" href="https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
-                                    2. Github订阅源(CDN-jsdelivr)免费订阅源<a class="copyToClipboard" href="https://cdn.jsdelivr.net/gh/learnhard-cn/free_proxy_ss@main/clash/providers/provider_free.yaml" onclick="copyURI(event)" target="_blank" rel="noopener noreferrer">点击复制</a> <br>
-                                </span>
-                                <input type="url" placeholder="# 此处填入节点订阅源URL地址！yaml文件格式！" id="clash_provider_file" class="input_text">
-                            </td>
-                            <td class="hasButton">
-                                <button id="btn_update_url" type="button" class="button_gen" onclick="update_provider_file()" href="javascript:void(0);">添加订阅</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="3" style="display: none;">
-                                <span>支持更新订阅源数量： <b>一个</b> 。 多个订阅源可以自行合并后再添加，合并方法可以放在Github上使用Action合并更新。</span>
                             </td>
                         </tr>
                     </table>
@@ -1725,7 +1551,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>手工升级<b>Clash</b>版本</label>
+                                 <label>手工升级(备份链接)<b>Clash</b>版本(<a target="_blank" href="https://github.com/vxiaov/clash_binary/">获取最新版</a>)</label>
                             </th>
                             <td colspan="2">
                                 <input type="button" class="button_gen" onclick="upload_clash_file();" value="开始上传">
@@ -1786,11 +1612,10 @@
                         <tr>
                             <td>
                                 <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 个人节点添加</b>:在“节点管理”>"更新DIY组"添加，一次添加不再更新。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 订阅节点添加</b>:在"节点管理">"PROXY组"添加，每小时更新一次。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. 插件的兼容性</b>: 透明代理模式时会与<b style="color: rgb(32, 252, 32);">其他代理插件冲突</b> ，使用前要关闭其他透明代理插件。</p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 学习配置规则</b>: 核心配置为clash的启动配置文件,请阅读<a target="_blank" href="https://github.com/Dreamacro/clash/wiki/configuration">官方配置说明文档</a></p>
-                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">5. 学习插件用法</b>: 可阅读<a target="_blank" href="https://github.com/learnhard-cn/vClash/wiki">vClash项目wiki页面</a></p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">1. 插件的兼容性</b>: 透明代理模式时会与<b style="color: rgb(32, 252, 32);">其他代理插件冲突</b> ，使用前要关闭其他透明代理插件。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 学习配置规则</b>: 官方文档已经删库，学习文档自己网上查找，很多的。</p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. 学习插件用法</b>: 可阅读<a target="_blank" href="https://github.com/vxiaov/vClash/wiki">vClash项目wiki页面</a></p>
+                                <p style="color:#FC0">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. clash的更新</b>: 官方不再更新并不意味着不能使用，clash只是一个代理路由功能，能用即可，这里提供了<a target="_blank" href="https://github.com/vxiaov/clash_binary">clash历史发布版本链接</a></p>
                             </td>
                         </tr>
                     </table>
@@ -1850,8 +1675,7 @@
                     <div class="KoolshareBottom" style="margin-top:5px; ">
                         <a class="tab item-tab " href="https://github.com/Dreamacro/clash" target="_blank ">Clash项目</a>
                         <a class="tab item-tab " href="https://github.com/haishanh/yacd" target="_blank ">Yacd项目</a>
-                        <a class="tab item-tab " href="https://github.com/learnhard-cn/vClash" target="_blank ">vClash项目</a>
-                        <a class="tab item-tab " href="https://github.com/learnhard-cn/uridecoder" target="_blank ">UriDecoder</a>
+                        <a class="tab item-tab " href="https://github.com/vxiaov/vClash" target="_blank ">vClash项目</a>
                         <a class="tab item-tab " href="https://t.me/share_proxy_001" target="_blank ">TG讨论群</a>
                         <a class="tab item-tab " href="https://vlike.work/" target="_blank ">小V的博客</a>
                         <a class="tab item-tab " href="https://www.youtube.com/@xiaov" target="_blank ">小V的油管</a>

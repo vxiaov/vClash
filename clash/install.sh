@@ -1,7 +1,7 @@
 #! /bin/sh
 #########################################################
 # Clash Process Control script for ASUS/merlin firmware compiled by Koolshare
-# Writen by Awkee (next4nextjob(at)gmail.com)
+# Writen by vxiaov (next4nextjob(at)gmail.com)
 # Website: https://vlike.work
 #########################################################
 
@@ -25,7 +25,7 @@ BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
 
 LINUX_VER=$(uname -r|awk -F"." '{print $1$2}')  # Linux内核版本
 
-BIN_LIST="${app_name} yq uri_decoder jq"
+BIN_LIST="${app_name} yq jq"
 
 # 反馈问题链接
 open_issue="请将安装过程日志内容(上面的所有内容)复制好后反馈给开发者,以便于帮您找到安装失败原因！反馈地址: https://github.com/learnhard-cn/vClash/issues/"
