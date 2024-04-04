@@ -227,12 +227,9 @@ init_env() {
     # 默认不启用
     [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
 
-    dbus set clash_provider_file="$(echo -n https://raw.githubusercontent.com/vxiaov/free_proxies/main/clash/clash.provider.yaml |base64_encode)"
     dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     dbus set clash_trans="on"           # 默认开启透明代理模式
-    dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
-    dbus set clash_vclash_switch_cdn="off"  # 默认使用Github地址更新vClash
 
     vClash_VERSION=$(sed -n '1p' ${CONFIG_HOME}/version| cut -d: -f2)
     CLASH_VERSION=$(sed -n '2p' ${CONFIG_HOME}/version| cut -d: -f2)

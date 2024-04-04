@@ -361,65 +361,6 @@ list_proxy_num() {
     }'
 }
 
-#############  provider 订阅源管理
-
-# 更新订阅源:文件类型
-update_provider_file() {
-
-    if [ "$clash_provider_file" = "" ]; then
-        LOGGER "文件类型订阅源URL地址没设置，就不更新啦! clash_provider_file=[$clash_provider_file]!"
-        return 1
-    fi
-    dbus set clash_provider_file=$clash_provider_file
-    socks5_proxy="socks5://127.0.0.1:$(yq e '.socks-port' ${config_file})"
-    remove_uri=$(echo -n "$clash_provider_file" | base64_decode)
-    curl -sL ${remove_uri} > ${temp_provider_file}
-    if [ "$?" != "0" ]; then
-        LOGGER "下载订阅源URL信息失败!可能原因:1.URL地址被屏蔽!2.使用代理不稳定. 重新尝试一次。"
-        return 2
-    fi
-    if [ ! -s "$temp_provider_file" ] ; then
-        LOGGER "下载订阅源URL信息失败!可能原因: 订阅源的格式不识别."
-        return 2
-    fi
-    
-    LOGGER "下载文件成功!"
-
-    # 格式化处理yaml文件，只保留proxies信息
-    check_format=$(yq e '.proxies[0].name' $temp_provider_file)
-    if [ "$check_format" = "" -o "$check_format" = "null" ] ; then
-        LOGGER "节点订阅源配置文件yaml格式错误: ${temp_provider_file}"
-        LOGGER "错误原因:没找到 proxies 代理节点配置! 没有代理节点怎么科学上网呢？"
-        LOGGER "订阅源文件格式请参考: https://github.com/Dreamacro/clash/wiki/configuration#proxy-providers "
-        return 3
-    fi
-
-    yq e -P '{ "proxies": .proxies}' $temp_provider_file > ${provider_remote_file}.new
-    proxy_num="$(yq e '.proxies[].name' ${provider_remote_file}.new|wc -l)"
-    if [ "$?" != "0" ] ; then
-        LOGGER "更新节点错误![$?]!订阅源配置可能存在问题!"
-        rm -f ${provider_remote_file}.new
-        return 4
-    fi
-
-    if [ "$proxy_num" = "0" ] ; then
-        LOGGER "可能是你的订阅源不符合Yaml格式,节点导入失败了"
-        rm -f ${provider_remote_file}.new
-        return 5
-    fi
-    mv ${provider_remote_file} ${provider_remote_file}.old
-    mv ${provider_remote_file}.new  ${provider_remote_file}
-
-    if cru l | grep update_provider_local >/dev/null; then
-        LOGGER "已经添加调度!"
-    else
-        cru a "update_provider_local" "0 * * * * $main_script update_provider_file >/dev/null 2>&1"
-        LOGGER "成功添加更新调度配置!"
-        LOGGER "$(cru l| grep update_provider_local)"
-    fi
-    LOGGER "更新订阅源成功!成功导入代理节点: $(list_proxy_num $provider_remote_file)"
-    rm -f $temp_provider_file
-}
 
 # 更新Country.mmdb文件
 update_geoip() {

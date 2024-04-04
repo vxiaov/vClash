@@ -144,12 +144,10 @@
         function conf2obj() {
 
             var params = [
-                'clash_geoip_url', 'clash_cfddns_email', 'clash_cfddns_domain', 'clash_cfddns_apikey',
-                'clash_cfddns_ttl', 'clash_cfddns_ipv4', 'clash_cfddns_ipv6', 'clash_watchdog_soft_ip', 'clash_yacd_ui', 'clash_cfddns_switch', 'clash_watchdog_switch'
+                'clash_geoip_url', 'clash_yacd_ui'
             ];
             var params_chk = [
-                'clash_trans', 'clash_enable', 'clash_cfddns_enable', 'clash_ipv6_mode',
-                'clash_watchdog_enable', 'clash_watchdog_start_clash', 'clash_log_type', 'clash_cfddns_switch', 'clash_watchdog_switch'
+                'clash_trans', 'clash_enable', 'clash_ipv6_mode', 'clash_log_type'
             ];
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
@@ -166,22 +164,7 @@
                         if (dbus[ params[i] ]) 
                             E(params[i]).href = dbus[params[i]];
                         break;
-                    case 'clash_cfddns_switch':
-                        // 判断是否启用#btn_ddns_tab tab页面
-                        if (dbus[params[i]] == "on") {
-                            $j("#btn_ddns_tab").show();
-                        } else {
-                            $j("#btn_ddns_tab").hide();
-                        }
-                        break;
-                    case 'clash_watchdog_switch':
-                        // 判断是否启用#btn_watchdog_tab tab页面
-                        if (dbus[params[i]] == "on") {
-                            $j("#btn_watchdog_tab").show();
-                        } else {
-                            $j("#btn_watchdog_tab").hide();
-                        }
-                        break;
+                    
                     default:
                         // 普通类型数据
                         if (dbus[ params[i] ]) 
@@ -189,7 +172,6 @@
                         break;
                 }
             }
-            document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
 
             // 更新配置文件列表选项
             update_clash_filelist();
@@ -562,33 +544,6 @@
             });
         }
 
-        // 切换cfddns模式tab页面功能
-        function switch_cfddns_tab() {
-            if (document.getElementById('clash_cfddns_switch').checked) {
-                dbus["clash_cfddns_switch"] = "on";
-                $j("#btn_ddns_tab").show();
-            } else {
-                dbus["clash_cfddns_switch"] = "off";
-                $j("#btn_ddns_tab").hide();
-            }
-            apply_action("switch_option_tab", "2", null, {
-                "clash_cfddns_switch": dbus["clash_cfddns_switch"]
-            });
-        }
-        //切换watchdog模式tab页面功能
-        function switch_watchdog_tab() {
-            if (document.getElementById('clash_watchdog_switch').checked) {
-                dbus["clash_watchdog_switch"] = "on";
-                $j("#btn_watchdog_tab").show();
-            } else {
-                dbus["clash_watchdog_switch"] = "off";
-                $j("#btn_watchdog_tab").hide();
-            }
-            apply_action("switch_option_tab", "2", null, {
-                "clash_watchdog_switch": dbus["clash_watchdog_switch"]
-            });
-        }
-
         // 切换支持ipv6模式
         function switch_ipv6_mode() {
             if (document.getElementById('clash_ipv6_mode').checked) {
@@ -610,75 +565,6 @@
             apply_action("switch_trans_mode", "0", null, {
                 "clash_trans": dbus["clash_trans"]
             });
-        }
-
-        function switch_cfddns_mode() { //启用cfddns
-            if (document.getElementById('clash_cfddns_enable').checked) {
-                dbus["clash_cfddns_enable"] = "on";
-            } else {
-                dbus["clash_cfddns_enable"] = "off";
-            }
-            
-            if (document.getElementById('clash_cfddns_ipv6_enable').checked) {
-                dbus["clash_cfddns_support_ipv6"] = "on";
-            } else {
-                dbus["clash_cfddns_support_ipv6"] = "off";
-            }
-            // 启用ipv6解析支持
-            if (document.getElementById('clash_cfddns_proxy_enable').checked) {
-                dbus["clash_cfddns_support_proxy"] = "on";
-            } else {
-                dbus["clash_cfddns_support_proxy"] = "off";
-            }
-            document.getElementById("clash_cfddns_enable").disabled = true;
-            dbus["clash_cfddns_email"] = document.getElementById("clash_cfddns_email").value;
-            dbus["clash_cfddns_apikey"] = document.getElementById("clash_cfddns_apikey").value;
-            dbus["clash_cfddns_domain"] = document.getElementById("clash_cfddns_domain").value;
-            dbus["clash_cfddns_ttl"] = document.getElementById("clash_cfddns_ttl").value;
-            dbus["clash_cfddns_ipv4"] = document.getElementById("clash_cfddns_ipv4").value;
-            dbus["clash_cfddns_ipv6"] = document.getElementById("clash_cfddns_ipv6").value;
-            apply_action("save_cfddns", "0", null, {
-                "clash_cfddns_enable": dbus["clash_cfddns_enable"],
-                "clash_cfddns_support_ipv6": dbus["clash_cfddns_support_ipv6"],
-                "clash_cfddns_email": dbus["clash_cfddns_email"],
-                "clash_cfddns_apikey": dbus["clash_cfddns_apikey"],
-                "clash_cfddns_domain": dbus["clash_cfddns_domain"],
-                "clash_cfddns_ttl": dbus["clash_cfddns_ttl"],
-                "clash_cfddns_ipv6": dbus["clash_cfddns_ipv6"],
-                "clash_cfddns_ipv4": dbus["clash_cfddns_ipv4"],
-                "clash_cfddns_support_proxy": dbus["clash_cfddns_support_proxy"],
-            });
-            document.getElementById("clash_cfddns_enable").disabled = false;
-        }
-
-        function switch_cfddns_ipv6_mode() {
-            // 启用ipv6解析支持
-            if (document.getElementById('clash_cfddns_ipv6_enable').checked) {
-                $j("#clash_cfddns_ipv6").show();
-            } else {
-                $j("#clash_cfddns_ipv6").hide();
-            }
-        }
-
-        function switch_route_watchdog() { //启用旁路由监控工具
-            if (document.getElementById('clash_watchdog_enable').checked) {
-                dbus["clash_watchdog_enable"] = "on";
-            } else {
-                dbus["clash_watchdog_enable"] = "off";
-            }
-            if (document.getElementById('clash_watchdog_start_clash').checked) {
-                dbus["clash_watchdog_start_clash"] = "on";
-            } else {
-                dbus["clash_watchdog_start_clash"] = "off";
-            }
-            document.getElementById("clash_watchdog_enable").disabled = true;
-            dbus["clash_watchdog_soft_ip"] = document.getElementById("clash_watchdog_soft_ip").value;
-            apply_action("switch_route_watchdog", "0", null, {
-                "clash_watchdog_enable": dbus["clash_watchdog_enable"],
-                "clash_watchdog_start_clash": dbus["clash_watchdog_start_clash"],
-                "clash_watchdog_soft_ip": dbus["clash_watchdog_soft_ip"]
-            });
-            document.getElementById("clash_watchdog_enable").disabled = false;
         }
 
         function get_proc_status() { // 查看服务运行状态
@@ -1048,8 +934,6 @@
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
                         <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button id="btn_log_tab" class="tab" onclick="switch_tabs(event, 'menu_log');">日志信息</button>
-                        <button id="btn_ddns_tab" class="tab" onclick="switch_tabs(event, 'menu_ddns');">配置DDNS</button>
-                        <button id="btn_watchdog_tab" class="tab" onclick="switch_tabs(event, 'menu_watchdog');">旁路由Watchdog</button>
                         <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">自助学习</button>
                     </div>
 
@@ -1107,154 +991,6 @@
                             </td>
                         </tr>
                     </table>
-                    <!-- 配置DDNS信息 -->
-                    <table id="menu_ddns" class="FormTable">
-                        <thead>
-                            <tr>
-                                <td colspan="2">配置DDNS(CloudFlare动态DNS)</td>
-                            </tr>
-                        </thead>
-                        <tr>
-                            <th title="启动Cloudflare的DDNS功能">启用DDNS功能</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_cfddns_enable">
-                                        <input id="clash_cfddns_enable" onclick="switch_cfddns_mode();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th title="启动DDNS支持代理功能">支持代理(小云朵)</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_cfddns_proxy_enable">
-                                        <input id="clash_cfddns_proxy_enable" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th title="启动DDNS支持的IPv6地址,但此IPv6地址为路由器公网地址,非内网主机IPv6地址!">支持IPv6地址</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_cfddns_ipv6_enable">
-                                        <input id="clash_cfddns_ipv6_enable" onclick="switch_cfddns_ipv6_mode();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>Email邮箱地址</label>
-                            </th>
-                            <td colspan="2">
-                                <input type="email" class="input_text" name="email" id="clash_cfddns_email" placeholder="CF注册的邮箱：you@example.com">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>API KEY</label>
-                            </th>
-                            <td colspan="2">
-                                <span>获取方法：<a target="_blank" style="color: greenyellow;" href="https://dash.cloudflare.com/profile/api-tokens">直达Cloudflare链接(查看<b>Global API Key</b>)</a>
-                                                </span>
-                                <input type="text" class="input_text" id="clash_cfddns_apikey" placeholder="获取方法：">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th title="提前添加一条A记录（例如:home,IPv4地址可以写 127.0.0.1，添加成功后会更新，这里就填写 home.example.com,其中 example.com 是您的购买的域名）">
-                                <label>域名列表</label>
-                            </th>
-                            <td colspan="2">
-                                <input type="text" class="input_text" id="clash_cfddns_domain" placeholder="示例：home.example.com,test.example.com">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th title="设置解析TTL生命周期，免费版的范围是120-86400,设置1为自动,默认值为1(调度更新时间2分钟)">
-                                <label>TTL<b>(可不填)</b></label>
-                            </th>
-                            <td colspan="2">
-                                <input type="text" class="input_text" class="input_text" id="clash_cfddns_ttl" placeholder="范围是120-86400,设置1为自动,默认值为1(调度更新时间2分钟)">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th title="自动获取公网IP地址的检测命令，尽量自建或选择信任的网站！">
-                                <label>获取公网IP命令<b>(可不填)</b></label>
-                            </th>
-                            <td colspan="2">
-                                <input type="text" class="input_text" id="clash_cfddns_ipv4" placeholder="curl https://httpbin.org/ip|grep origin|cut -d\&quot; -f4">
-                                <input type="text" class="input_text" id="clash_cfddns_ipv6" placeholder="curl 6.ipw.cn" style="display: none;">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>最后一次更新</label>
-                            </th>
-                            <td colspan="2">
-                                <p>
-                                    <div style="color: chartreuse;font-size: 18px;" id="clash_cfddns_lastmsg"></div>
-                                </p>
-
-                            </td>
-                        </tr>
-                    </table>
-                    <!-- 配置软路由监控脚本 -->
-                    <table id="menu_watchdog" class="FormTable">
-                        <thead>
-                            <tr>
-                                <td colspan="2">配置监控旁路由状态(当前路由器为主路由哦)</td>
-                            </tr>
-                        </thead>
-                        <tr>
-                            <th>自动开启Clash功能</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_watchdog_start_clash">
-                                        <input id="clash_watchdog_start_clash" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>旁路由IP地址</label>
-                            </th>
-                            <td colspan="2">
-                                <input type="text" class="input_text" name="route_soft_ip" id="clash_watchdog_soft_ip" placeholder="旁路由IP地址： 192.168.50.1">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>启用监控(立即生效)</th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_watchdog_enable">
-                                        <input id="clash_watchdog_enable" onclick="switch_route_watchdog();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
                     <!-- 可选配置信息 -->
                     <table id="menu_options" class="FormTable">
                         <thead>
@@ -1286,38 +1022,6 @@
                                 <div class="switch_field">
                                     <label for="clash_ipv6_mode">
                                         <input id="clash_ipv6_mode" onclick="switch_ipv6_mode();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label title="显示/隐藏DDNS配置页面">CFDDNS功能开关</label>
-                            </th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_cfddns_switch">
-                                        <input id="clash_cfddns_switch" onclick="switch_cfddns_tab();" class="switch" type="checkbox" style="display: none;">
-                                        <div class="switch_container">
-                                            <div class="switch_bar"></div>
-                                            <div class="switch_circle transition_style"></div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label title="显示/隐藏旁路由watchdog功能配置页面">旁路由监控开关</label>
-                            </th>
-                            <td colspan="2">
-                                <div class="switch_field">
-                                    <label for="clash_watchdog_switch">
-                                        <input id="clash_watchdog_switch" onclick="switch_watchdog_tab();" class="switch" type="checkbox" style="display: none;">
                                         <div class="switch_container">
                                             <div class="switch_bar"></div>
                                             <div class="switch_circle transition_style"></div>
