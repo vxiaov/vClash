@@ -1,3 +1,0 @@
-payload:
-  # > Blacklist:走代理规则
-  - DOMAIN-SUFFIX,vlike.work

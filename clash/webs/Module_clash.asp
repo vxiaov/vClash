@@ -35,14 +35,9 @@
         function init() {
             show_menu(menu_hook);
             clash_config_init(); // 初始化配置
-            get_dbus_data();
-            vclash_version_check();
+            //vclash_version_check();
             register_event();
-
-            if (dbus["clash_current_tab"] == "" || dbus["clash_current_tab"] == undefined) {
-                dbus["clash_current_tab"] = "btn_default_tab";
-            }
-            document.getElementById(dbus["clash_current_tab"]).click();
+            
             // 
             // DEBUG: class 包含 debug 的标签设置为 隐藏
             for (var i = 0; i < document.getElementsByClassName("debug").length; i++) {
@@ -62,83 +57,8 @@
 
         // 加载页面时注册事件
         function register_event() {
-
-            function bind_whitelist_keydown() {
-                // 先解除已有绑定事件
-                $j(this).unbind("keydown");
-                $j(this).bind("keydown", function(e) {
-                    // mac 绑定 command+s
-                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
-                        e.preventDefault();
-                        save_whitelist_rule();
-                        return false;
-                    }
-                    // 绑定 ctrl+e 快捷键
-                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
-                        e.preventDefault();
-                        edit_whitelist_rule();
-                        return false;
-                    }
-                    // 绑定 ctrl+r 快捷键
-                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
-                        e.preventDefault();
-                        load_whitelist_rule();
-                        return false;
-                    }
-                });
-            }
-            // 当 #rule_diy_whitelist focus时，绑定ctrl+s快捷键
-            $j("#rule_diy_whitelist").bind("focus", bind_whitelist_keydown);
-
-            function bind_blacklist_keydown() {
-                // 先解除已有绑定事件
-                $j(this).unbind("keydown");
-                $j(this).bind("keydown", function(e) {
-                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
-                        e.preventDefault();
-                        save_blacklist_rule();
-                        return false;
-                    }
-                    // 绑定 ctrl+e 快捷键
-                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 69) {
-                        e.preventDefault();
-                        edit_blacklist_rule();
-                        return false;
-                    }
-                    // 绑定 ctrl+r 快捷键
-                    if ((e.ctrlKey || e.metaKey) && e.keyCode == 82) {
-                        e.preventDefault();
-                        load_blacklist_rule();
-                        return false;
-                    }
-                });
-            }
-            // 当 #rule_diy_blacklist focus时，绑定ctrl+s快捷键
-            $j("#rule_diy_blacklist").bind("focus", bind_blacklist_keydown);
-
-            function unbind_whitelist_keydown() {
-                // 先保存规则
-                save_whitelist_rule();
-                $j(this).unbind("keydown");
-                // 设置当前textarea的readonly属性
-                $j(this).attr("readonly", true);
-            }
-            // 当 #rule_diy_whitelist 离开焦点时， 取消绑定的keydown快捷键
-            $j("#rule_diy_whitelist").bind("blur", unbind_whitelist_keydown);
-
-            function unbind_blacklist_keydown() {
-                // 先保存规则
-                save_blacklist_rule();
-                $j(this).unbind("keydown");
-                // 设置当前textarea的readonly属性
-                $j(this).attr("readonly", true);
-            }
-
-            // 当 #rule_diy_blacklist 失去焦点时， 取消绑定的keydown快捷键
-            $j("#rule_diy_blacklist").bind("blur", unbind_blacklist_keydown);
-
-            // #clash_config_content fucus时，绑定ctrl+s、ctrl+e、ctrl+r快捷键
-            $j("#clash_config_content").bind("focus", function() {
+            // #edit_file_content fucus时，绑定ctrl+s、ctrl+e、ctrl+r快捷键
+            $j("#edit_file_content").bind("focus", function() {
                 // 先解除已有绑定事件
                 $j(this).unbind("keydown");
                 $j(this).bind("keydown", function(e) {
@@ -162,10 +82,10 @@
                 });
             });
 
-            // #clash_config_content 失去焦点时，取消绑定的keydown快捷键
-            $j("#clash_config_content").bind("blur", function() {
+            // #edit_file_content 失去焦点时，取消绑定的keydown快捷键
+            $j("#edit_file_content").bind("blur", function() {
                 // 先保存变更内容或者取消变更!
-                var current_content = Base64.encode($j("#clash_config_content").val());
+                var current_content = Base64.encode($j("#edit_file_content").val());
                 if (dbus["clash_edit_filecontent"] != current_content) {
                     var res = confirm("内容已修改!是否保存?");
                     if (res) {
@@ -179,17 +99,18 @@
 
             });
 
-            function switch_rule_mode() {
-                if ($j(this).val() == "blacklist") {
-                    // 切换为黑名单模式
-                    switch_blacklist_mode();
-                } else if ($j(this).val() == "whitelist") {
-                    // 切换为白名单模式
-                    switch_whitelist_mode();
+            function bind_config_filepath_change() {
+                if ($j(this).val() == dbus["clash_config_filepath"]) {
+                    // 没有变化
+                    return;
+                } else {
+                    // 切换配置文件
+                    dbus["clash_config_filepath"]= $j(this).val();
+                    switch_clash_config();
                 }
             }
-            // 当 #clash_rule_mode change时，触发事件
-            $j("#clash_rule_mode").bind("change", switch_rule_mode);
+            // 当 #clash_switch_config change时触发事件
+            $j("#clash_switch_config").bind("change", bind_config_filepath_change);
 
             function bind_edit_filepath_change() {
                 if ($j(this).val() == dbus["clash_edit_filepath"]) {
@@ -209,18 +130,6 @@
                 apply_action("save_current_tab", "2", null, {
                     "clash_current_tab": this.id,
                 });
-            });
-        }
-
-        function get_dbus_data() {
-            $j.ajax({
-                type: "GET",
-                url: "/_api/clash",
-                async: false,
-                success: function(data) {
-                    dbus = data.result[0];
-                    conf2obj();
-                }
             });
         }
 
@@ -282,28 +191,45 @@
             }
             document.getElementById("clash_cfddns_lastmsg").innerHTML = dbus["clash_cfddns_lastmsg"];
 
-            // 更新规则模式选项
-            var obj = document.getElementById("clash_rule_mode");
-            obj.options.length = 0;
-            const node_arr = {
-                "blacklist": "黑名单模式",
-                "whitelist": "白名单模式",
-            }
-
-            for (var key in node_arr) {
-                obj.options.add(new Option(node_arr[key], key));
-            }
-            obj.value = dbus["clash_rule_mode"];
+            // 更新配置文件列表选项
+            update_clash_filelist();
 
             //更新#clash_edit_filelist 编辑文件选项
             update_edit_filelist();
 
             set_log_type(); //初始化日志类型
+
+            // 记录上次的tab页面
+            if (!dbus["clash_current_tab"]) {
+                dbus["clash_current_tab"] = "btn_default_tab";
+            }
+            document.getElementById(dbus["clash_current_tab"]).click();
+        }
+
+        // 更新clash配置文件列表
+        function update_clash_filelist() {
+            if (dbus["clash_config_filelist"]) {
+                var opt = document.getElementById("clash_switch_config");
+                opt.options.length = 0;
+                filelist = dbus["clash_config_filelist"].trim().split(" ");
+                current_file = dbus["clash_config_filepath"];
+                if (filelist.length > 0) {
+                    for (var i = 0; i < filelist.length; i++) {
+                        opt.options.add(new Option(filelist[i], filelist[i]));
+                    }
+                    if (current_file) {
+                        opt.value = current_file;
+                    } else {
+                        opt.value = filelist[0];
+                        dbus["clash_config_filepath"] = filelist[0];
+                    }
+                }
+            }
+
         }
 
         function update_edit_filelist() {
             if (dbus["clash_edit_filelist"]) {
-
                 var edit_option = document.getElementById("clash_edit_filelist");
                 edit_option.options.length = 0;
                 edit_filelist = dbus["clash_edit_filelist"].trim().split(" ");
@@ -518,6 +444,24 @@
             location.href = "/Module_Softcenter.asp";
         }
 
+        function parseVersion(versionString) {
+            const [major, branch, patch] = versionString.replace(/^v/, '').split('.').map(Number);
+            return { major, branch, patch };
+        }
+
+        function compareVersions(version1, version2) {
+            const v1 = parseVersion(version1);
+            const v2 = parseVersion(version2);
+
+            if (v1.major !== v2.major) {
+                return v1.major - v2.major; 
+            } else if (v1.branch !== v2.branch) {
+                return v1.branch - v2.branch;
+            } else {
+                return v1.patch - v2.patch;
+            }
+        }
+
         function vclash_version_check() {
             // TODO: 更新vClash 检测
             $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']  + "</i>");
@@ -532,12 +476,13 @@
                 success: function(res) {
                     if (typeof(res) != "undefined" && res.length > 0) {
                         var obj = res[0];
-                        if (obj.name != dbus["clash_vclash_version"]) {
+                        var ver_res = compareVersions(obj.name, dbus["clash_vclash_version"]);
+                        if (ver_res > 0 ) { // obj.name != dbus["clash_vclash_version"]
                             $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，</i>有新版本：" + obj.name);
                             dbus["clash_vclash_new_version"] = obj.name;
                             $j("#clash_vclash_install_show").show();
                         } else {
-                            $j("#clash_vclash_version_status").html("<i>当前版本：" + obj.name + "，已是最新版本。</i>");
+                            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。</i>");
                             $j("#clash_vclash_install_show").hide();
                         }
                     }
@@ -567,7 +512,6 @@
         function service_stop() {
             apply_action("stop", "0", null, {
                 "clash_enable": dbus["clash_enable"],
-                "clash_rule_mode": dbus["clash_rule_mode"]
             });
         }
 
@@ -581,7 +525,7 @@
                 conf2obj();
             }, {
                 "clash_enable": dbus["clash_enable"],
-                "clash_rule_mode": dbus["clash_rule_mode"]
+                "clash_switch_config": dbus["clash_switch_config"]
             });
         }
 
@@ -761,18 +705,12 @@
         }
 
         function update_vclash_bin() {
-            // if (document.getElementById('clash_vclash_switch_cdn').checked) {
-            //     dbus["clash_vclash_switch_cdn"] = "on";
-            // } else {
-            //     dbus["clash_vclash_switch_cdn"] = "off";
-            // }
-            dbus["clash_vclash_switch_cdn"] = "off";
+            
             // 更新 vClash 至最新版本,更新后刷新页面:更新了Module_clash.asp页面需要重新加载
             apply_action("update_vclash_bin", "3", function(data) {
                 dbus["clash_vclash_version"] = data["clash_vclash_version"];
             }, {
                 "clash_vclash_new_version": dbus["clash_vclash_new_version"],
-                "clash_vclash_switch_cdn" : dbus["clash_vclash_switch_cdn"]
             });
         }
 
@@ -918,136 +856,19 @@
             });
         }
 
-        // 重新加载blacklist规则
-        function reload_content() {
-            apply_action("reload_content", "1");
-        }
-
-        // 解析base64编码的clash_blacklist_rules并加载blacklist规则
-        function load_blacklist_rule() {
-
-            var base64_rule = dbus['clash_blacklist_rules'];
-            if (base64_rule == "" || base64_rule == undefined) {
-                reload_content();
-                return false;
-            }
-            var rule = Base64.decode(base64_rule);
-            $j("#rule_diy_blacklist").val(rule);
-        }
-
-        // 解析base64编码的clash_whitelist_rules并加载whitelist规则
-        function load_whitelist_rule() {
-            var base64_rule = dbus['clash_whitelist_rules'];
-            if (base64_rule == "" || base64_rule == undefined) {
-                reload_content();
-                return false;
-            }
-            var rule = Base64.decode(base64_rule);
-            $j("#rule_diy_whitelist").val(rule);
-        }
-
-        // 保存黑名单规则
-        function save_blacklist_rule() {
-            var rule = $j("#rule_diy_blacklist").val();
-            if (rule == "") {
-                alert("请输入黑名单规则");
-                return false;
-            }
-            var base64_rule = Base64.encode(rule);
-            if (base64_rule == "") {
-                alert("编码失败，请检查规则");
-                return false;
-            }
-            // 检查是否变化
-            if (base64_rule == dbus['clash_blacklist_rules']) {
-                // show_result("黑名单规则未发生变化", 1000);
-                return false;
-            }
-            dbus["clash_blacklist_rules"] = base64_rule;
-            apply_action("save_blacklist_rule", "0", function() {
-                show_result("保存黑名单规则成功!", 1000);
+        // TODO: 切换 clash 启动配置文件
+        function switch_clash_config() {
+            apply_action("switch_clash_config", "0", function() {
+                show_result("切换为" + dbus["clash_config_filepath"] + "配置文件", 1000);
+            }, {
+                "clash_config_filepath" : dbus["clash_config_filepath"]
             });
-            // 设置readonly属性为true
-            $j("#rule_diy_blacklist").attr("readonly", true);
-        }
-
-        // 保存白名单规则
-        function save_whitelist_rule() {
-            var rule = $j("#rule_diy_whitelist").val();
-            if (rule == "") {
-                alert("请输入白名单规则");
-                return false;
-            }
-            var base64_rule = Base64.encode(rule);
-            if (base64_rule == "") {
-                alert("编码失败，请检查规则");
-                return false;
-            }
-            // 检查是否变化
-            if (base64_rule == dbus['clash_whitelist_rules']) {
-                // show_result("白名单规则未发生变化", 1000);
-                return false;
-            }
-            dbus["clash_whitelist_rules"] = base64_rule;
-            apply_action("save_whitelist_rule", "0", function() {
-                show_result("保存白名单规则成功!", 1000);
-            });
-            // 设置readonly属性为true
-            $j("#rule_diy_whitelist").attr("readonly", true);
-        }
-        // 编辑黑名单规则(设置 rule_diy_blacklist readonly属性为false),并绑定ctrl+s快捷键
-        function edit_blacklist_rule() {
-            $j("#rule_diy_blacklist").attr("readonly", false);
-            $j("#rule_diy_blacklist").focus();
-        }
-
-        // 编辑白名单规则(设置 rule_diy_whitelist readonly属性为false),并绑定ctrl+s快捷键
-        function edit_whitelist_rule() {
-            $j("#rule_diy_whitelist").attr("readonly", false);
-            $j("#rule_diy_whitelist").focus();
-        }
-
-        // 点击tab标签时，实时加载规则文件内容
-        function load_rule_content(data) {
-            var clash_blacklist_rules = data.clash_blacklist_rules;
-            var clash_whitelist_rules = data.clash_whitelist_rules;
-            $j("#rule_diy_blacklist").val(Base64.decode(clash_blacklist_rules));
-            $j("#rule_diy_whitelist").val(Base64.decode(clash_whitelist_rules));
-        }
-
-        // 切换为黑名单模式
-        function switch_blacklist_mode() {
-            if (dbus["clash_rule_mode"] != "blacklist") {
-                dbus["clash_rule_mode"] = "blacklist";
-                apply_action("switch_blacklist_mode", "0", function() {
-                    show_result("切换为黑名单模式成功!", 1000);
-                }, {
-                    "clash_rule_mode": "blacklist"
-                });
-            } else {
-                alert("当前已经是黑名单模式！");
-            }
-        }
-
-        // 切换为白名单模式
-        function switch_whitelist_mode() {
-            if (dbus["clash_rule_mode"] != "whitelist") {
-                dbus["clash_rule_mode"] = "whitelist";
-                apply_action("switch_whitelist_mode", "0", function() {
-                    show_result("切换为白名单模式成功!", 1000);
-                }, {
-                    "clash_rule_mode": "whitelist"
-                });
-            } else {
-                alert("当前已经是白名单模式！");
-            }
         }
 
         // 加载config文件内容
         function load_config_content() {
             var config = dbus['clash_edit_filecontent'];
             if (config == "" || config == undefined) {
-                reload_content();
                 return false;
             }
             // 解析base64编码的config文件内容
@@ -1056,7 +877,7 @@
                 show_result("解码失败,请检查config文件是否丢失啦?");
                 return false;
             }
-            $j("#clash_config_content").val(content);
+            $j("#edit_file_content").val(content);
             show_result("重新加载内容完成!", 1000);
         }
 
@@ -1071,14 +892,17 @@
         // 初始化配置clash运行环境变量
         function clash_config_init() {
             apply_action("clash_config_init", "2", function(data) {
-                dbus["clash_edit_filelist"] = data.clash_edit_filelist
-                update_edit_filelist();
+                dbus = data;
+                setTimeout(function () {
+                    conf2obj();
+                    vclash_version_check();
+                }, 500);
             }, {});
         }
 
         // 保存config文件内容
         function save_config_content() {
-            var content = $j("#clash_config_content").val();
+            var content = $j("#edit_file_content").val();
             if (content == "") {
                 // alert("config.yaml文件内容不能为空哦!");
                 return false;
@@ -1102,13 +926,13 @@
                 "clash_edit_filepath": $j("#clash_edit_filelist").val()
             });
             // 设置readonly属性为true
-            $j("#clash_config_content").attr("readonly", true);
+            $j("#edit_file_content").attr("readonly", true);
         }
 
         // 编辑config文件内容
         function edit_config_content() {
-            $j("#clash_config_content").attr("readonly", false);
-            $j("#clash_config_content").focus();
+            $j("#edit_file_content").attr("readonly", false);
+            $j("#edit_file_content").focus();
             show_result("开始编辑文件!")
         }
 
@@ -1123,7 +947,7 @@
             }
             // 设置当前textarea的内容为 file_content
             dbus["clash_edit_filecontent"] = data.clash_edit_filecontent;
-            $j("#clash_config_content").val(filecontent);
+            $j("#edit_file_content").val(filecontent);
             show_result(dbus["clash_edit_filepath"] + "文件加载成功!", 1000);
         }
 
@@ -1257,9 +1081,7 @@
                                 <label>Clash-Premium版本:</label>
                             </th>
                             <td colspan="2">
-                                <div id="clash_version_status">
-                                    <i style="color:rgb(7, 234, 7)">(作者删库，不再为更新犯愁了，能用就用吧)</i>
-                                </div>
+                                <div id="clash_version_status"><i>正在获取...</i></div>
                             </td>
                         </tr>
                         <tr>
@@ -1267,9 +1089,7 @@
                                 <label>vClash(本插件)版本:</label>
                             </th>
                             <td colspan="2">
-                                <div id="clash_vclash_version_status">
-                                    <i style="color:rgb(7, 234, 7)">当前版本：<% dbus_get_def("clash_vclash_version", "未知" ); %></i>
-                                </div>
+                                <div id="clash_vclash_version_status"><i>正在获取...</i></div>
 
 
                                 <div id="clash_vclash_install_show" style="display: none;">
@@ -1279,11 +1099,10 @@
                             </td>
                         </tr>
                         <tr>
-                            <th>模式选择</th>
+                            <th>切换配置: </th>
                             <td>
                                 <div class="switch_field">
-                                    <select id="clash_rule_mode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;">
-                                        </select>
+                                    <select id="clash_switch_config" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                         </tr>
@@ -1585,7 +1404,7 @@
                         </tr>
                         <tr>
                             <td colspan="2">
-                                <textarea id="clash_config_content" readonly="true" rows="20" class="input_text" style="width: 98%;" title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。"></textarea>
+                                <textarea id="edit_file_content" readonly="true" rows="20" class="input_text" style="width: 98%;" title="为了防止误编辑，默认为只读，点击编辑后才可修改哦！&#010;快捷键Ctrl+S: 保存.&#010;快捷键Ctrl+E: 编辑.&#010;快捷键Ctrl+R: 重新加载。"></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1686,16 +1505,4 @@
     </table>
     <div id="footer"></div>
 </body>
-<script type="text/css ">
-
-</script>
-<script type="text/javascript">
-    <!--[if !IE]>-->
-    (function($) {
-        var textArea = document.getElementById('clash_text_log');
-        textArea.scrollTop = textArea.scrollHeight;
-    })(jQuery);
-    <!--<![endif]-->
-</script>
-
 </html>

@@ -1,7 +1,0 @@
-rules:
-  # 白名单模式最后规则
-  - RULE-SET,direct,DIRECT
-  - GEOIP,CN,DIRECT,no-resolve
-  # 所有IPv6直连-避免不支持IPv6代理节点无法处理请求而导致无法上网问题
-  - IP-CIDR6,::/0,DIRECT,no-resolve
-  - MATCH,默认代理组

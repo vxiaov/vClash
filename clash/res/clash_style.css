@@ -65,13 +65,19 @@
 
 .tabs {
     overflow: hidden;
-    border: 1px rgb(132, 132, 132);
+    border: 0px;
 }
 
-
-
+button.tab {
+    border: 0px;
+    margin-left: 2px;
+    border-radius: 5px 5px 0px 0px !important;
+}
+.tab:hover {
+    background: #2981CF !important;
+}
 button.tab.active {
-    background-color: #387387;
+    background: #387387;
 }
 
 /* Go from zero to full opacity */

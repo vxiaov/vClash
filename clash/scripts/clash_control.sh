@@ -56,7 +56,8 @@ check_config_file() {
     clash_yacd_secret=$(yq e '.secret' $config_file)
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" yq e -iP "$yq_expr" $config_file
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" yq e -i "$yq_expr" $config_file
+    [[ "$?" != "0" ]] && return 1
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
@@ -147,10 +148,6 @@ get_proc_status() {
     if [ "$tmp_cron" != "" ]; then
         echo "|  $tmp_cron"
     fi
-    tmp_cron="$(cru l| grep update_provider_local)"
-    if [ "$tmp_cron" != "" ]; then
-        echo "|  $tmp_cron"
-    fi
     if [ "$clash_cfddns_enable" = "on" ] ; then
         tmp_cron="$(cru l| grep clash_cfddns)"
         if [ "$tmp_cron" != "" ]; then
@@ -193,7 +190,7 @@ add_ddns_cron(){
 # 添加守护监控脚本
 add_cron() {
     add_ddns_cron
-    if cru l | grep ${cron_id} >/dev/null && cru l |grep update_provider_local >/dev/null; then
+    if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "进程守护脚本已经添加!不需要重复添加吧？!？"
         return 0
     fi
@@ -205,20 +202,10 @@ add_cron() {
         LOGGER "不知道啥原因，守护脚本没添加到调度里!赶紧查查吧!"
         return 1
     fi
-
-    cru a "update_provider_local" "0 * * * * $main_script update_provider_file >/dev/null 2>&1"
-    if cru l | grep update_provider_local >/dev/null; then
-        LOGGER "添加订阅源更新调度脚本成功!"
-    else
-        LOGGER "不知道啥原因，订阅源更新调度脚本没添加到调度里!赶紧查查吧!"
-        return 1
-    fi
-
 }
 
 # 删除守护监控脚本
 del_cron() {
-    cru d "update_provider_local"
     cru d "${cron_id}"
     LOGGER "删除进程守护脚本成功!"
 }
@@ -310,9 +297,11 @@ service_start() {
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
     else
         check_config_file
+        [[ "$?" != "0" ]] && LOGGER "配置文件格式错误！修正好配置文件后再尝试启动!" && return 1
+
         LOGGER "启动配置文件 ${config_file} : 检测完毕!"
         nohup ${CMD} >/dev/null 2>&1 &
-        sleep 3
+        sleep 1
         if status >/dev/null 2>&1; then
             LOGGER "${CMD} 启动成功!"
         else
@@ -514,24 +503,20 @@ md5sum_update() {
 # 更新vclash 至最新版本
 update_vclash_bin() {
     # 从github下载vclash的Release版本
-    
-    rm -rf /tmp/upload/clash /tmp/upload/clash.tar.gz
-    local vclash_url="" # 更新vclash地址
-    if [ "$clash_vclash_switch_cdn" = "on" ] ; then
-        vclash_url="https://cdn.jsdelivr.net/gh/learnhard-cn/vClash@ksmerlin386/release/clash.tar.gz"
-    else
-        vclash_url="https://github.com/learnhard-cn/vClash/raw/ksmerlin386/release/clash.tar.gz"
-    fi
+    UPLOAD_DIR="/tmp/upload"
+    rm -rf ${UPLOAD_DIR}/clash ${UPLOAD_DIR}/clash.tar.gz
+    # 更新vclash地址
+    vclash_url="https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash.tar.gz"
     LOGGER "开始下载vclash更新包..."
     LOGGER "下载地址:[$vclash_url]"
-    curl -L -o /tmp/upload/clash.tar.gz $vclash_url
+    curl -L -o ${UPLOAD_DIR}/clash.tar.gz $vclash_url
     if [ "$?" != "0" ] ; then
         LOGGER "下载vclash更新包失败!"
         return 1
     fi
     LOGGER "下载vclash更新包成功!"
     LOGGER "开始更新vclash..."
-    cd /tmp/upload
+    cd ${UPLOAD_DIR}
     tar -zxf ./clash.tar.gz
     if [ "$?" != "0" ] ; then
         LOGGER "解压vclash更新包失败!"
@@ -543,34 +528,32 @@ update_vclash_bin() {
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
 
     ARCH="`get_arch`"
-    # 更新clash/ jq / yq 
-    # md5sum_update ${KSHOME}/bin/clash /tmp/upload/clash/bin/clash_for_${ARCH}
-    md5sum_update ${KSHOME}/bin/jq /tmp/upload/clash/bin/jq_for_${ARCH}
-    md5sum_update ${KSHOME}/bin/yq /tmp/upload/clash/bin/yq_for_${ARCH}
+    # 更新 jq / yq
+    md5sum_update ${KSHOME}/bin/jq ${UPLOAD_DIR}/clash/bin/jq_for_${ARCH}
+    md5sum_update ${KSHOME}/bin/yq ${UPLOAD_DIR}/clash/bin/yq_for_${ARCH}
     
     # 更新 clash_control.sh 脚本
-    md5sum_update ${KSHOME}/scripts/clash_control.sh /tmp/upload/clash/scripts/clash_control.sh
+    md5sum_update ${KSHOME}/scripts/clash_control.sh ${UPLOAD_DIR}/clash/scripts/clash_control.sh
     # 更新 Module_clash.asp 网页
-    md5sum_update ${KSHOME}/webs/Module_clash.asp /tmp/upload/clash/webs/Module_clash.asp
+    md5sum_update ${KSHOME}/webs/Module_clash.asp ${UPLOAD_DIR}/clash/webs/Module_clash.asp
     # 更新 res/clash_style.css 网页样式
-    md5sum_update ${KSHOME}/res/clash_style.css /tmp/upload/clash/res/clash_style.css
+    md5sum_update ${KSHOME}/res/clash_style.css ${UPLOAD_DIR}/clash/res/clash_style.css
     # 更新 res/icon-clash.png 网页图标
-    md5sum_update ${KSHOME}/res/icon-clash.png /tmp/upload/clash/res/icon-clash.png
+    md5sum_update ${KSHOME}/res/icon-clash.png ${UPLOAD_DIR}/clash/res/icon-clash.png
 
-    # 更新配置文件
-    md5sum_update ${CONFIG_HOME}/config.yaml /tmp/upload/clash/clash/config.yaml
-    md5sum_update ${CONFIG_HOME}/ruleset/rule_part_basic.yaml /tmp/upload/clash/ruleset/rule_part_basic.yaml
-    md5sum_update ${CONFIG_HOME}/ruleset/rule_part_blacklist.yaml /tmp/upload/clash/ruleset/rule_part_blacklist.yaml
-    md5sum_update ${CONFIG_HOME}/ruleset/rule_part_whitelist.yaml /tmp/upload/clash/ruleset/rule_part_whitelist.yaml
+    # 更新配置文件（不更新配置）
+    LOGGER "升级仅对程序版本，Web界面和后台脚本文件进行更新"
+    LOGGER "本次升级不进行配置更新，如果需要获取配置文件，请卸载后重新安装即可。"
 
     # 更新 version 文件
-    md5sum_update ${CONFIG_HOME}/version /tmp/upload/clash/clash/version
+    md5sum_update ${CONFIG_HOME}/version ${UPLOAD_DIR}/clash/clash/version
     
     # 更新环境变量
     dbus set clash_vclash_new_version=$vclash_new_version
     dbus set clash_vclash_version=$vclash_new_version
     dbus set softcenter_module_clash_version=$vclash_new_version
-    LOGGER "vClash更新完毕! 请手工刷新页面后再使用!"
+    LOGGER "vClash更新完毕! 请刷新页面后再使用!"
+    rm -rf ${UPLOAD_DIR}/clash ${UPLOAD_DIR}/clash.tar.gz
 }
 
 # 忽略clash新版本提醒
@@ -847,12 +830,12 @@ show_router_info() {
     echo "| memory : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "| /jffs  : $(df /jffs|awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "+---------------------------------------------------------------+"
-    echo "|>> vClash当前正在使用的软件版本:                                   << |"
+    echo "|>> vClash当前正在使用的软件版本：                                  |"
     debug_info "vClash" "$(dbus get ${app_name}_vclash_version)"
     debug_info "clash_premium" $(clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')
     debug_info "yq" "$(yq -V|awk '{ print $NF}')"
     debug_info "jq" "$(jq -V)"
-    echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                                   << |"
+    echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                |"
     cat ${CONFIG_HOME}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
     echo "+---------------------------------------------------------------+"
     echo "vClash的转发规则(iptables -t nat -S | grep ${app_name}),分析转发规则是否正常:"
@@ -1012,105 +995,6 @@ check_valid_rule() {
     return ""
 }
 
-# 添加base64编码的blacklist规则
-save_blacklist_rule() {
-    LOGGER "开始添加黑名单规则"
-    if [ "$clash_blacklist_rules" = "" ] ; then
-        LOGGER "没有设置[clash_blacklist_rules]参数"
-        return 1
-    fi
-    tmp_file="/tmp/upload/clash_blacklist_rules.yaml"
-    echo $clash_blacklist_rules | base64_decode  > $tmp_file
-    if [ ! -f "$tmp_file" ] ; then
-        LOGGER "base64解码失败"
-        return 2
-    fi
-    
-    # 格式化yaml文件，备份并保存新文件
-    yq e -iP $tmp_file && cp -f $blacklist_file $blacklist_file.bak && cp -f $tmp_file $blacklist_file
-    if [ "$?" != "0" ] ; then
-        LOGGER "添加黑名单规则失败"
-        return 2
-    fi
-    rm -f $tmp_file
-    LOGGER "添加黑名单规则成功"
-}
-
-# 添加base64编码的whitelist规则
-save_whitelist_rule() {
-    LOGGER "开始添加白名单规则"
-    if [ "$clash_whitelist_rules" = "" ] ; then
-        LOGGER "没有设置[clash_whitelist_rules]参数"
-        return 1
-    fi
-    tmp_file="/tmp/upload/clash_whitelist_rules.yaml"
-    echo $clash_whitelist_rules| base64_decode  > $tmp_file
-    if [ ! -f "$tmp_file" ] ; then
-        LOGGER "base64解码失败"
-        return 2
-    fi
-    # 格式化yaml文件，备份并保存新文件
-    yq e -iP $tmp_file && cp -f $whitelist_file $whitelist_file.bak && cp -f $tmp_file $whitelist_file
-    if [ "$?" != "0" ] ; then
-        LOGGER "添加白名单规则失败"
-        return 2
-    fi
-    rm -f $tmp_file
-    LOGGER "添加白名单规则成功"
-}
-
-# 获取黑名单规则并编码为base64
-get_blacklist_rules(){
-    dbus set clash_blacklist_rules=$(cat $blacklist_file|base64_encode)
-    if [ "$?" != "0" ] ; then
-        LOGGER "读取黑名单规则失败"
-        return 1
-    fi
-    LOGGER "读取黑名单规则成功"
-}
-
-# 获取白名单规则并编码为base64
-get_whitelist_rules(){
-    dbus set clash_whitelist_rules=$(cat $whitelist_file|base64_encode)
-    if [ "$?" != "0" ] ; then
-        LOGGER "读取白名单规则失败"
-        return 1
-    fi
-    LOGGER "读取白名单规则成功"
-}
-
-# 切换为黑名单模式(默认模式)
-switch_blacklist_mode() {
-    LOGGER "开始切换为黑名单模式"
-    # 切换为黑名单模式: 修改 rule 配置信息
-    yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
-    rule_basic_file="${CONFIG_HOME}/ruleset/rule_part_basic.yaml"
-    rule_blacklist_file="${CONFIG_HOME}/ruleset/rule_part_blacklist.yaml"
-    yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_blacklist_file}
-    if [ "$?" != "0" ] ; then
-        LOGGER "切换为黑名单模式失败"
-        return 1
-    fi
-    dbus set clash_rule_mode=$clash_rule_mode
-    LOGGER "切换为黑名单模式成功"
-}
-
-# 切换为白名单模式
-switch_whitelist_mode() {
-    LOGGER "开始切换为白名单模式"
-    # 切换为白名单模式: 修改 rule 配置信息
-    yq_expr='select(fi==1).rules as $p1list | select(fi==2).rules as $p2list | select(fi==0)|.rules = $p1list + $p2list'
-    rule_basic_file="${CONFIG_HOME}/ruleset/rule_part_basic.yaml"
-    rule_whitelist_file="${CONFIG_HOME}/ruleset/rule_part_whitelist.yaml"
-    yq ea -iP "$yq_expr" ${config_file} ${rule_basic_file} ${rule_whitelist_file}
-    if [ "$?" != "0" ] ; then
-        LOGGER "切换为白名单模式失败"
-        return 1
-    fi
-    dbus set clash_rule_mode=$clash_rule_mode
-    LOGGER "切换为白名单模式成功"
-}
-
 save_current_tab() {
     # 保存当前tab标签页面id操作
     echo "仅仅用于实时保存最后选择的tab页面id" >/dev/null
@@ -1118,20 +1002,24 @@ save_current_tab() {
 
 # 获取 config.yaml 中配置的文件路径
 list_config_files() {
-    # local tmp_rule_filepath="$(yq e '.rule-providers[]|select(.type == "file").path' ${config_file} | awk '{ printf("%s ",$0);}')"
-    # local tmp_proxy_filepath="$(yq e '.proxy-providers[]|select(.type == "file").path' ${config_file} | awk '{ printf("%s ",$0);}')"
     tmp_filepath_list="$(yq e '.rule-providers[]|select(.type=="file").path,.proxy-providers[]|select(.type=="file").path' ${config_file})"
     if [ -z "$tmp_filepath_list" ] ; then
-        LOGGER "您的config.yaml配置文件没有 file 类型的配置文件(rule-providers/proxy-providers)"
+        LOGGER "提示:您的config.yaml配置文件没有 file 类型的配置文件(rule-providers/proxy-providers),虽然这样没问题，但推荐使用provider管理proxy和rule。"
     fi
-    tmp_filelist="./config.yaml ./ruleset/rule_part_basic.yaml ./ruleset/rule_part_blacklist.yaml ./ruleset/rule_part_whitelist.yaml"
+
+    # 可用clash启动配置文件列表
+    cd $CONFIG_HOME && config_filelist="$(ls -1 ./config/*.yaml ./config/*.yml 2>/dev/null| awk '{ if(i>0)printf(" "); printf("%s",$0); i++; }' )"
+    dbus set clash_config_filelist="$config_filelist"
+
+    tmp_filelist="./config.yaml $config_filelist"
     for fn in $tmp_filepath_list
     do
         # 忽略 96KB大小以上的文件: dbus value大小限制为128KB
         if [ `cat $KSHOME/$app_name/$fn | wc -c` -lt 98304 ]; then
             # 保留文件内容比较少的文件,文件过大无法直接保存和修改
             tmp_filelist="$tmp_filelist $fn"
-
+        else
+            LOGGER "$KSHOME/$app_name/$fn 文件过大(超过96KB)，无法在线编辑，您可以修剪文件大小后再尝试在线编辑，也可以后台手工编辑。"
         fi
     done
     dbus set clash_edit_filelist="$tmp_filelist"
@@ -1170,16 +1058,33 @@ set_one_file() {
         LOGGER "${file_name} 保存失败!"
         return 1
     fi
+    dbus remove clash_edit_filecontent
     rm -f ${file_name}.bak
 }
 
-clash_config_init() {
-    # 初始化配置文件
-    # 初始化编辑文件列表
-    list_config_files
+# 切换配置文件
+switch_clash_config() {
+    # TODO: 切换clash配置文件
+    # 1. 备份当前配置文件
+    # 2. 格式化验证新配置文件，并修改必要的设置
+    # 3. 如果格式验证失败，报错，恢复原来的配置
+    # 4. 如果格式验证成功，生成新配置，重启clash服务
+    LOGGER "1.完成备份当前配置文件" && [[ -f ${config_file} ]] && cp ${config_file} ${config_file}.bak
+    
+    cd $CONFIG_HOME && cp $clash_config_filepath ${config_file} && LOGGER "2.切换新配置文件，即将进行格式验证"
+    
+    check_config_file && LOGGER "3.格式验证成功!新配置文件 $clash_config_filepath 切换完成!" && return 0
+    
+    [[ -f ${config_file}.bak ]] && cp ${config_file}.bak ${config_file} && LOGGER "【已经恢复原配置文件】"
+    
+    LOGGER "3.新配置文件 $clash_config_filepath 切换失败! 请检查配置文件格式问题."
+    return 1
+}
 
-    # 校验配置文件:初始化 yacd 访问链接: 执行太慢了，影响页面加载速度,暂时屏蔽
-    # check_config_file
+clash_config_init() {
+    # 校验配置文件
+    list_config_files
+    check_config_file
 }
 
 set_log_type() {
@@ -1228,7 +1133,7 @@ response_json() {
 do_action() {
 
     if [ "$#" = "2" ] ; then
-        # web界面配置操作
+        # web界面配置操作(返回参数更精准快速)
         action_job="$2"
         case "$action_job" in 
             test_res)
@@ -1244,13 +1149,14 @@ do_action() {
                 ret_data="{$(dbus list clash_ | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 # 先返回成功结果,放在后面执行启动功能，否则页面会一直等待且没有动态执行中的效果
-                # service_start
+                #service_start
                 return 0
                 ;;
             get_one_file)
                 get_one_file
                 ret_data="{$(dbus list clash_edit_filecontent | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
+                dbus remove clash_edit_filecontent
                 return 0
                 ;;
             list_config_files)
@@ -1262,15 +1168,6 @@ do_action() {
             list_nodes)
                 list_nodes
                 ret_data="{$(dbus list clash_name_list  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
-                response_json "$1" "$ret_data" "ok"
-                return 0
-                
-                ;;
-            load_rules) # 点击进入规则管理tab页面时调用
-                get_blacklist_rules
-                get_whitelist_rules
-                # 获取 clash_blacklist_rules clash_whitelist_rules 信息
-                ret_data="{$(dbus list clash_ | grep list_rules | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;
@@ -1316,7 +1213,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type| applay_new_config|switch_whitelist_mode|switch_blacklist_mode|restore_config_file|switch_ipv6_mode)
+    switch_clash_config|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type| applay_new_config|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -1326,14 +1223,11 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|update_provider_file|update_geoip|backup_config_file|get_blacklist_rules|get_whitelist_rules|save_blacklist_rule|save_whitelist_rule)
+    get_proc_status|update_provider_file|update_geoip|backup_config_file)
         # 不需要重启操作
         $action_job
         ;;
-    add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check| set_log_type|switch_option_tab)
-        $action_job
-        ;;
-    set_one_file)
+    set_one_file|add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check| set_log_type|switch_option_tab)
         # 不需要重启操作
         $action_job
         ;;

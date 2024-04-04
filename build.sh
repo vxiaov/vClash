@@ -9,7 +9,8 @@
 usage() {
     cat <<END
  Usage:
-    `basename $0` pack <version>  # 打包指定版本安装包
+    `basename $0` build <version>  # 打包指定版本安装包
+    `basename $0` pack <version>  # 打包指定版本安装包并提交版本即tag
     `basename $0` yaml    # 精简yaml文件
     `basename $0` yaml0   # 输出完整的yaml文件
     `basename $0` generate_tglist  # 生成TG规则集
@@ -110,6 +111,9 @@ generate_package() {
 case "$1" in
     generate_*)
         $1
+        ;;
+    build)
+        generate_package $2
         ;;
     pack)
         generate_package $2

@@ -28,7 +28,7 @@ LINUX_VER=$(uname -r|awk -F"." '{print $1$2}')  # Linux内核版本
 BIN_LIST="${app_name} yq jq"
 
 # 反馈问题链接
-open_issue="请将安装过程日志内容(上面的所有内容)复制好后反馈给开发者,以便于帮您找到安装失败原因！反馈地址: https://github.com/learnhard-cn/vClash/issues/"
+open_issue="请将安装过程日志内容(上面的所有内容)复制好后反馈给开发者,以便于帮您找到安装失败原因！反馈地址: https://github.com/vxiaov/vClash/issues/"
 
 LOGGER() {
     logger -s -t "`date +%Y年%m月%d日%H:%M:%S`:clash" "$@"
@@ -227,17 +227,17 @@ init_env() {
     # 默认不启用
     [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
 
-    dbus set clash_provider_file="$(echo -n https://raw.githubusercontent.com/learnhard-cn/free_proxy_ss/main/clash/providers/provider_free.yaml|base64_encode)"
+    dbus set clash_provider_file="$(echo -n https://raw.githubusercontent.com/vxiaov/free_proxies/main/clash/clash.provider.yaml |base64_encode)"
     dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     dbus set clash_trans="on"           # 默认开启透明代理模式
-    dbus set clash_rule_mode="blacklist" # 默认为黑名单模式
     dbus set clash_cfddns_enable="off"  # 默认关闭DDNS解析
     dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
     dbus set clash_vclash_switch_cdn="off"  # 默认使用Github地址更新vClash
-    
+
     vClash_VERSION=$(sed -n '1p' ${CONFIG_HOME}/version| cut -d: -f2)
     CLASH_VERSION=$(sed -n '2p' ${CONFIG_HOME}/version| cut -d: -f2)
     dbus set ${app_name}_version="$CLASH_VERSION"
+    dbus set ${app_name}_vclash_version="$vClash_VERSION"
 
     # 离线安装时设置软件中心内储存的版本号和连接
     dbus set softcenter_module_${app_name}_install="1"

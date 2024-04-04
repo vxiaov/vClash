@@ -1,8 +1,0 @@
-proxies:
-  - name: "\U0001F1F9\U0001F1F7:土耳其-ss-185.17.113.234:809-被墙-直连-解锁土耳其地区NF非自制剧"
-    type: ss
-    server: 185.17.113.234
-    password: G!yBwPWH3Vao
-    port: 809
-    cipher: chacha20-ietf-poly1305
- 
