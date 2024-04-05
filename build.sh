@@ -9,14 +9,17 @@
 usage() {
     cat <<END
  Usage:
-    `basename $0` build <version>  # 打包指定版本安装包
-    `basename $0` pack <version>  # 打包指定版本安装包并提交版本即tag
-    `basename $0` yaml    # 精简yaml文件
-    `basename $0` yaml0   # 输出完整的yaml文件
-    `basename $0` generate_tglist  # 生成TG规则集
+    `basename $0` go <version>  # 打包指定版本安装包
+    `basename $0` pack  <version>  # 打包指定版本安装包并提交版本即tag
+    `basename $0` gen_dns          # 生成dnsmasq使用的劫持DNS请求的转发规则
 
  Params:
     version : new version number , v2.2.4
+ 
+ 示例:
+
+    `basename $0` go v2.5.1
+
 END
 }
 
@@ -25,75 +28,6 @@ if [ "$1" = "" ] ; then
     usage
     exit
 fi
-
-generate_tglist() {
-    outfile="./clash/clash/ruleset/rule_diy_tg.yaml"
-    tmpfile="./tglist.tmp"
-    rm -f "$tmpfile"
-
-    for domain_name in comments.app contest.com graph.org quiz.directory t.me tdesktop.com telega.one telegra.ph telegram.dog telegram.me telegram.org telegram.space telesco.pe tg.dev tx.me usercontent.dev
-    do
-        echo "$domain_name" >> ${tmpfile}
-    done
-    curl -s https://core.telegram.org/resources/cidr.txt  >> ${tmpfile}
-    if [ "$?" != "0" ] ; then
-        echo "Error:获取 Telegram CIDR 文件失败啦!"
-        rm -f ${tmpfile}
-        return 1
-    fi
-    # 生成 ruleset
-    awk 'BEGIN{ printf("payload:\n  # Telegram\n") }
-      /^[a-z]/{ printf("  - DOMAIN-SUFFIX,%s\n", $0) }
-     /[0-9]\./{ printf("  - IP-CIDR,%s\n", $0)}
-           /:/{ printf("  - IP-CIDR6,%s\n", $0)}' ${tmpfile}  > ${outfile}
-    rm -f ${tmpfile}
-}
-
-generate_gfwlist() {
-    # 生成gfw.yaml #
-    filter_flag="${1:-0}"
-    outdir="./clash/clash/ruleset/"
-    curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt > ${outdir}/gfw.tmp
-    if [ "$filter_flag" = "1" ] ; then
-        # 精简过滤一些地址
-        yq e -P '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
-            printf("payload:\n");
-        }{
-            idx=$(NF-1)"."$(NF);
-            a[idx]++;
-        }END{
-            for(i in a)
-                printf("  - '\''+.%s'\''\n", i);
-        }' > ${outdir}/rule_diy_gfw.yaml
-    else
-        yq e -P ${outdir}/gfw.tmp > ${outdir}/rule_diy_gfw.yaml
-    fi
-    rm -f ${outdir}/gfw.tmp
-    echo "rule_diy_gfw.yaml 生成完毕."
-}
-
-generate_direct() {
-    # 生成direct.yaml #
-    filter_flag="${1:-0}"
-    outdir="./clash/clash/ruleset/"
-    curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt > ${outdir}/direct.tmp
-    if [ "$filter_flag" = "1" ] ; then
-        # 精简过滤一些地址
-        yq e '.payload[]' ${outdir}/direct.tmp | awk -F'.' 'BEGIN{
-            printf("payload:\n");
-        }$NF~/org|com|cn|net|edu|gov/ && $(NF-1)!~/[a-z][0-9]/ && $(NF-1)~/qiniu|baidu|cloudflare|upyun|cachemoment|163|265|360|tecent|qq|cdn|verycloud|ali/ {
-            idx=$(NF-1)"."$(NF);
-            a[idx]++;
-        }END{
-            for(i in a)
-                printf("  - '\''+.%s'\''\n", i);
-        }' > ${outdir}/rule_diy_direct.yaml
-    else
-        yq e -P ${outdir}/direct.tmp > ${outdir}/rule_diy_direct.yaml
-    fi
-    rm -f ${outdir}/direct.tmp
-    echo "rule_diy_direct.yaml 生成完毕."
-}
 
 generate_package() {
     # 生成release安装包
@@ -107,15 +41,42 @@ generate_package() {
     tar zcf ./release/clash.tar.gz clash/
 }
 
+# 更新ruleset内部的文件
+update_ruleset() {
+    wkdir=./clash/clash
+    yq e '.rule-providers[]|select(.type=="http")|.path + " " + .url' ${wkdir}/config.yaml | while read fname furl ; do
+        echo "Loading rule provider $fname"
+        wget -O ${wkdir}/$fname $furl     > /dev/null 2>&1
+    done
+}
+
+# 生成路由器dnsmasq使用的DNS请求转发规则
+generate_dnsmasq_conf() {
+    # 文件名
+    wkdir="./clash/clash"
+    cd ${wkdir}
+
+    dns_port=1053
+    dns_server=127.0.0.1
+    
+    out_file="dnsmasq_rules/gfwlist.conf"
+    echo -n > ${out_file}
+    # 生成Dnsmasq转发DNS请求规则列表
+    cat `yq e '.rule-providers[]|select(.type=="http" and .behavior == "classical" )|.path' ./config.yaml` | awk -F, '/DOMAIN-SUFFIX/{ print $2 }' | sort -u | while read line 
+    do
+        # 生成conf配置格式: server=/xxx.com/127.0.0.1#1053
+        echo "server=/${line}/${dns_server}#${dns_port}" >> ${out_file}
+    done
+    cd -
+}
 
 case "$1" in
-    generate_*)
-        $1
-        ;;
-    build)
+    go)
+        [[ "$2" == "" ]] && echo "缺少版本号信息!" && exit 1
         generate_package $2
         ;;
     pack)
+        [[ "$2" == "" ]] && echo "缺少版本号信息!" && exit 1
         generate_package $2
         git add ./
         git commit -m "docs: 提交$2版本离线包"
@@ -125,13 +86,11 @@ case "$1" in
         git merge ${work_branch}
         git push --set-upstream origin ksmerlin386 --tag        
         ;;
-    yaml)
-        generate_gfwlist 1
-        generate_direct  1
+    gen_dns) # 生成Dnsmasq配置规则
+        generate_dnsmasq_conf
         ;;
-    yaml0)
-        generate_gfwlist
-        generate_direct
+    update_ruleset) # 手动更新Ruleset规则集
+        update_ruleset
         ;;
     *)
         usage

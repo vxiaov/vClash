@@ -436,11 +436,11 @@
             const v2 = parseVersion(version2);
 
             if (v1.major !== v2.major) {
-                return v1.major - v2.major; 
+                return 0; // major_version 必须一致：否则就是下载安装包错误了
             } else if (v1.branch !== v2.branch) {
-                return v1.branch - v2.branch;
+                return v1.branch - v2.branch; // minor_version  新功能、重大升级会变更此版本号
             } else {
-                return v1.patch - v2.patch;
+                return v1.patch - v2.patch;  // hotfix_version 小版本修复,变更频繁。
             }
         }
 
@@ -1038,7 +1038,7 @@
                                 <span style="text-align:left;">
                                     1. 全量GeoIP版本(6MB左右)<a class="copyToClipboard"  href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
                                     2. 精简版(200KB左右，默认使用)<a class="copyToClipboard" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
-                                    3. 全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
+                                    3. <b>(推荐)</b>全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
                                 </span>
                                 <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据下载地址">
                             </td>
@@ -1074,7 +1074,7 @@
                         </tr>
                         <tr>
                             <th>
-                                 <label>手工升级(备份链接)<b>Clash</b>版本(<a target="_blank" href="https://github.com/vxiaov/clash_binary/">获取最新版</a>)</label>
+                                 <label>手工升级<b>Clash</b></label>
                             </th>
                             <td colspan="2">
                                 <input type="button" class="button_gen" onclick="upload_clash_file();" value="开始上传">
@@ -1083,9 +1083,9 @@
                         </tr>
                         <tr>
                             <td colspan="3">
-                                <b>注意事项</b>:<br>&nbsp;&nbsp;&nbsp;&nbsp;
-                                <b>1. 确保配置的Yaml格式正确性: </b>本插件会修改redir-port/dns.listen/external-controller/external-ui参数<br>&nbsp;&nbsp;&nbsp;&nbsp;
-                                <b>2. 重要提醒: 修改前记得备份!!!</b><br/>
+                                <b>注意事项</b>:<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;1.<b>Clash升级地址可选: <a target="_blank" href="https://downloads.clash.wiki/ClashPremium/">【clash.wiki】</a> &nbsp;&nbsp;<a target="_blank" href="https://github.com/vxiaov/clash_binary/">【clash_binary】</a><br/>
+                                &nbsp;&nbsp;&nbsp;&nbsp;2. 重要提醒: 上传新clash配置文件<b>不会立即生效</b>，请手工切换新配置。<br/>
                             </td>
                         </tr>
 

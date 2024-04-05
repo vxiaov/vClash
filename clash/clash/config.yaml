@@ -139,12 +139,12 @@ proxy-groups:
     proxies:
       - DIRECT
       - ⭐默认节点组⭐
-  - name: Apple TV
+  - name: AppleTV
     type: select
     proxies:
       - ⭐默认节点组⭐
       - DIRECT
-  - name: Google FCM
+  - name: GoogleFCM
     type: select
     proxies:
       - DIRECT
@@ -157,58 +157,58 @@ proxy-groups:
   - name: Bilibili
     type: select
     proxies:
-      - Asian TV
+      - AsianTV
       - DIRECT
   - name: Bahamut
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
-  - name: HBO Max
+  - name: HBOMax
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
-  - name: HBO Go
+  - name: HBOGo
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: Pornhub
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: Netflix
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: Disney
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: Youtube
     type: select
     disable-udp: true
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
-  - name: Discovery Plus
+  - name: DiscoveryPlus
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: DAZN
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: Spotify
     type: select
     proxies:
-      - Global TV
+      - GlobalTV
       - DIRECT
   - name: Steam
     type: select
@@ -221,12 +221,12 @@ proxy-groups:
       - REJECT
       - DIRECT
       - ⭐默认节点组⭐
-  - name: Asian TV
+  - name: AsianTV
     type: select
     proxies:
       - DIRECT
       - ⭐默认节点组⭐
-  - name: Global TV
+  - name: GlobalTV
     type: select
     proxies:
       - ⭐默认节点组⭐
@@ -263,12 +263,6 @@ rule-providers:
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Reject.yaml
     path: ./ruleset/Reject
-    interval: 86400
-  Special:
-    type: http
-    behavior: classical
-    url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Special.yaml
-    path: ./ruleset/Special
     interval: 86400
   Netflix:
     type: http
@@ -312,13 +306,13 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Letv.yaml
     path: ./ruleset/Letv
     interval: 86400
-  Netease Music:
+  NeteaseMusic:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Netease%20Music.yaml
     path: ./ruleset/Netease_Music
     interval: 86400
-  Tencent Video:
+  TencentVideo:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Tencent%20Video.yaml
@@ -342,7 +336,7 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/ABC.yaml
     path: ./ruleset/ABC
     interval: 86400
-  Abema TV:
+  AbemaTV:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Abema%20TV.yaml
@@ -354,19 +348,19 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Amazon.yaml
     path: ./ruleset/Amazon
     interval: 86400
-  Apple Music:
+  AppleMusic:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Apple%20Music.yaml
     path: ./ruleset/Apple_Music
     interval: 86400
-  Apple News:
+  AppleNews:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Apple%20News.yaml
     path: ./ruleset/Apple_News
     interval: 86400
-  Apple TV:
+  AppleTV:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Apple%20TV.yaml
@@ -378,7 +372,7 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Bahamut.yaml
     path: ./ruleset/Bahamut
     interval: 86400
-  BBC iPlayer:
+  BBCiPlayer:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/BBC%20iPlayer.yaml
@@ -390,13 +384,13 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/DAZN.yaml
     path: ./ruleset/DAZN
     interval: 86400
-  Discovery Plus:
+  DiscoveryPlus:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Discovery%20Plus.yaml
     path: ./ruleset/Discovery_Plus
     interval: 86400
-  Disney Plus:
+  DisneyPlus:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Disney%20Plus.yaml
@@ -408,13 +402,13 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/encoreTVB.yaml
     path: ./ruleset/encoreTVB
     interval: 86400
-  F1 TV:
+  F1TV:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/F1%20TV.yaml
     path: ./ruleset/F1_TV
     interval: 86400
-  Fox Now:
+  FoxNow:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Fox%20Now.yaml
@@ -426,19 +420,19 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Fox%2B.yaml
     path: ./ruleset/Fox+
     interval: 86400
-  HBO Go:
+  HBOGo:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/HBO%20Go.yaml
     path: ./ruleset/HBO_Go
     interval: 86400
-  HBO Max:
+  HBOMax:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/HBO%20Max.yaml
     path: ./ruleset/HBO_Max
     interval: 86400
-  Hulu Japan:
+  HuluJapan:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Hulu%20Japan.yaml
@@ -474,13 +468,13 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/KKTV.yaml
     path: ./ruleset/KKTV
     interval: 86400
-  Line TV:
+  LineTV:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/Line%20TV.yaml
     path: ./ruleset/Line_TV
     interval: 86400
-  myTV SUPER:
+  myTVSUPER:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Media/myTV%20SUPER.yaml
@@ -567,7 +561,7 @@ rule-providers:
   ChatGPT:
     type: http
     behavior: classical
-    url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/ChatGPT.yaml
+    url: https://raw.githubusercontent.com/G4free/clash-ruleset/main/ruleset/ChatGPT.yaml
     path: ./ruleset/ChatGPT
     interval: 86400
   PROXY:
@@ -588,11 +582,11 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Apple.yaml
     path: ./ruleset/Apple
     interval: 86400
-  Google FCM:
+  GoogleFCM:
     type: http
     behavior: classical
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Google%20FCM.yaml
-    path: ./ruleset/Google FCM
+    path: ./ruleset/GoogleFCM
     interval: 86400
   Scholar:
     type: http
@@ -600,21 +594,15 @@ rule-providers:
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Scholar.yaml
     path: ./ruleset/Scholar
     interval: 86400
-  Domestic IPs:
+  DomesticIPs:
     type: http
     behavior: ipcidr
     url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/Domestic%20IPs.yaml
     path: ./ruleset/Domestic_IPs
     interval: 86400
-  LAN:
-    type: http
-    behavior: classical
-    url: https://fastly.jsdelivr.net/gh/dler-io/Rules@main/Clash/Provider/LAN.yaml
-    path: ./ruleset/LAN
-    interval: 86400
   MyBlacklist:
     type: file
-    behavior: classical
+    behavior: classical   # domain, ipcidr or classical (仅限 Clash Premium 内核)
     path: ./ruleset/my_blacklist.yaml
   MyWhitelist:
     type: file
@@ -623,49 +611,56 @@ rule-providers:
 
 rules:
   - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,10.0.0.0/8,DIRECT
+  - IP-CIDR,17.0.0.0/8,DIRECT
+  - IP-CIDR,100.64.0.0/10,DIRECT
+  - IP-CIDR6,fe80::/10,DIRECT
   - RULE-SET,MyWhitelist,DIRECT
   - RULE-SET,MyBlacklist,⭐默认节点组⭐
   - RULE-SET,Reject,AdBlock
-  - RULE-SET,Special,DIRECT
   - RULE-SET,Netflix,Netflix
   - RULE-SET,Spotify,Spotify
   - RULE-SET,YouTube,Youtube
-  - RULE-SET,Disney Plus,Disney
+  - RULE-SET,DisneyPlus,Disney
   - RULE-SET,Bilibili,Bilibili
-  - RULE-SET,IQ,Asian TV
-  - RULE-SET,IQIYI,Asian TV
-  - RULE-SET,Letv,Asian TV
-  - RULE-SET,Netease Music,Asian TV
-  - RULE-SET,Tencent Video,Asian TV
-  - RULE-SET,Youku,Asian TV
-  - RULE-SET,WeTV,Asian TV
-  - RULE-SET,ABC,Global TV
-  - RULE-SET,Abema TV,Global TV
-  - RULE-SET,Amazon,Global TV
+  - RULE-SET,IQ,AsianTV
+  - RULE-SET,IQIYI,AsianTV
+  - RULE-SET,Letv,AsianTV
+  - RULE-SET,NeteaseMusic,AsianTV
+  - RULE-SET,TencentVideo,AsianTV
+  - RULE-SET,Youku,AsianTV
+  - RULE-SET,WeTV,AsianTV
+  - RULE-SET,ABC,GlobalTV
+  - RULE-SET,AbemaTV,GlobalTV
+  - RULE-SET,Amazon,GlobalTV
   - RULE-SET,Bahamut,Bahamut
-  - RULE-SET,BBC iPlayer,Global TV
+  - RULE-SET,BBCiPlayer,GlobalTV
   - RULE-SET,DAZN,DAZN
-  - RULE-SET,Discovery Plus,Discovery Plus
-  - RULE-SET,encoreTVB,Global TV
-  - RULE-SET,F1 TV,Global TV
-  - RULE-SET,Fox Now,Global TV
-  - RULE-SET,Fox+,Global TV
-  - RULE-SET,HBO Go,HBO Go
-  - RULE-SET,HBO Max,HBO Max
-  - RULE-SET,Hulu Japan,Global TV
-  - RULE-SET,Hulu,Global TV
-  - RULE-SET,Japonx,Global TV
-  - RULE-SET,JOOX,Global TV
-  - RULE-SET,KKBOX,Global TV
-  - RULE-SET,KKTV,Global TV
-  - RULE-SET,Line TV,Global TV
-  - RULE-SET,myTV SUPER,Global TV
-  - RULE-SET,Niconico,Global TV
-  - RULE-SET,Pandora,Global TV
-  - RULE-SET,PBS,Global TV
+  - RULE-SET,DiscoveryPlus,DiscoveryPlus
+  - RULE-SET,encoreTVB,GlobalTV
+  - RULE-SET,F1TV,GlobalTV
+  - RULE-SET,FoxNow,GlobalTV
+  - RULE-SET,Fox+,GlobalTV
+  - RULE-SET,HBOGo,HBOGo
+  - RULE-SET,HBOMax,HBOMax
+  - RULE-SET,HuluJapan,GlobalTV
+  - RULE-SET,Hulu,GlobalTV
+  - RULE-SET,Japonx,GlobalTV
+  - RULE-SET,JOOX,GlobalTV
+  - RULE-SET,KKBOX,GlobalTV
+  - RULE-SET,KKTV,GlobalTV
+  - RULE-SET,LineTV,GlobalTV
+  - RULE-SET,myTVSUPER,GlobalTV
+  - RULE-SET,Niconico,GlobalTV
+  - RULE-SET,Pandora,GlobalTV
+  - RULE-SET,PBS,GlobalTV
   - RULE-SET,Pornhub,Pornhub
-  - RULE-SET,Soundcloud,Global TV
-  - RULE-SET,ViuTV,Global TV
+  - RULE-SET,Soundcloud,GlobalTV
+  - RULE-SET,ViuTV,GlobalTV
   - RULE-SET,Telegram,Telegram
   - RULE-SET,Crypto,Crypto
   - RULE-SET,Discord,Discord
@@ -674,15 +669,14 @@ rules:
   - RULE-SET,PayPal,PayPal
   - RULE-SET,Microsoft,Microsoft
   - RULE-SET,ChatGPT,ChatGPT
-  - RULE-SET,Apple Music,Apple TV
-  - RULE-SET,Apple News,Apple TV
-  - RULE-SET,Apple TV,Apple TV
+  - RULE-SET,AppleMusic,AppleTV
+  - RULE-SET,AppleNews,AppleTV
+  - RULE-SET,AppleTV,AppleTV
   - RULE-SET,Apple,Apple
-  - RULE-SET,Google FCM,Google FCM
+  - RULE-SET,GoogleFCM,GoogleFCM
   - RULE-SET,Scholar,Scholar
   - RULE-SET,PROXY,⭐默认节点组⭐
   - RULE-SET,Domestic,Domestic
-  - RULE-SET,Domestic IPs,Domestic
-  - RULE-SET,LAN,DIRECT
+  - RULE-SET,DomesticIPs,Domestic
   - GEOIP,CN,Domestic
   - MATCH,Others

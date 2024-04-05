@@ -284,6 +284,43 @@ get_filelist() {
     done
 }
 
+## 劫持 路由器 本机 产生的DNS请求转发给 clash 处理
+start_dns() {
+    if [ "$clash_trans" = "off" ]; then
+        LOGGER "透明代理模式已关闭！不启动DNS转发请求"
+        return 0
+    fi
+    for fn in  `ls  ${KSHOME}/clash/dnsmasq_rules/*.conf` ; do
+        fname=`basename $fn`
+        if [ ! -f /jffs/configs/dnsmasq.d/${fname} ]; then
+            ln -sf ${fn} /jffs/configs/dnsmasq.d/${fname} && LOGGER "添加DNS劫持规则软链接 ${fn}"
+            [[ "$?" != "0" ]] && LOGGER "无法创建软链接(可能文件系统不支持软链接)，直接复制文件" && cp ${fn} /jffs/configs/dnsmasq.d/
+        fi
+    done
+    run_dnsmasq restart
+}
+stop_dns() {
+    
+    LOGGER "删除gfwlist.conf与wblist.conf文件:"
+    for fn in  `ls  ${KSHOME}/clash/dnsmasq_rules/*.conf` ; do
+        fname=`basename $fn`
+        rm -f /jffs/configs/dnsmasq.d/${fname}
+    done
+    LOGGER "开始重启dnsmasq,DNS解析"
+    run_dnsmasq restart
+}
+
+run_dnsmasq() {
+    case "$1" in
+    start | stop | restart)
+        LOGGER "执行 $1 dnsmasq 操作"
+        service $1_dnsmasq
+        ;;
+    *)
+        LOGGER "无效的 dnsmasq 操作"
+        ;;
+    esac
+}
 
 service_start() {
     # 1. 启动服务进程
@@ -315,6 +352,7 @@ service_start() {
         dbus set ${app_name}_enable="on"
     fi
     add_iptables
+    start_dns
     add_cron
     LOGGER "启动完毕!"
 }
@@ -328,6 +366,7 @@ service_stop() {
         killall ${app_name}
     fi
     del_iptables  2>/dev/null
+    stop_dns
     del_cron
     if status >/dev/null 2>&1; then
         LOGGER "${CMD} 停止失败!"
@@ -372,7 +411,7 @@ update_geoip() {
     # 全量MaxMind数据库文件（融合了ipip.net数据）: https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb
     # 切换使用代理dns转发
 
-    geoip_url="https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb"
+    geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     if [ ! -z "$clash_geoip_url" ] ; then
         geoip_uri="$clash_geoip_url"
     fi
@@ -483,8 +522,20 @@ update_vclash_bin() {
     md5sum_update ${KSHOME}/res/icon-clash.png ${UPLOAD_DIR}/clash/res/icon-clash.png
 
     # 更新配置文件（不更新配置）
-    LOGGER "升级仅对程序版本，Web界面和后台脚本文件进行更新"
-    LOGGER "本次升级不进行配置更新，如果需要获取配置文件，请卸载后重新安装即可。"
+    if [[ "${clash_vclash_version:1:1}" == "2" && "${clash_vclash_version:3:1}" -ge "5" ]] ; then
+        LOGGER "v2.5.1 版本之后的升级过程对版本号进行规划"
+        LOGGER "2: major_verison,主版本号(比如适用与不同路由器的重大差异，重写代码等会升级此版本)"
+        LOGGER "5: minor_version,分支版本号，涉及新功能升级时会修改此版本号）"
+        LOGGER "1: hotfix_version,功能优化等小修改的版本号, 不涉及新功能的升级)"
+        LOGGER "当用户使用的版本与最新版本差异过大时，建议是重新安装，当然是可以使用升级方式。"
+        LOGGER "升级过程，尽可能不破坏现有启动配置文件。"
+    fi
+    dns_rule_dir="${CONFIG_HOME}/dnsmasq_rules"
+    [[ -r ${dns_rule_dir} ]] || mkdir ${dns_rule_dir}
+    find ${UPLOAD_DIR}/clash/clash/dnsmasq_rules/ -type f -name "*.conf" | while read fn ; do
+        fname=`basename ${fn}`
+        md5sum_update ${dns_rule_dir}/${fname} ${fn}
+    done
 
     # 更新 version 文件
     md5sum_update ${CONFIG_HOME}/version ${UPLOAD_DIR}/clash/clash/version
@@ -902,17 +953,18 @@ applay_new_config() {
         LOGGER "找不到配置文件: /tmp/upload/${clash_config_file}"
         return 2
     fi
-    # 先备份后复制
-    cp -p ${CONFIG_HOME}/config.yaml ${CONFIG_HOME}/config.yaml.bak
-    cp -f "/tmp/upload/${clash_config_file}" "${CONFIG_HOME}/config.yaml"
-    if [ -f "${CONFIG_HOME}/config.yaml" ] ; then
+    # 生成新配置文件
+    rnd=$(openssl rand -hex 3)
+    new_file=${CONFIG_HOME}/config_${rnd}.yaml
+    cp -f "/tmp/upload/${clash_config_file}" ${new_file}
+    if [ -f "${new_file}" ] ; then
         LOGGER "拷贝新配置成功"
     else
         LOGGER "拷贝新配置失败"
     fi
     rm -f "/tmp/upload/${clash_config_file}"
     dbus remove clash_config_file
-    LOGGER "应用新配置完成,准备重启clash服务...\n"
+    LOGGER "如果希望使用新配置，请手工切换新配置。"
 }
 
 check_valid_rule() {
@@ -1154,7 +1206,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    switch_clash_config|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type| applay_new_config|restore_config_file|switch_ipv6_mode)
+    switch_clash_config|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -1164,7 +1216,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|update_provider_file|update_geoip|backup_config_file)
+    get_proc_status|update_provider_file|update_geoip|backup_config_file|applay_new_config)
         # 不需要重启操作
         $action_job
         ;;

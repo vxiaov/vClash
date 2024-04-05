@@ -205,7 +205,9 @@ copy_files() {
     done
 
     LOGGER 复制相关的脚本文件！
-    cp -rf ./${app_name} ${KSHOME}/
+    [[   -d "${KSHOME}/${app_name}" ]] && LOGGER "目录已经存在!直接复制文件，可能会覆盖已有文件."
+    [[ ! -d "${KSHOME}/${app_name}" ]] && LOGGER "新建 ${KSHOME}/${app_name} 目录" && mkdir ${KSHOME}/${app_name}
+    cp -rp ./${app_name}/* ${KSHOME}/${app_name}/
     cp -f ./scripts/${app_name}_*.sh ${KSHOME}/scripts/
     cp -f ./uninstall.sh ${KSHOME}/scripts/uninstall_${app_name}.sh
 
