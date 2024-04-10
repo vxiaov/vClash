@@ -10,7 +10,7 @@ allow-lan: true
 # "[aaaa::a8aa:ff:fe09:57d8]": bind a single IPv6 addres
 bind-address: '*'
 # 不使用IPv6地址(配合上面的bind-address)
-ipv6: true
+ipv6: false
 
 external-controller: 0.0.0.0:9090
 external-ui: /koolshare/clash/dashboard/
@@ -19,7 +19,7 @@ secret: route
 
 dns:
   enable: true
-  ipv6: true
+  ipv6: false
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
   listen: 0.0.0.0:7874

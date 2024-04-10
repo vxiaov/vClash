@@ -22,7 +22,7 @@
 - <b style="color:red">配置两级中继代理组</b>: Clash启动配置文件配置了两级中继代理组，<b style="color:red">免费解锁奈飞</b>变得更加容易了。
 - <b style="color:red">支持Cloudflare的DDNS功能</b>: 支持<b style="color:red">同时更新同一个帐号下的多个域名</b>，例如 CF帐号下有两个域名 a.com和 b.com, 可以配置 "home.a.com,home.b.com" 两个域名之间用逗号分隔。
 - <b style="color:red">支持在线编辑配置文件</b>: 修改配置文件可以在插件页面上完成。
-
+- <b style="color:red">Clash-Premium可用的配置文件</b>： https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/config.yaml
 
 ## 说明
 

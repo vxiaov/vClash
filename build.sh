@@ -50,24 +50,56 @@ update_ruleset() {
     done
 }
 
-# 生成路由器dnsmasq使用的DNS请求转发规则
-generate_dnsmasq_conf() {
-    # 文件名
-    wkdir="./clash/clash"
-    cd ${wkdir}
+
+print_dnsmasq() {
 
     dns_port=1053
     dns_server=127.0.0.1
-    
-    out_file="dnsmasq_rules/gfwlist.conf"
-    echo -n > ${out_file}
-    # 生成Dnsmasq转发DNS请求规则列表
-    cat `yq e '.rule-providers[]|select(.type=="http" and .behavior == "classical" )|.path' ./config.yaml` | awk -F, '/DOMAIN-SUFFIX/{ print $2 }' | sort -u | while read line 
+
+    cat $@ | awk -F, '/DOMAIN-SUFFIX/{ print $2 }' | sort -u | while read line 
     do
         # 生成conf配置格式: server=/xxx.com/127.0.0.1#1053
-        echo "server=/${line}/${dns_server}#${dns_port}" >> ${out_file}
+        echo "server=/${line}/${dns_server}#${dns_port}"
     done
+}
+
+# 生成路由器dnsmasq使用的DNS请求转发规则
+generate_dnsmasq_conf() {
+
+    out_file="dnsmasq_rules/gfwlist.conf"
+    wkdir="./clash/clash"
+
+    cd ${wkdir}
+    echo -n > ${out_file}   # 清空历史数据
+    # 生成Dnsmasq转发DNS请求规则列表
+    print_dnsmasq `yq e '.rule-providers[]|select(.type=="http" and .behavior == "classical" )|.path' ./config.yaml`  >> ${out_file}
+    [[ -f ./ruleset/my_blacklist.yaml ]] && print_dnsmasq ./ruleset/my_blacklist.yaml   >> ${out_file}
+
     cd -
+}
+
+
+generate_gfwlist() {
+    # 生成gfw.yaml #
+    filter_flag="${1:-0}"
+    outdir="./clash/clash/ruleset/"
+    curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt > ${outdir}/gfw.tmp
+    if [ "$filter_flag" = "1" ] ; then
+        # 精简过滤一些地址
+        yq e -P '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
+            printf("payload:\n");
+        }{
+            idx=$(NF-1)"."$(NF);
+            a[idx]++;
+        }END{
+            for(i in a)
+                printf("  - '\''+.%s'\''\n", i);
+        }' > ${outdir}/rule_diy_gfw.yaml
+    else
+        yq e -P ${outdir}/gfw.tmp > ${outdir}/rule_diy_gfw.yaml
+    fi
+    rm -f ${outdir}/gfw.tmp
+    echo "rule_diy_gfw.yaml 生成完毕."
 }
 
 case "$1" in

@@ -22,7 +22,11 @@ eval $(dbus export ${app_name}_)
 
 alias curl="curl --connect-timeout 300"
 
-CURL_OPTS=" -L "
+if [ "$clash_ipv6_mode" = "on" ] ; then
+    CURL_OPTS=" -4L "
+else
+    CURL_OPTS=" -L "
+fi
 
 # CURL添加代理选项
 # if [ "$clash_use_local_proxy" == "on" ] ; then
@@ -248,6 +252,7 @@ add_iptables() {
     iptables -t nat -A ${app_name}_dns -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
     iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
+
 }
 
 # 清理iptables规则
@@ -270,6 +275,7 @@ del_iptables() {
     iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
     iptables -t nat -F ${app_name}_dns
     iptables -t nat -X ${app_name}_dns
+
 }
 
 status() {

@@ -925,7 +925,6 @@
                             <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/vxiaov/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
                             <b style="color: rgb(0, 255, 60);font-size: 16px;">1.问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/vxiaov/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。
                         </p>
-                        <p style="color:#FC0"><b style="color: rgb(0, 255, 60);font-size: 16px;">2.工作模式</b>: <b style="color: rgb(0, 255, 60);">黑名单模式</b>(默认，特定网站列表走代理，大部分流量直连) ; <b style="color: rgb(0, 255, 60);">白名单模式</b>(国内IP直连，大部分其他流量走代理)</p>
                         <hr>
                     </div>
                     <!-- Tab菜单 -->
