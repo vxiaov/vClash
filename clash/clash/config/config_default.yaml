@@ -601,13 +601,17 @@ rule-providers:
     path: ./ruleset/Domestic_IPs
     interval: 86400
   MyBlacklist:
-    type: file
+    type: http
     behavior: classical   # domain, ipcidr or classical (仅限 Clash Premium 内核)
+    url: https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/ruleset/my_blacklist.yaml
     path: ./ruleset/my_blacklist.yaml
+    interval: 86400
   MyWhitelist:
-    type: file
+    type: http
     behavior: classical
+    url: https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/ruleset/my_whitelist.yaml
     path: ./ruleset/my_whitelist.yaml
+    interval: 86400
 
 rules:
   - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
