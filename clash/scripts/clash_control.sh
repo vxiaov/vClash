@@ -15,7 +15,7 @@ CONFIG_HOME="$KSHOME/${app_name}"
 
 # 路由器IP地址
 lan_ipaddr="$(nvram get lan_ipaddr)"
-
+wan_ipaddr=$(nvram get wan0_ipaddr)
 dbus set clash_lan_ipaddr=$lan_ipaddr
 
 eval $(dbus export ${app_name}_)
@@ -28,15 +28,11 @@ else
     CURL_OPTS=" -L "
 fi
 
-# CURL添加代理选项
-# if [ "$clash_use_local_proxy" == "on" ] ; then
-#     CURL_OPTS="--proxy socks5h://127.0.0.1:1080 $CURL_OPTS"
-# fi
-
 bin_list="${app_name} yq"
 
 dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
+tproxy_port="3330"      # TPROXY 透明代理端口，支持TCP/UDP
 yacd_port="9090"        # Yacd 端口
 # 存放规则文件目录#
 rule_src_dir="${CONFIG_HOME}/ruleset"
@@ -48,35 +44,41 @@ debug_log=/tmp/upload/clash_debug.log
 backup_file=/tmp/upload/${app_name}_backup.tar.gz
 env_file="${app_name}_env.sh"
 
-# 自定义黑名单规则文件
-blacklist_file="${CONFIG_HOME}/ruleset/rule_diy_blacklist.yaml"
-# 自定义白名单规则文件
-whitelist_file="${CONFIG_HOME}/ruleset/rule_diy_whitelist.yaml"
-
-default_test_node="proxies:\n  - name:  test代理分享站(别选我):https://vlike.work\n    type:  ss\n    server:  127.0.0.1\n    port:  9999\n    password:  123456\n    cipher:  aes-256-gcm"
-
-check_config_file() {
-    # 检查 config.yaml 文件配置信息
-    clash_yacd_secret=$(yq e '.secret' $config_file)
-    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
-    yq_expr='.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" yq e -i "$yq_expr" $config_file
-    [[ "$?" != "0" ]] && return 1
-    dbus set clash_yacd_ui=$clash_yacd_ui
-}
 
 # 开启对旁路由IP自动化监控脚本
 main_script="${KSHOME}/scripts/clash_control.sh"
 
-
-provider_remote_file="${CONFIG_HOME}/providers/provider_remote.yaml"    # 远程URL更新文件
-provider_diy_file="${CONFIG_HOME}/providers/provider_diy.yaml"          # 远程URL更新文件
 
 CMD="${app_name} -d ${CONFIG_HOME}"
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
 
+# 检测是否支持TUN设备 #
+support_tun() {
+    [[ -r /dev/net/tun ]] || [[ -r /dev/tun ]]
+    # [[ "$?" == "0" ]] && dbus set ${app_name}_support_tun="on"
+}
+
+check_config_file() {
+    # 检查 config.yaml 文件配置信息
+    # 修改UI控制参数
+    # 修改代理端口 redir-port 和 tproxy-port
+    # 修改 是否可以使用 tun模式
+    clash_yacd_secret=$(yq e '.secret' $config_file)
+
+    tun_exp="" # 默认不支持TUN，不填写任何修改表达式 #
+    # support_tun && tun_exp=".tun.enable=true|"
+
+    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
+    yq_expr=${tun_exp}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
+    
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" yq e -i "$yq_expr" $config_file
+
+    [[ "$?" != "0" ]] && return 1
+
+    dbus set clash_yacd_ui=$clash_yacd_ui
+}
 
 LOGGER() {
     echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
@@ -152,12 +154,7 @@ get_proc_status() {
     if [ "$tmp_cron" != "" ]; then
         echo "|  $tmp_cron"
     fi
-    if [ "$clash_cfddns_enable" = "on" ] ; then
-        tmp_cron="$(cru l| grep clash_cfddns)"
-        if [ "$tmp_cron" != "" ]; then
-            echo "|  $tmp_cron"
-        fi
-    fi
+
     if [ "$clash_watchdog_enable" = "on" ] ; then
         tmp_cron="$(cru l| grep soft_route_check)"
         if [ "$tmp_cron" != "" ]; then
@@ -166,34 +163,14 @@ get_proc_status() {
     fi
     
     echo "+---------------------------------------------------"
-    echo "| Clash重启信息: [$(grep start_${app_name} /tmp/syslog.log|wc -l)] 次, 最近 [3次] 时间如下:"
-    echo "$(grep start_${app_name} /tmp/syslog.log|tail -3| awk '{printf("| %s\n", $0);}')"
+    echo "| Clash重启信息: [$(grep 'clash 服务启动' /tmp/syslog.log|wc -l)] 次, 最近 [3次] 时间如下:"
+    echo "$(grep 'clash 服务启动' /tmp/syslog.log|tail -3| awk '{printf("| %s\n", $0);}')"
     echo "+---------------------------------------------------"
 }
 
-add_ddns_cron(){
-    if [ "$clash_cfddns_enable" = "on" ] ; then
-        if cru l | grep clash_cfddns > /dev/null ; then
-            LOGGER "已经添加cfddns调度!"
-        else
-            ttl=`expr $clash_cfddns_ttl / 60`
-            if [ "$ttl" -lt "2" -o "$ttl" -ge "1440" ] ; then
-                ttl="2"
-            fi
-            
-            cru a clash_cfddns "*/${ttl} * * * * $main_script start_cfddns"
-            if [ "$?" = "0" ] ; then
-                LOGGER "成功添加cfddns调度!"
-            else
-                LOGGER "添加cfddns调度失败"
-                cru l| grep clash_cfddns
-            fi
-        fi
-    fi
-}
+
 # 添加守护监控脚本
 add_cron() {
-    add_ddns_cron
     if cru l | grep ${cron_id} >/dev/null; then
         LOGGER "进程守护脚本已经添加!不需要重复添加吧？!？"
         return 0
@@ -214,69 +191,254 @@ del_cron() {
     LOGGER "删除进程守护脚本成功!"
 }
 
-# 配置iptables规则
-add_iptables() {
-    # 1. 转发 HTTP/HTTPS 请求到 Clash redir-port 端口
-    # 2. 转发 DNS 53端口请求到 Clash dns.listen 端口
-    if [ "$clash_trans" = "off" ]; then
-        LOGGER "透明代理模式已关闭!不需要添加iptables转发规则!"
-        return 0
+
+create_ipset() {
+    # 创建 ipset 表
+    tname="localnet4"
+    LOGGER "开始创建 ipset: $tname"
+    ipset -! destroy $tname > /dev/null 2>&1
+    ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
+    ipset add $tname  127.0.0.1/8
+    ipset add $tname  10.0.0.0/8
+    ipset add $tname  169.254.0.0/16
+    ipset add $tname  172.16.0.0/12
+    ipset add $tname  192.168.0.0/16
+    ipset add $tname  224.0.0.0/4
+    ipset add $tname  255.255.255.255/32
+
+    tname="localnet6"
+    LOGGER "开始创建 ipset: $tname"
+    ipset -! destroy $tname > /dev/null 2>&1
+    ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
+    ipset add $tname  ::1/128
+    ipset add $tname  fc00::/7   #本地链路专用网络
+    ipset add $tname  ff00::/8   #多波地址
+    ipset add $tname  240e::/16   #电信IPv6地址段
+    ipset add $tname  2408::/16   #联通IPv6地址段
+    ipset add $tname  2409::/16   #移动IPv6地址段
+    ipset add $tname  2001::/16   #6in4 地址，是另一种隧道协议。
+    ipset add $tname  2002::/16   #6to4地址
+
+}
+
+del_iptables_tproxy() {
+
+    # 设置策略路由 v4
+    ip rule del fwmark 1 table 100
+    ip route del local 0.0.0.0/0 dev lo table 100
+
+    # 设置策略路由 v6
+    ip -6 rule del fwmark 1 table 106
+    ip -6 route del local ::/0 dev lo table 106
+
+    # 代理局域网设备 v4
+    iptables -t mangle -D PREROUTING -j ${app_name}_XRAY
+    iptables -t mangle -F ${app_name}_XRAY
+    iptables -t mangle -X ${app_name}_XRAY
+
+    # 代理局域网设备 v6
+    ip6tables -t mangle -D PREROUTING -j ${app_name}_XRAY6
+    ip6tables -t mangle -F ${app_name}_XRAY6
+    ip6tables -t mangle -X ${app_name}_XRAY6
+
+    # 代理网关本机 v4
+    iptables -t mangle -D OUTPUT -j ${app_name}_XRAY_MASK
+    iptables -t mangle -F ${app_name}_XRAY_MASK
+    iptables -t mangle -X ${app_name}_XRAY_MASK
+
+    # 代理网关本机 v6
+    ip6tables -t mangle -D OUTPUT -j ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -F ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -X ${app_name}_XRAY6_MASK
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+    iptables -t mangle -F ${app_name}_DIVERT
+    iptables -t mangle -X ${app_name}_DIVERT
+
+    ip6tables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+    ip6tables -t mangle -F ${app_name}_DIVERT
+    ip6tables -t mangle -X ${app_name}_DIVERT
+}
+
+add_iptables_tproxy() {
+
+    # ! modprobe xt_socket && LOGGER "加载 xt_socket 模块失败!" && return 1
+    # LOGGER "加载 xt_socket 模块成功!"
+
+    # ! modprobe xt_TPROXY && LOGGER "加载xt_TPROXY模块失败!" && return 1
+    # LOGGER "加载 xt_TPROXY 模块成功!"
+
+    # 设置策略路由 v4
+    ip rule add fwmark 1 table 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -N ${app_name}_DIVERT
+    iptables -t mangle -F ${app_name}_DIVERT
+    iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+    # 代理局域网设备 v4
+    ! iptables -t mangle -N ${app_name}_XRAY && LOGGER "${app_name}_XRAY 表已经创建过，清理后再执行"
+    iptables -t mangle -F ${app_name}_XRAY
+    iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A PREROUTING -j ${app_name}_XRAY
+
+    # 代理网关本机 v4
+    iptables -t mangle -N ${app_name}_XRAY_MASK
+    iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A OUTPUT -j ${app_name}_XRAY_MASK
+
+    if [ "$clash_ipv6_mode" = "on" ] ; then
+        # 设置策略路由 v6
+        ip -6 rule add fwmark 1 table 106
+        ip -6 route add local ::/0 dev lo table 106
+
+        # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+        ip6tables -t mangle -N ${app_name}_DIVERT
+        ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+        ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+        ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+        # # 代理局域网设备 v6
+        ip6tables -t mangle -N ${app_name}_XRAY6
+        ip6tables -t mangle -F ${app_name}_XRAY6
+        ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
+        ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+        ip6tables -t mangle -A PREROUTING -j ${app_name}_XRAY6
+
+        # # 代理网关本机 v6
+        ip6tables -t mangle -N ${app_name}_XRAY6_MASK
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
+        ip6tables -t mangle -A OUTPUT -j ${app_name}_XRAY6_MASK
     fi
+}
+
+# 配置iptables规则
+add_iptables_nat() {
     if iptables -t nat -S ${app_name} >/dev/null 2>&1; then
         LOGGER "已经配置过${app_name}的iptables规则!"
         return 0
     fi
 
-    LOGGER "开始配置 ${app_name} iptables规则..."
-    
-    # Fake-IP 规则添加
-    iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
+    iptables -t nat -N ${app_name} || LOGGER "${app_name} 表已经存在！开始执行清空操作"
+    iptables -t nat -F ${app_name}
+    # 本地地址请求不转发
+    iptables -t nat -A ${app_name} -m set --match-set localnet4 dst -j RETURN
+    # 服务端口${redir_port}接管HTTP/HTTPS请求转发
+    iptables -t nat -A ${app_name} -p udp -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A ${app_name} -p tcp -j REDIRECT --to-ports ${redir_port}
+
+    # 1.局域网DNS请求走代理
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    # 2.代理所有TCP和UDP请求
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
+    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
+
+    # 3.路由器本机消息转发到代理(DNS请求和其他所有非本地请求)
     iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -A OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
+
+    # support_tun || 
+    iptables -t nat -A OUTPUT -p udp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
     
-    iptables -t nat -N ${app_name}
-    iptables -t nat -F ${app_name}
-    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
-    # 本地地址请求不转发
-    iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
-    iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
-    iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
-    iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
-    iptables -t nat -A ${app_name} -d ${lan_ipaddr}/24 -j RETURN
-    # 服务端口${redir_port}接管HTTP/HTTPS请求转发
-    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p tcp -j REDIRECT --to-ports ${redir_port}
-    # 转发DNS请求到端口 dns_port 解析
-    iptables -t nat -N ${app_name}_dns
-    iptables -t nat -F ${app_name}_dns
-    iptables -t nat -A ${app_name}_dns -p udp --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -A ${app_name}_dns -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
-    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
-    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
+    LOGGER "完成添加 iptables NAT 配置"
 
 }
 
 # 清理iptables规则
-del_iptables() {
-    if ! iptables -t nat -S ${app_name} >/dev/null 2>&1; then
-        LOGGER "已经清理过 ${app_name} 的iptables规则!"
-        return 0
-    fi
-    LOGGER "开始清理 ${app_name} iptables规则 ..."
-    # Fake-IP 规则清理
-    iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
+del_iptables_nat() {
+
+    # 1.局域网DNS请求走代理
+    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    # 2.代理所有TCP和UDP请求
+    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
+
+    # 3.路由器本机消息转发到代理(DNS请求和其他所有非本地请求)
     iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
 
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 -j ${app_name}
+    iptables -t nat -D OUTPUT -p udp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
+
     iptables -t nat -F ${app_name}
     iptables -t nat -X ${app_name}
-
-    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j ${app_name}_dns
-    iptables -t nat -F ${app_name}_dns
-    iptables -t nat -X ${app_name}_dns
-
+    LOGGER "完成清理 iptables NAT 配置"
 }
+
+# 配置iptables规则
+add_iptables_all() {
+    # 透明代理的方案启用原则：
+    #  1. 优先启用TPROXY模式
+    #  2. 其次，支持的TUN模式(TODO:暂时关闭)
+    #  3. 最后，使用NAT方式（不支持IPv6代理）
+    if [ "$clash_trans" = "off" ]; then
+        LOGGER "透明代理模式已关闭!不需要添加iptables转发规则!"
+        return 0
+    fi
+
+    create_ipset
+
+    # TPROXY模式透明代理 #
+    modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+    if [ "$?" = "0" ] ; then 
+        # 支持 TPROXY 内核模块 #
+        LOGGER "透明代理模式: TPROXY模式"
+        add_iptables_tproxy
+        LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
+        return
+    fi
+
+    # support_tun
+    # if [ "$?" = "0" ] ; then
+    #     LOGGER "透明代理模式: TUN模式"
+    #     add_iptables_nat
+    #     return 0
+    # fi
+
+    # 加载xt_TPROXY模块失败! 启用NAT透明代理方案
+    LOGGER "透明代理模式: NAT模式"
+    add_iptables_nat
+    LOGGER "完成配置 ${app_name} iptables NAT模式规则!"
+}
+
+# 清理iptables规则
+del_iptables_all() {
+    LOGGER "开始清理 ${app_name} iptables规则 ..."
+    # 执行全部清理(这里简化处理逻辑才这样做) #
+    del_iptables_nat
+    del_iptables_tproxy
+    LOGGER "完成清理 ${app_name} iptables规则!"
+}
+
+iptables_status() {
+    echo "IPv4 地址配置 NAT 规则:"
+    iptables -t nat -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    echo "+---------------------------------------------------------------+"
+    echo "IPv4 地址配置 mangle 规则:"
+    iptables -t mangle -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    echo "+---------------------------------------------------------------+"
+    echo "IPv6 地址配置 mangle 规则:"
+    ip6tables -t mangle -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+}
+
 
 status() {
     pidof ${app_name}
@@ -338,27 +500,28 @@ service_start() {
     # echo "启动 $app_name"
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
-    else
-        check_config_file
-        [[ "$?" != "0" ]] && LOGGER "配置文件格式错误！修正好配置文件后再尝试启动!" && return 1
-
-        LOGGER "启动配置文件 ${config_file} : 检测完毕!"
-        nohup ${CMD} >/dev/null 2>&1 &
-        sleep 1
-        if status >/dev/null 2>&1; then
-            LOGGER "${CMD} 启动成功!"
-        else
-            dbus set clash_enable="off"
-            LOGGER "${CMD} 启动失败! 执行失败原因如下:"
-            ${CMD}
-            return 1
-        fi
-        # 用于记录Clash服务稳定程度
-        SYSLOG "${app_name} 服务启动成功 : pid=$(pidof ${app_name})"
-        dbus set ${app_name}_enable="on"
+        return 0
     fi
-    add_iptables
-    start_dns
+
+    check_config_file  # 检查文件比较慢
+    [[ "$?" != "0" ]] && LOGGER "配置文件格式错误！修正好配置文件后再尝试启动!" && return 1
+
+    LOGGER "启动配置文件 ${config_file} : 检测完毕!"
+    nohup ${CMD} >/dev/null 2>&1 &
+    sleep 1
+    if status >/dev/null 2>&1; then
+        LOGGER "${CMD} 启动成功!"
+    else
+        dbus set clash_enable="off"
+        LOGGER "${CMD} 启动失败! 执行失败原因如下:"
+        return 1
+    fi
+    # 用于记录Clash服务稳定程度
+    SYSLOG "${app_name} 服务启动成功 : pid=$(pidof ${app_name})"
+    dbus set ${app_name}_enable="on"
+
+    add_iptables_all
+    #start_dns
     add_cron
     LOGGER "启动完毕!"
 }
@@ -371,8 +534,8 @@ service_stop() {
         LOGGER "开始停止 ${app_name} ..."
         killall ${app_name}
     fi
-    del_iptables  2>/dev/null
-    stop_dns
+    del_iptables_all  2>/dev/null
+    #stop_dns
     del_cron
     if status >/dev/null 2>&1; then
         LOGGER "${CMD} 停止失败!"
@@ -384,14 +547,6 @@ service_stop() {
 }
 
 ########## config part ###########
-
-# DIY节点 列表
-list_nodes() {
-    filename="$provider_diy_file"
-    node_list=`yq e '.proxies[].name' $filename| awk '!/test/{ printf("%s ", $0)}'`
-    LOGGER "DIY节点列表: [${node_list}]"
-    dbus set clash_name_list="$node_list"
-}
 
 list_proxy_num() {
     filename="$1"
@@ -411,7 +566,7 @@ list_proxy_num() {
 update_geoip() {
     #
     geoip_file="${CONFIG_HOME}/Country.mmdb"
-    cp ${geoip_file} ${geoip_file}.bak
+    mv ${geoip_file} ${geoip_file}.bak
     # 精简中国IP列表生成MaxMind数据库: https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb
     # 全量MaxMind数据库文件: https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@release/Country.mmdb
     # 全量MaxMind数据库文件（融合了ipip.net数据）: https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb
@@ -424,12 +579,12 @@ update_geoip() {
     curl ${CURL_OPTS} -o ${geoip_file} ${geoip_uri}
     if [ "$?" != "0" ] ; then
         LOGGER "下载「$geoip_file」文件失败!"
+        rm -f ${geoip_file}
         mv -f ${geoip_file}.bak ${geoip_file}
         return 1
     fi
-    LOGGER "「$geoip_file」文件更新成功!"
+    LOGGER "「$geoip_file」文件更新成功! 下次重启后生效!"
     LOGGER "文件大小变化[`du -h ${geoip_file}.bak|cut -f1`]=>[`du -h ${geoip_file}|cut -f1`]"
-    rm ${geoip_file}.bak
 }
 
 # 透明代理开关
@@ -514,8 +669,7 @@ update_vclash_bin() {
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
 
     ARCH="`get_arch`"
-    # 更新 jq / yq
-    md5sum_update ${KSHOME}/bin/jq ${UPLOAD_DIR}/clash/bin/jq_for_${ARCH}
+    # 更新 yq
     md5sum_update ${KSHOME}/bin/yq ${UPLOAD_DIR}/clash/bin/yq_for_${ARCH}
     
     # 更新 clash_control.sh 脚本
@@ -598,135 +752,6 @@ update_clash_bin() {
         dbus set clash_version=$clash_new_version
         dbus remove clash_new_version
         rm -f ${KSHOME}/bin/${app_name}.${old_version}
-    fi
-}
-
-cfddns_create_record() {
-    # 添加DNS解析记录(A or AAAA record)
-    clash_cfddns_zid="$1"
-    clash_cfddns_email="$2"
-    clash_cfddns_apikey="$3"
-    current_domain="$4"
-    dns_type="$5"
-    ip_addr="$6"
-    clash_cfddns_support_proxy="$7"
-    if [ "$dns_type" = "A" ] ; then
-        dns_type="A"
-    else
-        dns_type="AAAA"
-    fi
-    if [ "$clash_cfddns_support_proxy" = "off" ] ; then
-        result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records" \
-                -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
-                --data "{\"type\":\"$dns_type\",\"name\":\"$current_domain\",\"content\":\"$ip_addr\",\"proxied\":false}" | jq -r '.success')
-    else
-        result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records" \
-                -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
-                --data "{\"type\":\"$dns_type\",\"name\":\"$current_domain\",\"content\":\"$ip_addr\",\"proxied\":true}" | jq -r '.success')
-    fi
-    if [ "$result" = "true" ] ; then
-        LOGGER "添加域名[$current_domain]的DNS解析 $dns_type 记录成功! IP地址:$ip_addr"
-        return 0
-    else
-        LOGGER "添加域名[$current_domain]的DNS解析 $dns_type 记录失败! IP地址:$ip_addr"
-        return 1
-    fi
-}
-
-cfddns_update_record() {
-    # 更新DNS解析记录(A or AAAA record)
-    clash_cfddns_zid="$1"
-    clash_cfddns_email="$2"
-    clash_cfddns_apikey="$3"
-    current_domain="$4"
-    dns_type="$5"
-    ip_addr="$6"
-    clash_cfddns_support_proxy="$7"
-    if [ "$dns_type" = "A" ] ; then
-        dns_type="A"
-    else
-        dns_type="AAAA"
-    fi
-    clash_cfddns_record_id=$(curl -X GET "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records?type=${dns_type}&name=$current_domain" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
-    if [ "$clash_cfddns_record_id" = "" -o "$clash_cfddns_record_id" = "null" ] ; then
-        # LOGGER "没找到 [$current_domain] [$dns_type] 记录! 添加一条新的 $dns_type 记录!"
-        cfddns_create_record $clash_cfddns_zid $clash_cfddns_email $clash_cfddns_apikey $current_domain $dns_type $ip_addr $clash_cfddns_support_proxy
-        return
-    fi
-    # 更新现有的记录
-    reuslt=""
-    if [ "$clash_cfddns_support_proxy" = "off" ] ; then
-        result=$(curl -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_record_id" \
-            -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
-            --data '{"type":"'$dns_type'","name":"'$current_domain'","content":"'$ip_addr'","proxied":false}' | jq -r '.success')
-    else
-        result=$(curl -X PUT "https://api.cloudflare.com/client/v4/zones/$clash_cfddns_zid/dns_records/$clash_cfddns_record_id" \
-            -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" \
-            --data '{"type":"'$dns_type'","name":"'$current_domain'","content":"'$ip_addr'","proxied":true}' | jq -r '.success')
-    fi
-    if [ "$result" = "true" ] ; then
-        LOGGER "更新域名[$current_domain]的DNS解析 $dns_type 记录成功! IP地址:$ip_addr"
-        return 0
-    else
-        LOGGER "更新域名[$current_domain]的DNS解析 $dns_type 记录失败! IP地址:$ip_addr"
-        return 1
-    fi
-}
-
-start_cfddns(){
-    # 配置检测
-    [[ -z "$clash_cfddns_email" ]]  && LOGGER "email 没填写!" && return 1
-    [[ -z "$clash_cfddns_apikey" ]]  && LOGGER "apikey 没填写!" && return 1
-    [[ -z "$clash_cfddns_domain" ]]  && LOGGER "domain 没填写!" && return 1
-    [[ -z "$clash_cfddns_ttl" ]]  && clash_cfddns_ttl="120"
-    [[ -z "$clash_cfddns_ipv4" ]]  && clash_cfddns_ipv4='curl https://httpbin.org/ip 2>/dev/null |grep origin|cut -d\" -f4'
-    [[ -z "$clash_cfddns_ipv4" ]]  && LOGGER "可能网络链接有问题，暂时无法访问外网,稍后再试!" && return 1
-    [[ -z "$clash_cfddns_ipv6" ]]  && clash_cfddns_ipv6='curl 6.ipw.cn'
-    [[ -z "$clash_cfddns_ipv6" ]]  && LOGGER "可能网络链接有问题，暂时无法访问外网,稍后再试!" && return 1
-    # 支持IPv6地址解析
-    [[ -z "$clash_cfddns_support_ipv6" ]] && clash_cfddns_support_ipv6="off"  && dbus set clash_cfddns_support_ipv6="off"
-    # 支持proxy代理(打开小云朵)
-    [[ -z "$clash_cfddns_support_proxy" ]] && clash_cfddns_support_proxy="off"  && dbus set clash_cfddns_support_proxy="off"
-    
-    # 支持多个域名更新
-    real_ipv4=`echo ${clash_cfddns_ipv4}|sh 2>/dev/null`
-    if [ "$clash_cfddns_support_ipv6" = "on" ] ; then
-        real_ipv6=`echo ${clash_cfddns_ipv6}|sh 2>/dev/null`
-    fi
-    for current_domain in `echo $clash_cfddns_domain | sed 's/[,，]/ /g'`
-    do
-        clash_cfddns_zone=`echo $current_domain| cut -d. -f2,3`
-        clash_cfddns_zid=$(curl -X GET "https://api.cloudflare.com/client/v4/zones?name=$clash_cfddns_zone" -H "X-Auth-Email: $clash_cfddns_email" -H "X-Auth-Key: $clash_cfddns_apikey" -H "Content-Type: application/json" | jq -r '.result[0].id')
-        dbus set clash_cfddns_ttl=$clash_cfddns_ttl
-        if [ "$real_ipv4" = "" ] ; then
-            LOGGER "获取IPv4地址失败! 执行命令:[$clash_cfddns_ipv4], 提取结果:[$real_ipv4]"
-            return 1
-        fi
-        cfddns_update_record $clash_cfddns_zid $clash_cfddns_email $clash_cfddns_apikey $current_domain "A" $real_ipv4 $clash_cfddns_support_proxy
-        if [ "$clash_cfddns_support_ipv6" = "on" ] ; then
-            if [ "$real_ipv6" = "" ] ; then
-                LOGGER "获取IPv6地址失败! 执行命令:[$clash_cfddns_ipv6], 提取结果:[$real_ipv6]"
-                return 1
-            fi
-            cfddns_update_record $clash_cfddns_zid $clash_cfddns_email $clash_cfddns_apikey $current_domain "AAAA" $real_ipv6 $clash_cfddns_support_proxy
-        fi
-    done
-    # 添加cron调度
-    add_ddns_cron
-    clash_cfddns_lastmsg="$(date +'%Y/%m/%d %H:%M:%S')"
-    dbus set clash_cfddns_lastmsg=$clash_cfddns_lastmsg
-}
-
-# 保存DDNS配置
-save_cfddns() {
-    if [ "$clash_cfddns_enable" != "on" ] ; then
-        LOGGER "正在关闭 Cloudflare DDNS功能:"
-        cru d clash_cfddns
-        LOGGER "已经关闭 Cloudflare DDNS功能了."
-    else
-        LOGGER "正在启用 Cloudflare DDNS功能:"
-        start_cfddns
-        LOGGER "启用 Cloudflare DDNS 成功!"
     fi
 }
 
@@ -836,8 +861,8 @@ show_router_info() {
     echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                |"
     cat ${CONFIG_HOME}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
     echo "+---------------------------------------------------------------+"
-    echo "vClash的转发规则(iptables -t nat -S | grep ${app_name}),分析转发规则是否正常:"
-    iptables -t nat -S | grep ${app_name}
+    echo "vClash的转发规则,分析转发规则是否正常:"
+    iptables_status
     echo "+---------------------------------------------------------------+"
 }
 
@@ -1083,7 +1108,7 @@ switch_clash_config() {
 clash_config_init() {
     # 校验配置文件
     list_config_files
-    check_config_file
+    # check_config_file
 }
 
 set_log_type() {
@@ -1102,15 +1127,12 @@ usage() {
  ======================================================
  使用帮助:
     ${app_name} <start|stop|restart>
-    ${app_name} start_cfddns|stop_cfddns
     ${app_name} update_provider_file
 
  参数介绍:
     start   启动服务
     stop    停止服务
     restart 重启服务
-    start_cfddns  启动自动更新DNS
-    stop_cfddns   停止自动更新DNS
     update_provider_file 更新provider_free.yaml文件
 
  ======================================================
@@ -1144,11 +1166,11 @@ do_action() {
                 ;;
             start)
                 # 启动服务, 并返回状态
-                service_start
+                #service_start
                 ret_data="{$(dbus list clash_ | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 # 先返回成功结果,放在后面执行启动功能，否则页面会一直等待且没有动态执行中的效果
-                #service_start
+                service_start
                 return 0
                 ;;
             get_one_file)
@@ -1161,12 +1183,6 @@ do_action() {
             list_config_files)
                 list_config_files
                 ret_data="{$(dbus list clash_edit_filelist  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
-                response_json "$1" "$ret_data" "ok"
-                return 0
-                ;;
-            list_nodes)
-                list_nodes
-                ret_data="{$(dbus list clash_name_list  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;
@@ -1226,7 +1242,7 @@ do_action() {
         # 不需要重启操作
         $action_job
         ;;
-    set_one_file|add_iptables | del_iptables|save_cfddns|start_cfddns | switch_route_watchdog| soft_route_check| set_log_type|switch_option_tab)
+    set_one_file|add_iptables | del_iptables | switch_route_watchdog| soft_route_check| set_log_type|switch_option_tab)
         # 不需要重启操作
         $action_job
         ;;
@@ -1255,7 +1271,7 @@ fi
 
 no_output_log=0
 case "$2" in
-    clash_config_init|save_current_tab|list_config_files|list_nodes)
+    clash_config_init|save_current_tab|list_config_files)
         # 不需要输入日志内容
         no_output_log=1
         ;;

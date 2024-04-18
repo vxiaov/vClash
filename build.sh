@@ -34,11 +34,22 @@ generate_package() {
     echo "正在生成 release 安装包 ..."
     outdir="./release/"
     new_version="$1"
+    arch="${2:-arm64}"
     sed -i "s/vClash:.*/vClash:$new_version/" clash/clash/version
     echo -n "arm384" > clash/.valid
+
+    # 拷贝可执行文件，构建最小安装包
+    rm -rf ./clash/clash/bin
+    mkdir ./clash/clash/bin
+    bin_list="yq jq clash"
+    for fn in ${bin_list} ; do
+        cp ./bin/${fn}_for_${arch} ./clash/clash/bin/${fn}
+    done
     tar zcf ./release/clash_384.tar.gz clash/
     echo -n "hnd|arm384|arm386|p1axhnd.675x" > clash/.valid
     tar zcf ./release/clash.tar.gz clash/
+    rm -rf ./clash/clash/bin
+
 }
 
 # 更新ruleset内部的文件
@@ -105,11 +116,11 @@ generate_gfwlist() {
 case "$1" in
     go)
         [[ "$2" == "" ]] && echo "缺少版本号信息!" && exit 1
-        generate_package $2
+        generate_package $2 $3
         ;;
     pack)
         [[ "$2" == "" ]] && echo "缺少版本号信息!" && exit 1
-        generate_package $2
+        generate_package $2 $3
         git add ./
         git commit -m "docs: 提交$2版本离线包"
         git tag $2

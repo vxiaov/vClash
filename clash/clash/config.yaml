@@ -1,9 +1,10 @@
 port: 7890
 socks-port: 1080 # SOCKS5代理端口，DNS请求会中转
 redir-port: 3333 # 透明代理端口
+tproxy-port: 3330 # TPROXY使用的透明代理端口 支持TCP和UDP
 mode: rule
 allow-lan: true
-
+routing-mark: 0xff
 # allow-lan=true时,最好设置内网访问IP,关闭IPv6监听
 # '*': bind all IP addresses
 # 192.168.122.11: bind a single IPv4 address
@@ -11,21 +12,29 @@ allow-lan: true
 bind-address: '*'
 # 不使用IPv6地址(配合上面的bind-address)
 ipv6: false
-
-external-controller: 0.0.0.0:9090
-external-ui: /koolshare/clash/dashboard/
+external-controller: 192.168.50.1:9090
+external-ui: /koolshare/clash/dashboard
 secret: route
-
-
+# 启用 tun 模式来路由全局流量
+tun:
+  enable: false
+  stack: system # 可选参数: system/gvisor/mixed
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - 8.8.8.8:53
+    - tcp://8.8.8.8:53
+    - any:53
+    - tcp://any:53
 dns:
   enable: true
   ipv6: false
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  listen: 0.0.0.0:7874
+  listen: 0.0.0.0:1053
   nameserver:
-    - 114.114.114.114
     - 223.5.5.5
+    - 114.114.114.114
     - https://doh.pub/dns-query
     - https://dns.alidns.com/dns-query
   fallback:
@@ -42,10 +51,8 @@ experimental:
   sniff-tls-sni: true
 profile:
   store-selected: true
-
 # 保留的proxy节点列表(启动配置文件不包含任何节点信息,节点信息通过 proxy-provider 提供)
 proxies: []
-
 proxy-providers:
   proxy-provider-http001:
     type: http
@@ -63,7 +70,6 @@ proxy-providers:
       enable: true
       url: http://www.gstatic.com/generate_204
       interval: 300
-
 proxy-groups:
   - name: 个人节点组
     type: select
@@ -256,7 +262,6 @@ proxy-groups:
     proxies:
       - DIRECT
       - ⭐默认节点组⭐
-
 rule-providers:
   Reject:
     type: http
@@ -602,7 +607,7 @@ rule-providers:
     interval: 86400
   MyBlacklist:
     type: http
-    behavior: classical   # domain, ipcidr or classical (仅限 Clash Premium 内核)
+    behavior: classical # domain, ipcidr or classical (仅限 Clash Premium 内核)
     url: https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/ruleset/my_blacklist.yaml
     path: ./ruleset/my_blacklist.yaml
     interval: 86400
@@ -612,7 +617,6 @@ rule-providers:
     url: https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/ruleset/my_whitelist.yaml
     path: ./ruleset/my_whitelist.yaml
     interval: 86400
-
 rules:
   - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
   - DOMAIN-SUFFIX,local,DIRECT

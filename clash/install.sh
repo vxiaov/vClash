@@ -190,20 +190,6 @@ copy_files() {
     cd ${WKDIR}
     mkdir -p ${CONFIG_HOME}
 
-    LOGGER 复制相关二进制文件！此步时间可能较长！
-    for fn in ${BIN_LIST}; do
-
-        if [ -f "./bin/${fn}_for_${ARCH}" ]; then
-            cp -f ./bin/${fn}_for_${ARCH} ${KSHOME}/bin/${fn}
-        else
-            LOGGER "错误: 找不到 ./bin/${fn}_for_${ARCH} 文件！"
-            exit_install 1
-        fi
-        
-        chmod +x ${KSHOME}/bin/${fn}   # 设置可执行权限
-        LOGGER "安装可执行程序: ${fn} 完成."
-    done
-
     LOGGER 复制相关的脚本文件！
     [[   -d "${KSHOME}/${app_name}" ]] && LOGGER "目录已经存在!直接复制文件，可能会覆盖已有文件."
     [[ ! -d "${KSHOME}/${app_name}" ]] && LOGGER "新建 ${KSHOME}/${app_name} 目录" && mkdir ${KSHOME}/${app_name}
@@ -212,6 +198,21 @@ copy_files() {
     cp -f ./uninstall.sh ${KSHOME}/scripts/uninstall_${app_name}.sh
 
     chmod 755 ${KSHOME}/scripts/${app_name}_*.sh
+
+    LOGGER 复制相关二进制文件！
+    for fn in ${BIN_LIST} ; do
+
+        if [ -f "${KSHOME}/${app_name}/bin/${fn}" ]; then
+            # 采用软链接方式：减少写入操作
+            ln -sf ${KSHOME}/${app_name}/bin/${fn} ${KSHOME}/bin/${fn}
+        else
+            LOGGER "错误: 找不到 ${KSHOME}/${app_name}/bin/${fn} 文件！"
+            exit_install 1
+        fi
+        
+        chmod +x ${KSHOME}/bin/${fn}   # 设置可执行权限
+        LOGGER "安装可执行程序: ${fn} 完成."
+    done
 
     LOGGER 复制相关的网页文件！
     cp -rf ./webs/Module_${app_name}.asp ${KSHOME}/webs/

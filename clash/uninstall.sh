@@ -23,6 +23,8 @@ remove_files() {
     LOGGER 清理旧文件
     LOGGER "正在清理目录(先清理内部文件，最后删除目录): /koolshare/${app_name}"
     rm -rf /koolshare/${app_name}/* /koolshare/${app_name}/.*
+    
+    # 清理目录
     rmdir /koolshare/${app_name}
 
     LOGGER "执行命令： rm -rf /koolshare/webs/Module_${app_name}.asp"
