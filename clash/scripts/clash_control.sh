@@ -28,8 +28,6 @@ else
     CURL_OPTS=" -L "
 fi
 
-bin_list="${app_name} yq"
-
 dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
 tproxy_port="3330"      # TPROXY 透明代理端口，支持TCP/UDP
@@ -46,10 +44,16 @@ env_file="${app_name}_env.sh"
 
 
 # 开启对旁路由IP自动化监控脚本
+
 main_script="${KSHOME}/scripts/clash_control.sh"
 
+# 可执行程序变量 #
+YQ=${CONFIG_HOME}/bin/yq
+JQ=${CONFIG_HOME}/bin/jq
+BINFILE=${CONFIG_HOME}/bin/${app_name}
+PARAMS="-d ${CONFIG_HOME}"
+CMD="${BINFILE} ${PARAMS}"
 
-CMD="${app_name} -d ${CONFIG_HOME}"
 cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
@@ -57,7 +61,6 @@ FW_TYPE_NAME=""     # 固件类型名称
 # 检测是否支持TUN设备 #
 support_tun() {
     [[ -r /dev/net/tun ]] || [[ -r /dev/tun ]]
-    # [[ "$?" == "0" ]] && dbus set ${app_name}_support_tun="on"
 }
 
 check_config_file() {
@@ -65,7 +68,7 @@ check_config_file() {
     # 修改UI控制参数
     # 修改代理端口 redir-port 和 tproxy-port
     # 修改 是否可以使用 tun模式
-    clash_yacd_secret=$(yq e '.secret' $config_file)
+    clash_yacd_secret=$(${YQ} e '.secret' $config_file)
 
     tun_exp="" # 默认不支持TUN，不填写任何修改表达式 #
     # support_tun && tun_exp=".tun.enable=true|"
@@ -73,7 +76,7 @@ check_config_file() {
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     yq_expr=${tun_exp}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
     
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" yq e -i "$yq_expr" $config_file
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e -i "$yq_expr" $config_file
 
     [[ "$?" != "0" ]] && return 1
 
@@ -195,30 +198,39 @@ del_cron() {
 create_ipset() {
     # 创建 ipset 表
     tname="localnet4"
-    LOGGER "开始创建 ipset: $tname"
-    ipset -! destroy $tname > /dev/null 2>&1
-    ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
-    ipset add $tname  127.0.0.1/8
-    ipset add $tname  10.0.0.0/8
-    ipset add $tname  169.254.0.0/16
-    ipset add $tname  172.16.0.0/12
-    ipset add $tname  192.168.0.0/16
-    ipset add $tname  224.0.0.0/4
-    ipset add $tname  255.255.255.255/32
+    if ipset list -t ${tname} >/dev/null 2>&1; then
+        LOGGER "已经创建 ipset ${tname}"
+        return 0
+    else
+        LOGGER "开始创建 ipset: $tname"
+        ipset -! destroy $tname > /dev/null 2>&1
+        ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
+        ipset add $tname  127.0.0.1/8
+        ipset add $tname  10.0.0.0/8
+        ipset add $tname  169.254.0.0/16
+        ipset add $tname  172.16.0.0/12
+        ipset add $tname  192.168.0.0/16
+        ipset add $tname  224.0.0.0/4
+        ipset add $tname  255.255.255.255/32
+    fi
 
     tname="localnet6"
-    LOGGER "开始创建 ipset: $tname"
-    ipset -! destroy $tname > /dev/null 2>&1
-    ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
-    ipset add $tname  ::1/128
-    ipset add $tname  fc00::/7   #本地链路专用网络
-    ipset add $tname  ff00::/8   #多波地址
-    ipset add $tname  240e::/16   #电信IPv6地址段
-    ipset add $tname  2408::/16   #联通IPv6地址段
-    ipset add $tname  2409::/16   #移动IPv6地址段
-    ipset add $tname  2001::/16   #6in4 地址，是另一种隧道协议。
-    ipset add $tname  2002::/16   #6to4地址
-
+    if ipset list -t ${tname} >/dev/null 2>&1; then
+        LOGGER "已经创建 ipset ${tname}"
+        return 0
+    else
+        LOGGER "开始创建 ipset: $tname"
+        ipset -! destroy $tname > /dev/null 2>&1
+        ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
+        ipset add $tname  ::1/128
+        ipset add $tname  fc00::/7   #本地链路专用网络
+        ipset add $tname  ff00::/8   #多波地址
+        ipset add $tname  240e::/16   #电信IPv6地址段
+        ipset add $tname  2408::/16   #联通IPv6地址段
+        ipset add $tname  2409::/16   #移动IPv6地址段
+        ipset add $tname  2001::/16   #6in4 地址，是另一种隧道协议。
+        ipset add $tname  2002::/16   #6to4地址
+    fi
 }
 
 del_iptables_tproxy() {
@@ -269,6 +281,10 @@ add_iptables_tproxy() {
     # ! modprobe xt_TPROXY && LOGGER "加载xt_TPROXY模块失败!" && return 1
     # LOGGER "加载 xt_TPROXY 模块成功!"
 
+    if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
+        LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
+        return 0
+    fi
     # 设置策略路由 v4
     ip rule add fwmark 1 table 100
     ip route add local 0.0.0.0/0 dev lo table 100
@@ -330,7 +346,7 @@ add_iptables_tproxy() {
 # 配置iptables规则
 add_iptables_nat() {
     if iptables -t nat -S ${app_name} >/dev/null 2>&1; then
-        LOGGER "已经配置过${app_name}的iptables规则!"
+        LOGGER "已经配置过 NAT透明代理模式 的iptables规则!"
         return 0
     fi
 
@@ -353,7 +369,6 @@ add_iptables_nat() {
     iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -A OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
 
-    # support_tun || 
     iptables -t nat -A OUTPUT -p udp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
     iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
     
@@ -497,7 +512,9 @@ service_start() {
         echo "Clash开关处于关闭状态，无法启动Clash"
         return 0
     fi
-    # echo "启动 $app_name"
+    # 解决路由器刷新后，导致iptables规则丢失问题,下次启动任务时添加 #
+    add_iptables_all
+
     if status >/dev/null 2>&1; then
         LOGGER "$app_name 正常运行中! pid=$(pidof ${app_name})"
         return 0
@@ -508,20 +525,19 @@ service_start() {
 
     LOGGER "启动配置文件 ${config_file} : 检测完毕!"
     nohup ${CMD} >/dev/null 2>&1 &
-    sleep 1
-    if status >/dev/null 2>&1; then
-        LOGGER "${CMD} 启动成功!"
-    else
-        dbus set clash_enable="off"
-        LOGGER "${CMD} 启动失败! 执行失败原因如下:"
-        return 1
-    fi
+    # 节省了下面检测时间，这样会无法识别启动失败结果
+    # sleep 1
+    # if status >/dev/null 2>&1; then
+    #     LOGGER "${CMD} 启动成功!"
+    # else
+    #     dbus set clash_enable="off"
+    #     LOGGER "${CMD} 启动失败! 执行失败原因如下:"
+    #     return 1
+    # fi
     # 用于记录Clash服务稳定程度
     SYSLOG "${app_name} 服务启动成功 : pid=$(pidof ${app_name})"
     dbus set ${app_name}_enable="on"
 
-    add_iptables_all
-    #start_dns
     add_cron
     LOGGER "启动完毕!"
 }
@@ -550,7 +566,7 @@ service_stop() {
 
 list_proxy_num() {
     filename="$1"
-    yq e '.proxies[].type' ${filename} | awk '{ 
+    ${YQ} e '.proxies[].type' ${filename} | awk '{ 
         a[$1]++
     }END{
         printf("\n")
@@ -601,7 +617,7 @@ switch_ipv6_mode(){
         # 关闭IPv6模式
         tmp_expr=".ipv6=false|.dns.ipv6=false|.bind-address=\"*\""
     fi
-    yq e -iP "$tmp_expr" ${config_file}
+    ${YQ} e -iP "$tmp_expr" ${config_file}
     if [ "$?" != "0" ] ; then
         LOGGER "切换IPv6模式失败!"
         return 1
@@ -669,9 +685,7 @@ update_vclash_bin() {
     vclash_new_version=`cat ./clash/clash/version| awk -F: '/vClash/{ print $2 }'`
 
     ARCH="`get_arch`"
-    # 更新 yq
-    md5sum_update ${KSHOME}/bin/yq ${UPLOAD_DIR}/clash/bin/yq_for_${ARCH}
-    
+
     # 更新 clash_control.sh 脚本
     md5sum_update ${KSHOME}/scripts/clash_control.sh ${UPLOAD_DIR}/clash/scripts/clash_control.sh
     # 更新 Module_clash.asp 网页
@@ -734,13 +748,13 @@ update_clash_bin() {
     download_url="https://github.com${NEW_VERSION}"
     bin_file="new_$app_name"
     LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
-    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${KSHOME}/bin/${app_name} ${KSHOME}/bin/${app_name}.${old_version} && mv ${bin_file} ${KSHOME}/bin/${app_name}
+    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${BINFILE} ${BINFILE}.${old_version} && mv ${bin_file} ${BINFILE}
     if [ "$?" != "0" ]; then
         LOGGER "更新出现了点问题!"
-        [[ -f ${KSHOME}/bin/${app_name}.${old_version} ]] && mv ${KSHOME}/bin/${app_name}.${old_version} ${KSHOME}/bin/${app_name}
-        if [ -f ${KSHOME}/bin/${app_name} ]; then
-            LOGGER "更新 ${KSHOME}/bin/${app_name} 失败啦!"
-            LOGGER 当前Clash版本信息: $(${KSHOME}/bin/${app_name} -v)
+        [[ -f ${BINFILE}.${old_version} ]] && mv ${BINFILE}.${old_version} ${BINFILE}
+        if [ -f ${BINFILE} ]; then
+            LOGGER "更新 ${BINFILE} 失败啦!"
+            LOGGER 当前Clash版本信息: $(${BINFILE} -v)
             LOGGER "别急!先把更新失败原因找到再想更新的事儿吧!"
         else
             LOGGER "太牛啦!如果走到这里，说明Clash可执行程序搞的不翼而飞啦!谁吃了呢？"
@@ -751,7 +765,7 @@ update_clash_bin() {
         LOGGER "更新到新版本!"
         dbus set clash_version=$clash_new_version
         dbus remove clash_new_version
-        rm -f ${KSHOME}/bin/${app_name}.${old_version}
+        # rm -f ${BINFILE}.${old_version}
     fi
 }
 
@@ -848,16 +862,17 @@ debug_info() {
 show_router_info() {
     get_fw_type
     echo "您的路由器基本信息(反馈开发者帮您分析问题用):"
-    echo "| system : $(uname -nmrso)|"
-    echo "| rom    : $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
-    echo "| memory : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
-    echo "| /jffs  : $(df /jffs|awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "+---------------------------------------------------------------+"
+    echo "| 操作系统 : $(uname -nmrso)|"
+    echo "| 固件版本 : $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
+    echo "| 内存使用 : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
+    echo "| 磁盘空间 : $(df /koolshare |awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
     echo "+---------------------------------------------------------------+"
     echo "|>> vClash当前正在使用的软件版本：                                  |"
     debug_info "vClash" "$(dbus get ${app_name}_vclash_version)"
     debug_info "clash_premium" $(clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')
-    debug_info "yq" "$(yq -V|awk '{ print $NF}')"
-    debug_info "jq" "$(jq -V)"
+    debug_info "yq" "$(${YQ} -V|awk '{ print $NF}')"
+    debug_info "jq" "$(${JQ} -V)"
     echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                |"
     cat ${CONFIG_HOME}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
     echo "+---------------------------------------------------------------+"
@@ -1026,7 +1041,7 @@ save_current_tab() {
 
 # 获取 config.yaml 中配置的文件路径
 list_config_files() {
-    tmp_filepath_list="$(yq e '.rule-providers[]|select(.type=="file").path,.proxy-providers[]|select(.type=="file").path' ${config_file})"
+    tmp_filepath_list="$(${YQ} e '.rule-providers[]|select(.type=="file").path,.proxy-providers[]|select(.type=="file").path' ${config_file})"
     if [ -z "$tmp_filepath_list" ] ; then
         LOGGER "提示:您的config.yaml配置文件没有 file 类型的配置文件(rule-providers/proxy-providers),虽然这样没问题，但推荐使用provider管理proxy和rule。"
     fi
