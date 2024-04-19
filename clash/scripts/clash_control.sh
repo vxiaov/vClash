@@ -198,39 +198,28 @@ del_cron() {
 create_ipset() {
     # 创建 ipset 表
     tname="localnet4"
-    if ipset list -t ${tname} >/dev/null 2>&1; then
-        LOGGER "已经创建 ipset ${tname}"
-        return 0
-    else
-        LOGGER "开始创建 ipset: $tname"
-        ipset -! destroy $tname > /dev/null 2>&1
-        ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
-        ipset add $tname  127.0.0.1/8
-        ipset add $tname  10.0.0.0/8
-        ipset add $tname  169.254.0.0/16
-        ipset add $tname  172.16.0.0/12
-        ipset add $tname  192.168.0.0/16
-        ipset add $tname  224.0.0.0/4
-        ipset add $tname  255.255.255.255/32
-    fi
+   LOGGER "开始创建 ipset: $tname"
+    ipset -! destroy $tname > /dev/null 2>&1
+    ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
+    ipset add $tname  127.0.0.1/8
+    ipset add $tname  10.0.0.0/8
+    ipset add $tname  169.254.0.0/16
+    ipset add $tname  172.16.0.0/12
+    ipset add $tname  192.168.0.0/16
+    ipset add $tname  224.0.0.0/4
+    ipset add $tname  255.255.255.255/32
 
     tname="localnet6"
-    if ipset list -t ${tname} >/dev/null 2>&1; then
-        LOGGER "已经创建 ipset ${tname}"
-        return 0
-    else
-        LOGGER "开始创建 ipset: $tname"
-        ipset -! destroy $tname > /dev/null 2>&1
-        ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
-        ipset add $tname  ::1/128
-        ipset add $tname  fc00::/7   #本地链路专用网络
-        ipset add $tname  ff00::/8   #多波地址
-        ipset add $tname  240e::/16   #电信IPv6地址段
-        ipset add $tname  2408::/16   #联通IPv6地址段
-        ipset add $tname  2409::/16   #移动IPv6地址段
-        ipset add $tname  2001::/16   #6in4 地址，是另一种隧道协议。
-        ipset add $tname  2002::/16   #6to4地址
-    fi
+    LOGGER "开始创建 ipset: $tname"
+    ipset -! destroy $tname > /dev/null 2>&1
+    ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
+    ipset add $tname  ::1/128
+    ipset add $tname  fc00::/7   #本地链路专用网络
+    ipset add $tname  240e::/16   #电信IPv6地址段
+    ipset add $tname  2408::/16   #联通IPv6地址段
+    ipset add $tname  2409::/16   #移动IPv6地址段
+    ipset add $tname  2001::/16   #6in4 地址，是另一种隧道协议。
+    ipset add $tname  2002::/16   #6to4地址
 }
 
 del_iptables_tproxy() {
@@ -345,6 +334,10 @@ add_iptables_tproxy() {
 
 # 配置iptables规则
 add_iptables_nat() {
+    if [ "$clash_trans" = "off" ]; then
+        LOGGER "透明代理模式已关闭!不需要添加iptables转发规则!"
+        return 0
+    fi
     if iptables -t nat -S ${app_name} >/dev/null 2>&1; then
         LOGGER "已经配置过 NAT透明代理模式 的iptables规则!"
         return 0
@@ -355,14 +348,14 @@ add_iptables_nat() {
     # 本地地址请求不转发
     iptables -t nat -A ${app_name} -m set --match-set localnet4 dst -j RETURN
     # 服务端口${redir_port}接管HTTP/HTTPS请求转发
-    iptables -t nat -A ${app_name} -p udp -j REDIRECT --to-ports ${redir_port}
-    iptables -t nat -A ${app_name} -p tcp -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p udp -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p tcp -j REDIRECT --to-ports ${redir_port}
 
     # 1.局域网DNS请求走代理
     iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
-    # 2.代理所有TCP和UDP请求
-    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
+    # 2.代理所有TCP和UDP请求(UDP消息中排除TPROXY转发消息，暂时屏蔽UDP)
+    # iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
     iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
 
     # 3.路由器本机消息转发到代理(DNS请求和其他所有非本地请求)
@@ -382,8 +375,8 @@ del_iptables_nat() {
     # 1.局域网DNS请求走代理
     iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
-    # 2.代理所有TCP和UDP请求
-    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
+    # 2.代理所有TCP和UDP请求(UDP消息中排除TPROXY转发消息)
+    # iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
     iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
 
     # 3.路由器本机消息转发到代理(DNS请求和其他所有非本地请求)
@@ -412,14 +405,14 @@ add_iptables_all() {
     create_ipset
 
     # TPROXY模式透明代理 #
-    modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
-    if [ "$?" = "0" ] ; then 
-        # 支持 TPROXY 内核模块 #
-        LOGGER "透明代理模式: TPROXY模式"
-        add_iptables_tproxy
-        LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
-        return
-    fi
+    # modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+    # if [ "$?" = "0" ] ; then 
+    #     # 支持 TPROXY 内核模块 #
+    #     LOGGER "透明代理模式: TPROXY模式"
+    #     add_iptables_tproxy
+    #     LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
+    #     return
+    # fi
 
     # support_tun
     # if [ "$?" = "0" ] ; then
