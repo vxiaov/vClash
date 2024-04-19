@@ -1119,7 +1119,7 @@
                         </tr>
                         <tr>
                             <td colspan="2">
-                                <p style="color: rgb(182, 222, 2);"> Clash配置规则</b>: 请阅读<a target="_blank" href="https://github.com/Dreamacro/clash/wiki/configuration">官方配置说明文档</a>，编辑快捷键: <br/></p>
+                                <p style="color: rgb(182, 222, 2);"> Clash配置规则</b>: 请阅读<a target="_blank" href="https://clash.wiki/configuration/configuration-reference.html">Clash配置说明文档</a>，编辑快捷键: <br/></p>
                                 <p style="color: rgb(248, 5, 62);">&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+E: <b>开始编辑</b> Ctrl+S: <b>保存</b> Ctrl+R: <b>重新加载</b> Ctrl+C:<b>复制</b> Ctrl+V:<b>粘帖</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;Ctrl+Z: <b>撤销(undo)</b> Ctrl+Shift+Z: <b>重做(redo)</b></p>
                             </td>
                         </tr>

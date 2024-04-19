@@ -233,7 +233,7 @@ del_iptables_tproxy() {
     ip -6 route del local ::/0 dev lo table 106
 
     # 代理局域网设备 v4
-    iptables -t mangle -D PREROUTING -j ${app_name}_XRAY
+    iptables -t mangle -D PREROUTING -p tcp -j ${app_name}_XRAY
     iptables -t mangle -F ${app_name}_XRAY
     iptables -t mangle -X ${app_name}_XRAY
 
@@ -292,7 +292,7 @@ add_iptables_tproxy() {
     iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
     iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
     iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
-    iptables -t mangle -A PREROUTING -j ${app_name}_XRAY
+    iptables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY
 
     # 代理网关本机 v4
     iptables -t mangle -N ${app_name}_XRAY_MASK
@@ -405,14 +405,14 @@ add_iptables_all() {
     create_ipset
 
     # TPROXY模式透明代理 #
-    # modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
-    # if [ "$?" = "0" ] ; then 
-    #     # 支持 TPROXY 内核模块 #
-    #     LOGGER "透明代理模式: TPROXY模式"
-    #     add_iptables_tproxy
-    #     LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
-    #     return
-    # fi
+    modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+    if [ "$?" = "0" ] ; then 
+        # 支持 TPROXY 内核模块 #
+        LOGGER "透明代理模式: TPROXY模式"
+        add_iptables_tproxy
+        LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
+        return
+    fi
 
     # support_tun
     # if [ "$?" = "0" ] ; then
