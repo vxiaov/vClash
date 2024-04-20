@@ -218,8 +218,6 @@ create_ipset() {
     ipset add $tname  240e::/16   #电信IPv6地址段
     ipset add $tname  2408::/16   #联通IPv6地址段
     ipset add $tname  2409::/16   #移动IPv6地址段
-    ipset add $tname  2001::/16   #6in4 地址，是另一种隧道协议。
-    ipset add $tname  2002::/16   #6to4地址
 }
 
 del_iptables_tproxy() {
@@ -238,17 +236,17 @@ del_iptables_tproxy() {
     iptables -t mangle -X ${app_name}_XRAY
 
     # 代理局域网设备 v6
-    ip6tables -t mangle -D PREROUTING -j ${app_name}_XRAY6
+    ip6tables -t mangle -D PREROUTING -p tcp -j ${app_name}_XRAY6
     ip6tables -t mangle -F ${app_name}_XRAY6
     ip6tables -t mangle -X ${app_name}_XRAY6
 
     # 代理网关本机 v4
-    iptables -t mangle -D OUTPUT -j ${app_name}_XRAY_MASK
+    iptables -t mangle -D OUTPUT -p tcp -j ${app_name}_XRAY_MASK
     iptables -t mangle -F ${app_name}_XRAY_MASK
     iptables -t mangle -X ${app_name}_XRAY_MASK
 
     # 代理网关本机 v6
-    ip6tables -t mangle -D OUTPUT -j ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -D OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
     ip6tables -t mangle -F ${app_name}_XRAY6_MASK
     ip6tables -t mangle -X ${app_name}_XRAY6_MASK
 
@@ -300,7 +298,7 @@ add_iptables_tproxy() {
     iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
     iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
-    iptables -t mangle -A OUTPUT -j ${app_name}_XRAY_MASK
+    iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
 
     if [ "$clash_ipv6_mode" = "on" ] ; then
         # 设置策略路由 v6
@@ -320,7 +318,7 @@ add_iptables_tproxy() {
         ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
         ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
-        ip6tables -t mangle -A PREROUTING -j ${app_name}_XRAY6
+        ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
 
         # # 代理网关本机 v6
         ip6tables -t mangle -N ${app_name}_XRAY6_MASK
@@ -328,7 +326,7 @@ add_iptables_tproxy() {
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
-        ip6tables -t mangle -A OUTPUT -j ${app_name}_XRAY6_MASK
+        ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
     fi
 }
 
@@ -697,12 +695,6 @@ update_vclash_bin() {
         LOGGER "当用户使用的版本与最新版本差异过大时，建议是重新安装，当然是可以使用升级方式。"
         LOGGER "升级过程，尽可能不破坏现有启动配置文件。"
     fi
-    dns_rule_dir="${CONFIG_HOME}/dnsmasq_rules"
-    [[ -r ${dns_rule_dir} ]] || mkdir ${dns_rule_dir}
-    find ${UPLOAD_DIR}/clash/clash/dnsmasq_rules/ -type f -name "*.conf" | while read fn ; do
-        fname=`basename ${fn}`
-        md5sum_update ${dns_rule_dir}/${fname} ${fn}
-    done
 
     # 更新 version 文件
     md5sum_update ${CONFIG_HOME}/version ${UPLOAD_DIR}/clash/clash/version
