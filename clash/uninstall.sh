@@ -25,22 +25,22 @@ remove_files() {
     rm -rf /koolshare/${app_name}/* /koolshare/${app_name}/.*
     
     # 清理目录
-    rmdir /koolshare/${app_name}
+    rmdir /koolshare/${app_name} >/dev/null 2>&1
 
     LOGGER "执行命令： rm -rf /koolshare/webs/Module_${app_name}.asp"
-    rm -rf /koolshare/webs/Module_${app_name}.asp
+    rm -f /koolshare/webs/Module_${app_name}.asp
     for fn in ${bin_list}
     do
         LOGGER "执行命令： rm -f /koolshare/bin/${fn}"
         rm -f /koolshare/bin/${fn}
     done
     LOGGER "执行命令： rm -f /koolshare/res/icon-${app_name}.png"
-    rm -rf /koolshare/res/icon-${app_name}.png
+    rm -f /koolshare/res/icon-${app_name}.png
     
-    LOGGER "执行命令： rm -rf /koolshare/res/${app_name}_*"
-    rm -rf /koolshare/res/${app_name}_*
+    LOGGER "执行命令： rm -rf /koolshare/res/${app_name}_control.sh"
+    rm -f /koolshare/res/${app_name}_control.sh
     LOGGER "执行命令： rm -f /koolshare/init.d/S??${app_name}.sh"
-    rm -rf /koolshare/init.d/S??${app_name}.sh
+    rm -f /koolshare/init.d/S??${app_name}.sh
 }
 
 

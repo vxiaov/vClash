@@ -58,6 +58,7 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
 
+tmode_list="NAT"  # 支持的透明代理模式列表
 # 检测是否支持TUN设备 #
 support_tun() {
     [[ -r /dev/net/tun ]] || [[ -r /dev/tun ]]
@@ -70,8 +71,14 @@ check_config_file() {
     # 修改 是否可以使用 tun模式
     clash_yacd_secret=$(${YQ} e '.secret' $config_file)
 
-    tun_exp="" # 默认不支持TUN，不填写任何修改表达式 #
-    # support_tun && tun_exp=".tun.enable=true|"
+    # clash_tmode支持检测
+    # TUN模式：不适合在路由器上使用，暂时屏蔽#
+    # support_tun && tmode_list="$tmode_list TUN"
+    modprobe xt_TPROXY && tmode_list="$tmode_list TPROXY"
+
+
+    tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
+    [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
 
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     yq_expr=${tun_exp}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
@@ -80,6 +87,13 @@ check_config_file() {
 
     [[ "$?" != "0" ]] && return 1
 
+
+    [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
+    [[ "$clash_trans" == "" ]] && dbus set clash_trans="on"           # 默认开启透明代理模式
+    [[ "$clash_ipv6_mode" == "" ]] && dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
+
+    [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
+    dbus set clash_tmode_list=$tmode_list
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
@@ -198,7 +212,7 @@ del_cron() {
 create_ipset() {
     # 创建 ipset 表
     tname="localnet4"
-   LOGGER "开始创建 ipset: $tname"
+    LOGGER "开始创建 ipset: $tname"
     ipset -! destroy $tname > /dev/null 2>&1
     ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
     ipset add $tname  127.0.0.1/8
@@ -231,21 +245,25 @@ del_iptables_tproxy() {
     ip -6 route del local ::/0 dev lo table 106
 
     # 代理局域网设备 v4
+    iptables -t mangle -D PREROUTING -p udp -j ${app_name}_XRAY
     iptables -t mangle -D PREROUTING -p tcp -j ${app_name}_XRAY
     iptables -t mangle -F ${app_name}_XRAY
     iptables -t mangle -X ${app_name}_XRAY
 
     # 代理局域网设备 v6
+    ip6tables -t mangle -D PREROUTING -p udp -j ${app_name}_XRAY6
     ip6tables -t mangle -D PREROUTING -p tcp -j ${app_name}_XRAY6
     ip6tables -t mangle -F ${app_name}_XRAY6
     ip6tables -t mangle -X ${app_name}_XRAY6
 
     # 代理网关本机 v4
+    iptables -t mangle -D OUTPUT -p udp -j ${app_name}_XRAY_MASK
     iptables -t mangle -D OUTPUT -p tcp -j ${app_name}_XRAY_MASK
     iptables -t mangle -F ${app_name}_XRAY_MASK
     iptables -t mangle -X ${app_name}_XRAY_MASK
 
     # 代理网关本机 v6
+    ip6tables -t mangle -D OUTPUT -p udp -j ${app_name}_XRAY6_MASK
     ip6tables -t mangle -D OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
     ip6tables -t mangle -F ${app_name}_XRAY6_MASK
     ip6tables -t mangle -X ${app_name}_XRAY6_MASK
@@ -290,6 +308,7 @@ add_iptables_tproxy() {
     iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
     iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
     iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY
     iptables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY
 
     # 代理网关本机 v4
@@ -298,7 +317,9 @@ add_iptables_tproxy() {
     iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
     iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
     iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
+
 
     if [ "$clash_ipv6_mode" = "on" ] ; then
         # 设置策略路由 v6
@@ -318,6 +339,7 @@ add_iptables_tproxy() {
         ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
         ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+        ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
         ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
 
         # # 代理网关本机 v6
@@ -326,6 +348,7 @@ add_iptables_tproxy() {
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
+        ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK
         ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
     fi
 }
@@ -402,26 +425,23 @@ add_iptables_all() {
 
     create_ipset
 
-    # TPROXY模式透明代理 #
-    modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
-    if [ "$?" = "0" ] ; then 
-        # 支持 TPROXY 内核模块 #
-        LOGGER "透明代理模式: TPROXY模式"
-        add_iptables_tproxy
-        LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
-        return
+    if [ "$clash_tmode" = "TPROXY" ]; then
+        # TPROXY模式透明代理 #
+        modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+        if [ "$?" = "0" ] ; then 
+            # 支持 TPROXY 内核模块 #
+            LOGGER "透明代理模式: TPROXY模式"
+            add_iptables_tproxy
+            LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
+            return
+        fi
+    elif [ "$clash_tmode" = "TUN" ] ; then
+        LOGGER "透明代理模式: TUN模式"
+        add_iptables_nat
+    else
+        LOGGER "透明代理模式: NAT模式"
+        add_iptables_nat
     fi
-
-    # support_tun
-    # if [ "$?" = "0" ] ; then
-    #     LOGGER "透明代理模式: TUN模式"
-    #     add_iptables_nat
-    #     return 0
-    # fi
-
-    # 加载xt_TPROXY模块失败! 启用NAT透明代理方案
-    LOGGER "透明代理模式: NAT模式"
-    add_iptables_nat
     LOGGER "完成配置 ${app_name} iptables NAT模式规则!"
 }
 
@@ -1105,10 +1125,16 @@ switch_clash_config() {
     return 1
 }
 
+// 切换透明代理模式
+switch_clash_tmode() {
+    # 修改iptables规则
+    # 重启clash服务
+    LOGGER "切换透明代理模式为: $clash_tmode"
+}
 clash_config_init() {
     # 校验配置文件
     list_config_files
-    # check_config_file
+    check_config_file
 }
 
 set_log_type() {
@@ -1228,7 +1254,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    switch_clash_config|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
+    switch_clash_tmode|switch_clash_config|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then

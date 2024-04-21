@@ -230,10 +230,6 @@ init_env() {
     # 默认不启用
     [ -z "$(eval echo '$'${app_name}_enable)" ] && dbus set ${app_name}_enable="off"
 
-    dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
-    dbus set clash_trans="on"           # 默认开启透明代理模式
-    dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
-
     vClash_VERSION=$(sed -n '1p' ${CONFIG_HOME}/version| cut -d: -f2)
     CLASH_VERSION=$(sed -n '2p' ${CONFIG_HOME}/version| cut -d: -f2)
     dbus set ${app_name}_version="$CLASH_VERSION"

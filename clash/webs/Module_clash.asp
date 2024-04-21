@@ -112,6 +112,27 @@
             // 当 #clash_switch_config change时触发事件
             $j("#clash_switch_config").bind("change", bind_config_filepath_change);
 
+            // 切换透明代理模式
+            function switch_clash_tmode() {
+                apply_action("switch_clash_tmode", "0", function () {
+                    show_result("切换为" + dbus["clash_tmode"] + "配置文件", 1000);
+                }, {
+                    "clash_tmode": dbus["clash_tmode"]
+                });
+            }
+
+            function bind_switch_tmode() {
+                if ($j(this).val() == dbus["clash_tmode"]) {
+                    // 没有变化
+                    return;
+                } else {
+                    // 切换配置文件
+                    dbus["clash_tmode"] = $j(this).val();
+                    switch_clash_tmode();
+                }
+            }
+            $j("#clash_switch_tmode").bind("change", bind_switch_tmode);
+
             function bind_edit_filepath_change() {
                 if ($j(this).val() == dbus["clash_edit_filepath"]) {
                     // 没有变化
@@ -173,6 +194,8 @@
                 }
             }
 
+            // 更新 tmode_list
+            update_clash_tmode_list();
             // 更新配置文件列表选项
             update_clash_filelist();
 
@@ -204,6 +227,27 @@
                     } else {
                         opt.value = filelist[0];
                         dbus["clash_config_filepath"] = filelist[0];
+                    }
+                }
+            }
+
+        }
+
+        function update_clash_tmode_list() {
+            if (dbus["clash_tmode_list"]) {
+                var opt = document.getElementById("clash_switch_tmode");
+                opt.options.length = 0;
+                filelist = dbus["clash_tmode_list"].trim().split(" ");
+                current_file = dbus["clash_tmode"];
+                if (filelist.length > 0) {
+                    for (var i = 0; i < filelist.length; i++) {
+                        opt.options.add(new Option(filelist[i], filelist[i]));
+                    }
+                    if (current_file) {
+                        opt.value = current_file;
+                    } else {
+                        opt.value = filelist[0];
+                        dbus["clash_tmode"] = filelist[0];
                     }
                 }
             }
@@ -445,7 +489,7 @@
         }
 
         function vclash_version_check() {
-            // TODO: 更新vClash 检测
+            // 更新vClash 检测
             $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']  + "</i>");
             $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version'] + "</i>");
             $j.ajax({
@@ -742,7 +786,7 @@
             });
         }
 
-        // TODO: 切换 clash 启动配置文件
+        // 切换 clash 启动配置文件
         function switch_clash_config() {
             apply_action("switch_clash_config", "0", function() {
                 show_result("切换为" + dbus["clash_config_filepath"] + "配置文件", 1000);
@@ -956,6 +1000,14 @@
                                             <div class="switch_circle transition_style"></div>
                                         </div>
                                     </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>切换透明代理模式: </th>
+                            <td>
+                                <div class="switch_field">
+                                    <select id="clash_switch_tmode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                         </tr>

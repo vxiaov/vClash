@@ -61,56 +61,30 @@ update_ruleset() {
     done
 }
 
-
-print_dnsmasq() {
-
-    dns_port=1053
-    dns_server=127.0.0.1
-
-    cat $@ | awk -F, '/DOMAIN-SUFFIX/{ print $2 }' | sort -u | while read line 
-    do
-        # 生成conf配置格式: server=/xxx.com/127.0.0.1#1053
-        echo "server=/${line}/${dns_server}#${dns_port}"
-    done
-}
-
-# 生成路由器dnsmasq使用的DNS请求转发规则
 generate_dnsmasq_conf() {
 
-    out_file="dnsmasq_rules/gfwlist.conf"
-    wkdir="./clash/clash"
+    # 过滤广告规则 #
+    url_addr="https://anti-ad.net/anti-ad-for-dnsmasq.conf"
+    out_file="./clash/clash/dnsmasq_rules/001-anti-ad-for-dnsmasq.conf"
+    curl $url_addr > ${out_file}
 
-    cd ${wkdir}
+    # 国内DNS直连优化 #
+    default_dns="114.114.114.114"
+    url_addr="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
+    out_file="./clash/clash/dnsmasq_rules/002-chinalist.conf"
     echo -n > ${out_file}   # 清空历史数据
-    # 生成Dnsmasq转发DNS请求规则列表
-    print_dnsmasq `yq e '.rule-providers[]|select(.type=="http" and .behavior == "classical" )|.path' ./config.yaml`  >> ${out_file}
-    [[ -f ./ruleset/my_blacklist.yaml ]] && print_dnsmasq ./ruleset/my_blacklist.yaml   >> ${out_file}
+    curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' |sort -u | while read line ; do
+        [[ "$line" != "" ]] && echo "server=/${line}/${default_dns}"
+    done   >> ${out_file}
 
-    cd -
-}
+    # 国外优化DNS #
+    gfw_url="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/gfw.txt"
+    out_file="./clash/clash/dnsmasq_rules/003-gfwlist.conf"
+    echo -n > ${out_file}   # 清空历史数据
+    curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g'| awk '!/^$/' |sort -u | while read line ; do
+        [[ "$line" != "" ]] && echo "server=/${line}/127.0.0.1#1053"
+    done   >> ${out_file}
 
-
-generate_gfwlist() {
-    # 生成gfw.yaml #
-    filter_flag="${1:-0}"
-    outdir="./clash/clash/ruleset/"
-    curl -s https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt > ${outdir}/gfw.tmp
-    if [ "$filter_flag" = "1" ] ; then
-        # 精简过滤一些地址
-        yq e -P '.payload[]' ${outdir}/gfw.tmp | awk -F'.' 'BEGIN{
-            printf("payload:\n");
-        }{
-            idx=$(NF-1)"."$(NF);
-            a[idx]++;
-        }END{
-            for(i in a)
-                printf("  - '\''+.%s'\''\n", i);
-        }' > ${outdir}/rule_diy_gfw.yaml
-    else
-        yq e -P ${outdir}/gfw.tmp > ${outdir}/rule_diy_gfw.yaml
-    fi
-    rm -f ${outdir}/gfw.tmp
-    echo "rule_diy_gfw.yaml 生成完毕."
 }
 
 case "$1" in
