@@ -535,7 +535,8 @@ service_start() {
     [[ "$?" != "0" ]] && LOGGER "配置文件格式错误！修正好配置文件后再尝试启动!" && return 1
 
     LOGGER "启动配置文件 ${config_file} : 检测完毕!"
-    nohup ${CMD} >/dev/null 2>&1 &
+    # nohup ${CMD} >/dev/null 2>&1 &   # ${BINFILE} ${PARAMS}
+    start-stop-daemon -b --start -x ${BINFILE} -- ${PARAMS}
     # 节省了下面检测时间，这样会无法识别启动失败结果
     # sleep 1
     # if status >/dev/null 2>&1; then

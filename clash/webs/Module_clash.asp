@@ -967,8 +967,8 @@
                         <!--插件特点-->
                         <p style="color:#FC0;">
                             <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/vxiaov/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
-                            <b style="color: rgb(0, 255, 60);font-size: 16px;">1.问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/vxiaov/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。
-                            <b>透明代理模式说明: NAT模式(不支持IPv6透传,但国内直连正常), TPROXY模式(支持IPv6透传)</b>
+                            <b style="color: rgb(0, 255, 60);font-size: 16px;">1.问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/vxiaov/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。<br />
+                            <b>透明代理模式说明: NAT模式(不支持IPv6透传,但国内直连正常), TPROXY模式(支持IPv6透传)</b> <br />
                         </p>
                         <hr>
                     </div>
