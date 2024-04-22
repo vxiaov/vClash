@@ -74,7 +74,7 @@ check_config_file() {
     # clash_tmode支持检测
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
     # support_tun && tmode_list="$tmode_list TUN"
-    modprobe xt_TPROXY && tmode_list="$tmode_list TPROXY"
+    modprobe xt_TPROXY && tmode_list="$tmode_list TPROXY TPROXY+NAT"
 
 
     tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
@@ -276,15 +276,14 @@ del_iptables_tproxy() {
     ip6tables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
     ip6tables -t mangle -F ${app_name}_DIVERT
     ip6tables -t mangle -X ${app_name}_DIVERT
+
+    iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+
 }
 
+# TPROXY模式（TCP+UDP）
 add_iptables_tproxy() {
-
-    # ! modprobe xt_socket && LOGGER "加载 xt_socket 模块失败!" && return 1
-    # LOGGER "加载 xt_socket 模块成功!"
-
-    # ! modprobe xt_TPROXY && LOGGER "加载xt_TPROXY模块失败!" && return 1
-    # LOGGER "加载 xt_TPROXY 模块成功!"
 
     if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
         LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
@@ -320,6 +319,76 @@ add_iptables_tproxy() {
     iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
     iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
 
+
+    if [ "$clash_ipv6_mode" = "on" ] ; then
+        # 设置策略路由 v6
+        ip -6 rule add fwmark 1 table 106
+        ip -6 route add local ::/0 dev lo table 106
+
+        # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+        ip6tables -t mangle -N ${app_name}_DIVERT
+        ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+        ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+        ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+        # # 代理局域网设备 v6
+        ip6tables -t mangle -N ${app_name}_XRAY6
+        ip6tables -t mangle -F ${app_name}_XRAY6
+        ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
+        ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+        ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
+        ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
+
+        # # 代理网关本机 v6
+        ip6tables -t mangle -N ${app_name}_XRAY6_MASK
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
+        ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK
+        ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
+    fi
+}
+
+# TPROXY模式（TCP） + NAT模式转发(UDP协议的DNS服务)
+add_iptables_tproxy_nat() {
+
+    if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
+        LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
+        return 0
+    fi
+
+    # NAT转发UDP协议数据报 DNS服务#
+    iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+
+    # 设置策略路由 v4
+    ip rule add fwmark 1 table 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -N ${app_name}_DIVERT
+    iptables -t mangle -F ${app_name}_DIVERT
+    iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+    # 代理局域网设备 v4
+    ! iptables -t mangle -N ${app_name}_XRAY && LOGGER "${app_name}_XRAY 表已经创建过，清理后再执行"
+    iptables -t mangle -F ${app_name}_XRAY
+    iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY
+
+    # 代理网关本机 v4
+    iptables -t mangle -N ${app_name}_XRAY_MASK
+    iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
 
     if [ "$clash_ipv6_mode" = "on" ] ; then
         # 设置策略路由 v6
@@ -430,19 +499,28 @@ add_iptables_all() {
         modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
         if [ "$?" = "0" ] ; then 
             # 支持 TPROXY 内核模块 #
-            LOGGER "透明代理模式: TPROXY模式"
+            LOGGER "透明代理模式: $clash_tmode 模式"
             add_iptables_tproxy
-            LOGGER "完成配置 ${app_name} iptables TPROXY模式规则!"
+            LOGGER "完成配置 ${app_name} iptables $clash_tmode 模式规则!"
+            return
+        fi
+    elif [ "$clash_tmode" = "TPROXY+NAT" ]; then
+        # TPROXY模式透明代理 #
+        modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+        if [ "$?" = "0" ] ; then 
+            LOGGER "透明代理模式: TPROXY+NAT模式"
+            add_iptables_tproxy_nat
+            LOGGER "完成配置 ${app_name} iptables $clash_tmode 模式规则!"
             return
         fi
     elif [ "$clash_tmode" = "TUN" ] ; then
-        LOGGER "透明代理模式: TUN模式"
+        LOGGER "透明代理模式: $clash_tmode 模式"
         add_iptables_nat
     else
-        LOGGER "透明代理模式: NAT模式"
+        LOGGER "透明代理模式: $clash_tmode 模式"
         add_iptables_nat
     fi
-    LOGGER "完成配置 ${app_name} iptables NAT模式规则!"
+    LOGGER "完成配置 ${app_name} iptables $clash_tmode 模式规则!"
 }
 
 # 清理iptables规则

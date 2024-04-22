@@ -968,7 +968,10 @@
                         <p style="color:#FC0;">
                             <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/vxiaov/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
                             <b style="color: rgb(0, 255, 60);font-size: 16px;">1.问题反馈:</b>访问<a style="color: rgb(0, 255, 60);" href="https://github.com/vxiaov/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。<br />
-                            <b>透明代理模式说明: NAT模式(不支持IPv6透传,但国内直连正常), TPROXY模式(支持IPv6透传)</b> <br />
+                            <b>透明代理模式说明: </b> <br />
+                            <b>&nbsp;&nbsp; 1.NAT模式:</b>默认模式,万能通用规则,但不支持IPv6透传,国内IPv6直连正常<br/>
+                            <b>&nbsp;&nbsp; 2.TPROXY模式:</b>支持IPv6透传,UDP协议透传存在问题,比如访问raw.githusercontent.com返回0.0.0.0<br />
+                            <b>&nbsp;&nbsp; 3.TPROXY+NAT模式(推荐):</b>解决了TPROXY模式的DNS解析问题,同时支持IPv6透传<br />
                         </p>
                         <hr>
                     </div>
