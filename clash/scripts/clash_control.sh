@@ -1204,7 +1204,7 @@ switch_clash_config() {
     return 1
 }
 
-// 切换透明代理模式
+# 切换透明代理模式
 switch_clash_tmode() {
     # 修改iptables规则
     # 重启clash服务
