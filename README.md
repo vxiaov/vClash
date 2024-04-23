@@ -20,17 +20,16 @@
 - <b style="color:red">安装即用</b>: 只需要更新内部提供的 **代理节点订阅源**即可使用。
 - <b style="color:red">支持个人节点添加</b>: 支持ss/ssr/vmess链接、http链接订阅源。
 - <b style="color:red">配置两级中继代理组</b>: Clash启动配置文件配置了两级中继代理组，<b style="color:red">免费解锁奈飞</b>变得更加容易了。
-- <b style="color:red">支持Cloudflare的DDNS功能</b>: 支持<b style="color:red">同时更新同一个帐号下的多个域名</b>，例如 CF帐号下有两个域名 a.com和 b.com, 可以配置 "home.a.com,home.b.com" 两个域名之间用逗号分隔。
+- ~~<b style="color:red">支持Cloudflare的DDNS功能</b>: 支持<b style="color:red">同时更新同一个帐号下的多个域名</b>，例如 CF帐号下有两个域名 a.com和 b.com, 可以配置 "home.a.com,home.b.com" 两个域名之间用逗号分隔。~~
 - <b style="color:red">支持在线编辑配置文件</b>: 修改配置文件可以在插件页面上完成。
 - <b style="color:red">Clash-Premium可用的配置文件</b>： https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/config.yaml
 
 ## 说明
 
-1. 如果你的 /koolshare目录所在分区使用的是 jffs2 文件系统类型，推荐你使用`v2.3.0`之前的版本，原因可以在WIKI文档中看到。
+1. 如果你的 /koolshare目录所在分区使用的是 jffs2 文件系统类型，推荐你使用`v2.3.0`之前的版本，原因可以在WIKI文档中看到（可记忆上次选择节点）。
 2. 最新版本将会一直保持与 Clash Premium最新版一致，省去了自己手动更新的问题。
 3. 20240403更新(告别软路由的高功耗100W+，回归自己的小路由插件10W功耗太省电了)：去掉了uri解码功能（添加节点直接编辑yaml文件)，取消clash内核版本检查功能(有能力就自己更新吧，历史版本链接本插件wiki能找到）， 更宽松的yaml配置文件检查（意味着更为通用的yaml配置规则定制，近自动修改yacdUI控制参数，提供更大的DIY能力）。
-
-> 注释：一些使用者反馈了使用问题，主要都是不规范的URI格式解析问题，这的确是个头疼问题，代码越写越乱，干脆放弃这个功能，以后**添加节点通过直接修改yaml格式文件**，至于**订阅机场**更新可以修改启动配置文件增加HTTP类型proxy_provider来实现(如自带配置就是此方法实现）添加yaml格式订阅源，关于配置节点个人建议是**尽量不要在启动配置文件的proxies下面配置节点，因为会导致下面使用时配置很乱，难管理；建议做法：使用proxy_provider订阅源管理（file或http类型)**。
+4. 20240423更新： 透明代理模式升级，增加TPROXY+NAT模式，支持IPv6透传，解决DNS污染问题。
 
 
 ## 主界面
@@ -47,12 +46,18 @@
 
 ## 相关项目
 
-- [Clash项目，二进制文件下载源](https://github.com/Dreamacro/clash)
+- ~~[Clash项目，二进制文件下载源](https://github.com/Dreamacro/clash)~~
 - [Clash的Web管理，用于Select类型代理组节点切换管理](https://github.com/haishanh/yacd)
 - [优化Country.mmdb大小的GeoIP2-CN项目](https://github.com/Hackl0us/GeoIP2-CN)
 - [yq项目，合并yaml格式文件](https://github.com/mikefarah/yq)
 - [jq项目,Cloudflare的DDNS功能使用](https://github.com/stedolan/jq)
 - ~~[urldecoder项目,一个解析ss/ssr/vmess链接小工具](https://github.com/vxiaov/uridecoder)~~
 
+由于Clash的原始项目被删除，目前比较活跃的项目还有这么几个，可以在这里获取Clash内核可执行程序：
+
+- [Clash官方版本](https://clash.wiki)
+- [Clash.Meta](https://github.com/MetaCubeX/mihomo)
+
+> 了解Clash配置知识，可以在这里找到相应的文档。
 
 That's it! The open source project！

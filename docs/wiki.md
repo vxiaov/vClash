@@ -4,13 +4,15 @@
 ## 001.如何使用vClash
 > 安装vClash方法以及安装过程遇到问题怎么解决。
 
+
 ### 000.路由器固件信息
 
-首先，先说一下RT-AC86U的华硕路由器固件有这么几个版本：
-- 384版本： 这个版本支持tun模式和TPROXY，这意味着可以重定向路由器本机的TCP和UDP请求，解决从路由器上访问github失败的问题，(另外，此版本固件**没有AiMesh功能**）。
-- 386版本： 这个版本去掉了tun模式和TPROXY内核模块的支持，所以从路由器上访问github就会经常失败。
+首先，先说一下RT-AC86U的华硕路由器固件koolcenter发布的有这么几个版本：
+- 官方改版：原汁原味的官方版本+koolshare软件中心，这个版本**包含TUN设备支持能力**，同时包含了TPROXY内核模块。
+- 梅林改版：这个版本**仅支持TPROXY内核模块**，不包含TUN设备支持能力（实际上TUN在路由器上性能也不是很好）。
 
-为了更好利用路由器，对于这两个版本的差异，vClash插件如有必要的情况下会进行自动识别，对于使用者的感受是，384版本固件在更新Country.mmdb时更快、更稳定，仅此而已。
+对于这两个版本的差异，vClash插件进行支持能力自动识别，让选择困难症患者不再犯愁。
+
 
 ## 透明代理规则升级说明-202404
 
@@ -18,27 +20,23 @@
 - 解决DNS污染问题（局域网和**路由器本机**）
 - 支持IPv6地址代理
 
+
 通过`iptables`实现透明代理的方法：
-- NAT方式：最简单传统，缺点IPv6协议难以解决NAT规则配置问题，并且实际中经常有数据包没有走代理情况（原因没有分析，不确定原因)
-- TPROXY方式： 虽然看似简单，但前提是路由器固件内核自带了 TPROXY 模块(xt_TPROXY.ko) 才可以用。
-- 使用TUN模式： Clash支持TUN模式，另外一个前提是路由器固件支持TUN设备,能找到 /dev/net/tun 这个设备文件，[阅读更多TUN知识](https://mirrors.edge.kernel.org/pub/linux/kernel/people/marcelo/linux-2.4/Documentation/networking/tuntap.txt).
+- NAT方式：最简单通用的代理规则，由于是存在修改数据包端口情况，理论上效率相比TPROXY模式会更低。
+- TPROXY方式： 通过给数据包打标记方式转发数据包给透明代理端口(TPROXY端口），前提是路由器固件内核自带了 TPROXY 模块(xt_TPROXY.ko) 才可以用。
+- 使用TUN模式： 原理类似VPN（适合主机使用，而不适合路由器），需要Clash支持TUN模式，另外一个前提是路由器固件支持TUN设备,能找到 /dev/net/tun 这个设备文件，[阅读更多TUN知识](https://mirrors.edge.kernel.org/pub/linux/kernel/people/marcelo/linux-2.4/Documentation/networking/tuntap.txt).
 
 
-vClash透明代理对以上方法都进行了实现，但没提供手动切换功能，而是自动检测识别后采用下面的原则来决定采用哪个方案：
-1. 优先启用TUN模式
-2. 其次，支持TPROXY模块路由器，优先使用TPROXY方式
-3. 最后，使用NAT方式（不支持IPv6代理）
+vClash透明代理对以上方法都进行了实现，并提供了切换选择功能。下面对这几种透明代理模式简要的说明区别:
+
+1. NAT模式:默认模式,万能通用规则,但不支持IPv6透传,国内IPv6直连正常
+2. TPROXY模式(可能删除):支持IPv6透传,UDP协议透传存在问题,比如访问raw.githusercontent.com返回0.0.0.0
+3. TPROXY+NAT模式(推荐):解决了TPROXY模式的DNS解析问题,同时支持IPv6透传
+
+> 重要提示：
+> 目前使用情况来说，如果不适用IPv6，默认的NAT足以满足，需要IPv6支持，TPROXY+NAT模式应是首选。
 
 
-TPROXY资料参考:
-- [Hysteria 2](https://v2.hysteria.network/docs/advanced/TPROXY/) ： 使用owner防止数据包回环问题。
-- [tproxy工具](https://objectifsecurite.gitlab.io/tproxy/Getting-Started/): 一个可以参考的 iptables.sh 脚本
-- 
-
-存在的问题：
-
-- NAT模式: 不支持 IPv6 走代理，路由器本机数据包走代理
-- TPROXY模式： 问题较多，Yacd上看到的都是IP地址，数据包回环问题（通过gid/uid分离数据包来源）
 
 
 ### 如何支持IPv6代理更合理？
@@ -388,6 +386,7 @@ V带着面具，但Clash图标加面具就啥也看不到了，于是想到了�
 
 
 总之，这都是因为RT-AC86U上没有启用TPROXY模块引起的问题。
+
 
 ## 999.最后
 
