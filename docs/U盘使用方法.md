@@ -41,7 +41,7 @@ mkfs.ext3 /dev/sda2
 
 如此，我们就创建好了U盘的分区，接下来，我们就开始用U盘保护路由器。
 
-## U盘接管路由器存储
+## U盘挂载路由器虚拟内存
 
 
 挂载swap交换区（虚拟内存）很容易：
@@ -52,13 +52,15 @@ swapon /dev/sda1
 
 ```
 
-替换存储空间，就分好多种方法了，比较合理的有：
-- 替换 /koolshare 目录：此方法比较通用且容易完成。
 
+## 替换/koolshare分区为U盘分区
+> 替换/koolshare 分区的目的： 1.减少对路由器存储芯片写入操作（延长路由器使用寿命）, 2.给/koolshare分区扩容，/jffs分区总容量 47.0M ,只有25M 可以使用，安装一两个插件就控件不足了。
 
-替换`/koolshare`目录的具体步骤：
-- 拷贝`/koolshare`目录数据到 `/dev/sda2`分区中：先将 /dev/sda2挂载到 /mnt/ 目录下，然后将 /koolshare 目录所有内容拷贝到 /mnt/目录下。
-- 挂载替换`/koolshare`.
+1. U盘分区: 包括利用`fdisk`命令给U盘分区（swap交换区1GB控件 /dev/sda1，剩余空间作为ext3分区 /dev/sda2)
+2. 创建文件系统: mkswap /dev/sda1  , mkfs.ext3 /dev/sda2 
+3. 拷贝/koolshare 目录内容： `mkdir /mnt/temp && mount /dev/sda2 /mnt/temp && cp -rp /koolshare/.[sv]* /koolshare/* /mnt/temp/ ; umount /dev/sda2`
+4. 挂载 /dev/sda2 到 /koolshare 目录： `mount /dev/sda2 /koolshare`
+
 
 
 挂载并替换`koolshare`这一步骤需要详细说明，因为我们需要下次启动时，自动完成挂载分区操作：
