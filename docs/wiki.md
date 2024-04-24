@@ -387,6 +387,48 @@ V带着面具，但Clash图标加面具就啥也看不到了，于是想到了�
 
 总之，这都是因为RT-AC86U上没有启用TPROXY模块引起的问题。
 
+### 如何正确的透传支持QUIC的网站
+
+概念：
+- QUIC： 在HTTP/3中，弃用TCP协议，改为使用基于UDP协议的QUIC协议实现。
+
+想要正确的访问支持QUIC协议的网站，需要如下条件：
+- 浏览器入口支持QUIC协议： Firefox/Chrome 支持QUIC协议，但Firefox默认启用，而Chrome默认关闭QUIC支持（访问 chrome://flags/#enable-quic 启用QUIC支持）。
+- 网站支持QUIC协议： 目前google.com/youtube.com/android.com 网站支持QUIC协议。
+
+
+由于QUIC协议是基于UDP协议的，因此路由器的**透明代理是需要支持UDP协议透传的**。
+
+- **重点**是透明代理使用的代理节点要配置支持UDP协议，通常是在clash的代理节点配置中添加`udp:true`支持UDP协议。
+
+
+**配置是否正确该如何验证呢？**
+- 访问 https://www.youtube.com 网站如果可以看视频就没问题了。
+
+如何知道访问的网站使用了QUIC协议呢？
+- 在vClash中的Yacd面板的**连接**页面，过滤查看UDP协议连接有哪些，端口为:443则说明这个网站使用了QUIC协议。
+
+
+
+> 更多深入了解UDP应用知识可以[阅读这里](https://github.com/XTLS/Xray-core/discussions/237)。
+
+为什么会有这一部分说明呢？
+
+在配置UDP透明代理时，iptables规则正常，但youtube访问无法看视频，很奇怪，看了yacd面板的连接信息才发现，youtube.com的**部分连接**使用了QUIC协议，但代理节点没有启用UDP协议支持，还了一个支持UDP的节点后，视频可以正常访问了。
+
+对于一些不了解这些知识的人，可能也会遇到类似现象而不知所措，可能误以为是vClash插件本身存在问题，所以在这里加了这段说明。
+以SS配置为例：
+```json
+  - name: "ss1"
+    type: ss
+    server: server
+    port: 443
+    cipher: chacha20-ietf-poly1305
+    password: "password"
+    udp: true
+```
+> 我们只需要将 udp: true 前面的 井号(#)注释去掉即可。
+
 
 ## 999.最后
 

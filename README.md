@@ -6,6 +6,10 @@
 # vClash项目说明
 >这个项目插件适用于`Koolshare的华硕官改、梅林改版 380/384/386固件`。~~会不会有openwrt版本呢？有时间再考虑吧~~，还有一个**Openwrt**版本，不过是运行在X86_64架构上并且是支持Koolshare的固件才能运行，有想尝试的可以访问这个项目[Koolshare-Clash-openwrt-amd64](https://github.com/vxiaov/Koolshare-Clash-openwrt-amd64)，内置了启动配置文件(安装即用!)
 
+## 支持功能
+
+- 支持IPv4+IPv6地址透传
+- 支持TCP+UDP协议的透传
 
 ## 获取安装包
 
