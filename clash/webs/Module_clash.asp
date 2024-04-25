@@ -34,25 +34,54 @@
 
         function init() {
             show_menu(menu_hook);
-            clash_config_init(); // 初始化配置
-            //vclash_version_check();
+            clash_config_init(); // 初始化配置，由于执行验证配置文件等操作，返回结果会慢一些
             register_event();
-            
-            // 
-            // DEBUG: class 包含 debug 的标签设置为 隐藏
-            for (var i = 0; i < document.getElementsByClassName("debug").length; i++) {
-                document.getElementsByClassName("debug")[i].style.display = "none";
-            }
-            // 隐藏 class 包含 to_be_deleted 的标签
-            for (var i = 0; i < document.getElementsByClassName("to_be_deleted").length; i++) {
-                document.getElementsByClassName("to_be_deleted")[i].style.display = "none";
-            }
-
         }
 
         function menu_hook(title, tab) {
             tabtitle[tabtitle.length - 1] = new Array("", "软件中心", "离线安装", "Clash版代理工具");
             tablink[tablink.length - 1] = new Array("", "Module_Softcenter.asp", "Module_Softsetting.asp", "Module_clash.asp");
+        }
+
+
+        // 切换透明代理模式
+        function switch_clash_tmode() {
+            apply_action("switch_clash_tmode", "0", function () {
+                show_result("切换为" + dbus["clash_tmode"] + "配置文件", 1000);
+            }, {
+                "clash_tmode": dbus["clash_tmode"]
+            });
+        }
+
+        function bind_switch_tmode() {
+            if ($j(this).val() == dbus["clash_tmode"]) {
+                // 没有变化
+                return;
+            } else {
+                // 切换配置文件
+                dbus["clash_tmode"] = $j(this).val();
+                switch_clash_tmode();
+            }
+        }
+
+        function bind_edit_filepath_change() {
+            if ($j(this).val() == dbus["clash_edit_filepath"]) {
+                // 没有变化
+                return;
+            } else {
+                // 切换为查看模式
+                switch_edit_filecontent();
+            }
+        }
+        function bind_config_filepath_change() {
+            if ($j(this).val() == dbus["clash_config_filepath"]) {
+                // 没有变化
+                return;
+            } else {
+                // 切换配置文件
+                dbus["clash_config_filepath"] = $j(this).val();
+                switch_clash_config();
+            }
         }
 
         // 加载页面时注册事件
@@ -99,50 +128,8 @@
 
             });
 
-            function bind_config_filepath_change() {
-                if ($j(this).val() == dbus["clash_config_filepath"]) {
-                    // 没有变化
-                    return;
-                } else {
-                    // 切换配置文件
-                    dbus["clash_config_filepath"]= $j(this).val();
-                    switch_clash_config();
-                }
-            }
-            // 当 #clash_switch_config change时触发事件
             $j("#clash_switch_config").bind("change", bind_config_filepath_change);
-
-            // 切换透明代理模式
-            function switch_clash_tmode() {
-                apply_action("switch_clash_tmode", "0", function () {
-                    show_result("切换为" + dbus["clash_tmode"] + "配置文件", 1000);
-                }, {
-                    "clash_tmode": dbus["clash_tmode"]
-                });
-            }
-
-            function bind_switch_tmode() {
-                if ($j(this).val() == dbus["clash_tmode"]) {
-                    // 没有变化
-                    return;
-                } else {
-                    // 切换配置文件
-                    dbus["clash_tmode"] = $j(this).val();
-                    switch_clash_tmode();
-                }
-            }
             $j("#clash_switch_tmode").bind("change", bind_switch_tmode);
-
-            function bind_edit_filepath_change() {
-                if ($j(this).val() == dbus["clash_edit_filepath"]) {
-                    // 没有变化
-                    return;
-                } else {
-                    // 切换为查看模式
-                    switch_edit_filecontent();
-                }
-            }
-            // 当 #clash_edit_filelist change时，触发事件
             $j("#clash_edit_filelist").bind("change", bind_edit_filepath_change);
 
             // class="tab"的button被点击时，触发保存当前button的id
@@ -162,6 +149,18 @@
             }
         }
 
+        function get_dbus_data() {
+            $j.ajax({
+                type: "GET",
+                url: "/_api/clash",
+                async: false,
+                success: function (data) {
+                    dbus = data.result[0];
+                    conf2obj();
+                }
+            });
+        }
+
         function conf2obj() {
 
             var params = [
@@ -170,6 +169,18 @@
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_ipv6_mode', 'clash_log_type'
             ];
+
+            // 更新 tmode_list
+            update_clash_tmode_list();
+            // 更新配置文件列表选项
+            update_clash_filelist();
+
+            //更新#clash_edit_filelist 编辑文件选项
+            update_edit_filelist();
+
+            set_log_type(); //初始化日志类型
+
+
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
                     E(params_chk[i]).checked = dbus[params_chk[i]] == "on";
@@ -193,16 +204,6 @@
                         break;
                 }
             }
-
-            // 更新 tmode_list
-            update_clash_tmode_list();
-            // 更新配置文件列表选项
-            update_clash_filelist();
-
-            //更新#clash_edit_filelist 编辑文件选项
-            update_edit_filelist();
-
-            set_log_type(); //初始化日志类型
 
             // 记录上次的tab页面
             if (!dbus["clash_current_tab"]) {
@@ -302,6 +303,7 @@
                 type: "POST",
                 cache: false,
                 url: "/_api/",
+                async: true,
                 data: JSON.stringify(postData),
                 dataType: "json",
                 success: function(response) {
@@ -788,7 +790,8 @@
 
         // 切换 clash 启动配置文件
         function switch_clash_config() {
-            apply_action("switch_clash_config", "0", function() {
+            apply_action("switch_clash_config", "3", function(data) {
+                E("clash_yacd_ui").href = data['clash_yacd_ui'];
                 show_result("切换为" + dbus["clash_config_filepath"] + "配置文件", 1000);
             }, {
                 "clash_config_filepath" : dbus["clash_config_filepath"]
@@ -823,10 +826,8 @@
         function clash_config_init() {
             apply_action("clash_config_init", "2", function(data) {
                 dbus = data;
-                setTimeout(function () {
-                    conf2obj();
-                    vclash_version_check();
-                }, 500);
+                conf2obj();
+                vclash_version_check();
             }, {});
         }
 
@@ -1139,7 +1140,7 @@
                         <tr>
                             <td colspan="3">
                                 <b>注意事项</b>:<br>
-                                &nbsp;&nbsp;&nbsp;&nbsp;1.<b>Clash升级地址可选: <a target="_blank" href="https://downloads.clash.wiki/ClashPremium/">【clash.wiki】</a> &nbsp;&nbsp;<a target="_blank" href="https://github.com/vxiaov/clash_binary/">【clash_binary】</a><br/>
+                                &nbsp;&nbsp;&nbsp;&nbsp;1.<b>Clash升级地址可选: <a target="_blank" href="https://downloads.clash.wiki/ClashPremium/">【clash.wiki】</a> &nbsp;&nbsp; <a target="_blank" href="https://github.com/MetaCubeX/mihomo">【Clash.Meta】</a> &nbsp;&nbsp; <a target="_blank" href="https://github.com/vxiaov/clash_binary/">【clash官方发布包备份】</a><br/>
                                 &nbsp;&nbsp;&nbsp;&nbsp;2. 重要提醒: 上传新clash配置文件<b>不会立即生效</b>，请手工切换新配置。<br/>
                             </td>
                         </tr>

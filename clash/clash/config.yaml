@@ -11,7 +11,7 @@ routing-mark: 0xff
 # "[aaaa::a8aa:ff:fe09:57d8]": bind a single IPv6 addres
 bind-address: '*'
 # 不使用IPv6地址(配合上面的bind-address)
-ipv6: false
+ipv6: true
 external-controller: 192.168.50.1:9090
 external-ui: /koolshare/clash/dashboard
 secret: route
@@ -28,23 +28,18 @@ tun:
     - tcp://any:53
 dns:
   enable: true
-  ipv6: false
+  ipv6: true
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
   listen: 0.0.0.0:1053
   nameserver:
-    - 223.5.5.5
+    # - 223.5.5.5
     - 114.114.114.114
     - https://doh.pub/dns-query
-    - https://dns.alidns.com/dns-query
   fallback:
     - https://dns.cloudflare.com/dns-query
     - tls://dns.google:853
     - https://1.1.1.1/dns-query
-    - https://public.dns.iij.jp/dns-query
-    - https://jp.tiar.app/dns-query
-    - https://jp.tiarap.org/dns-query
-    - tls://dot.tiar.app
   fake-ip-filter:
     - +.*
 experimental:
@@ -136,6 +131,7 @@ proxy-groups:
       - ⭐默认节点组⭐
   - name: ChatGPT
     type: select
+    disable-udp: true
     proxies:
       - ⭐默认节点组⭐
       - DIRECT
@@ -617,6 +613,15 @@ rule-providers:
     url: https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/ruleset/my_whitelist.yaml
     path: ./ruleset/my_whitelist.yaml
     interval: 86400
+  MyTest:
+    type: file
+    behavior: classical
+    path: ./ruleset/test.yaml
+    interval: 86400
+script:
+  shortcuts:
+    quic: network == 'udp' and dst_port == 443
+
 rules:
   - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
   - DOMAIN-SUFFIX,local,DIRECT
@@ -624,11 +629,10 @@ rules:
   - IP-CIDR,172.16.0.0/12,DIRECT
   - IP-CIDR,192.168.0.0/16,DIRECT
   - IP-CIDR,10.0.0.0/8,DIRECT
-  - IP-CIDR,17.0.0.0/8,DIRECT
-  - IP-CIDR,100.64.0.0/10,DIRECT
   - IP-CIDR6,fe80::/10,DIRECT
   - RULE-SET,MyWhitelist,DIRECT
   - RULE-SET,MyBlacklist,⭐默认节点组⭐
+  # - SCRIPT,quic,REJECT,no-resolve
   - RULE-SET,Reject,AdBlock
   - RULE-SET,Netflix,Netflix
   - RULE-SET,Spotify,Spotify

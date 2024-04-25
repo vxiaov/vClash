@@ -69,21 +69,20 @@ check_config_file() {
     # 修改UI控制参数
     # 修改代理端口 redir-port 和 tproxy-port
     # 修改 是否可以使用 tun模式
-    clash_yacd_secret=$(${YQ} e '.secret' $config_file)
+    [[ "$clash_config_filepath" == "" ]] && clash_config_filepath="./config/config_default.yaml" && dbus set clash_config_filepath="$clash_config_filepath"
 
     # clash_tmode支持检测
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
     # support_tun && tmode_list="$tmode_list TUN"
     modprobe xt_TPROXY && tmode_list="$tmode_list TPROXY TPROXY+NAT"
 
+    # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
+    # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
 
-    tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
-    [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
-
-    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     yq_expr=${tun_exp}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
     
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e -i "$yq_expr" $config_file
+    # 生成当前工作的配置文件
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
 
     [[ "$?" != "0" ]] && return 1
 
@@ -94,6 +93,11 @@ check_config_file() {
 
     [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
     dbus set clash_tmode_list=$tmode_list
+
+    # 编辑文件没指定或文件不存在则获取默认值 #
+    [[ "$clash_edit_filepath" == "" || ! -f "${CONFIG_HOME}/$clash_edit_filepath" ]] && dbus set clash_edit_filepath="$clash_config_filepath"
+    clash_yacd_secret=$(${YQ} e '.secret' $config_file)
+    clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
@@ -413,8 +417,8 @@ add_iptables_tproxy_nat() {
         # # 代理局域网设备 v6
         ip6tables -t mangle -N ${app_name}_XRAY6
         ip6tables -t mangle -F ${app_name}_XRAY6
-        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --sport 53 -j RETURN
-        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --dport 53 -j RETURN
+        # ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --sport 53 -j RETURN
+        # ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --dport 53 -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
         ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
@@ -424,8 +428,8 @@ add_iptables_tproxy_nat() {
 
         # # 代理网关本机 v6
         ip6tables -t mangle -N ${app_name}_XRAY6_MASK
-        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --sport 53 -j RETURN
-        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --dport 53 -j RETURN
+        # ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --sport 53 -j RETURN
+        # ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --dport 53 -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
@@ -1138,24 +1142,35 @@ save_current_tab() {
 
 # 获取 config.yaml 中配置的文件路径
 list_config_files() {
-    tmp_filepath_list="$(${YQ} e '.rule-providers[]|select(.type=="file").path,.proxy-providers[]|select(.type=="file").path' ${config_file})"
-    if [ -z "$tmp_filepath_list" ] ; then
-        LOGGER "提示:您的config.yaml配置文件没有 file 类型的配置文件(rule-providers/proxy-providers),虽然这样没问题，但推荐使用provider管理proxy和rule。"
-    fi
+    tmp_rule_list="$(${YQ} e '.rule-providers[]|select(.type=="file").path' ${config_file})"
+    tmp_proxy_list="$(${YQ} e '.proxy-providers[]|select(.type=="file").path' ${config_file})"
+    [[ -z "$tmp_rule_list"  ]] && LOGGER "提示:您的rule-providers 中没有file类型"
+    [[ -z "$tmp_proxy_list" ]] && LOGGER "提示:您的proxy-providers中没有file类型"
+    is_ok=0
+    for fn in ${tmp_rule_list} ; do
+        dst_path="${CONFIG_HOME}/${fn}"
+        [[ ! -f ${dst_path} ]] && LOGGER "Rule规则集文件不存在: ${dst_path}" && is_ok=1
+    done
+    for fn in ${tmp_proxy_list} ; do
+        dst_path="${CONFIG_HOME}/${fn}"
+        [[ ! -f ${dst_path} ]] && LOGGER "Proxy代理集文件不存在: ${dst_path}" && is_ok=1
+    done
+    [[ "$is_ok" == 1 ]] && LOGGER "请先修改配置文件或手动添加缺失的配置文件"
 
     # 可用clash启动配置文件列表
     cd $CONFIG_HOME && config_filelist="$(ls -1 ./config/*.yaml ./config/*.yml 2>/dev/null| awk '{ if(i>0)printf(" "); printf("%s",$0); i++; }' )"
+    [[ "${config_filelist}" == "" ]] && LOGGER "糟糕！你没有任何可用的启动配置文件！请上传启动配置文件后再来启动!" && return 0
     dbus set clash_config_filelist="$config_filelist"
 
-    tmp_filelist="./config.yaml $config_filelist"
-    for fn in $tmp_filepath_list
+    tmp_filelist="$config_filelist"
+    for fn in $tmp_rule_list $tmp_proxy_list
     do
         # 忽略 96KB大小以上的文件: dbus value大小限制为128KB
-        if [ `cat $KSHOME/$app_name/$fn | wc -c` -lt 98304 ]; then
+        if [ `cat $CONFIG_HOME/$fn | wc -c` -lt 98304 ]; then
             # 保留文件内容比较少的文件,文件过大无法直接保存和修改
             tmp_filelist="$tmp_filelist $fn"
         else
-            LOGGER "$KSHOME/$app_name/$fn 文件过大(超过96KB)，无法在线编辑，您可以修剪文件大小后再尝试在线编辑，也可以后台手工编辑。"
+            LOGGER "$CONFIG_HOME/$fn 文件过大(超过96KB)，无法在线编辑，您可以修剪文件大小后再尝试在线编辑，也可以后台手工编辑。"
         fi
     done
     dbus set clash_edit_filelist="$tmp_filelist"
@@ -1205,15 +1220,13 @@ switch_clash_config() {
     # 2. 格式化验证新配置文件，并修改必要的设置
     # 3. 如果格式验证失败，报错，恢复原来的配置
     # 4. 如果格式验证成功，生成新配置，重启clash服务
-    LOGGER "1.完成备份当前配置文件" && [[ -f ${config_file} ]] && cp ${config_file} ${config_file}.bak
-    
-    cd $CONFIG_HOME && cp $clash_config_filepath ${config_file} && LOGGER "2.切换新配置文件，即将进行格式验证"
-    
-    check_config_file && LOGGER "3.格式验证成功!新配置文件 $clash_config_filepath 切换完成!" && return 0
-    
+    LOGGER "完成备份当前配置文件" && [[ -f ${config_file} ]] && cp ${config_file} ${config_file}.bak
+
+    check_config_file && LOGGER "格式验证成功!新配置文件 $clash_config_filepath 切换完成!" && return 0
+
     [[ -f ${config_file}.bak ]] && cp ${config_file}.bak ${config_file} && LOGGER "【已经恢复原配置文件】"
-    
-    LOGGER "3.新配置文件 $clash_config_filepath 切换失败! 请检查配置文件格式问题."
+
+    LOGGER "新配置文件 $clash_config_filepath 切换失败! 请检查配置文件格式问题."
     return 1
 }
 
@@ -1291,6 +1304,15 @@ do_action() {
                 service_start
                 return 0
                 ;;
+            switch_clash_config)
+                # 修改配置后，需要重启操作 #
+                $action_job
+                service_stop
+                service_start
+                ret_data="{$(dbus list clash_yacd_ui | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
             get_one_file)
                 get_one_file
                 ret_data="{$(dbus list clash_edit_filecontent | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
@@ -1346,7 +1368,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    switch_clash_tmode|switch_clash_config|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
+    switch_clash_tmode|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
