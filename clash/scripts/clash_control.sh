@@ -179,13 +179,6 @@ get_proc_status() {
         echo "|  $tmp_cron"
     fi
 
-    if [ "$clash_watchdog_enable" = "on" ] ; then
-        tmp_cron="$(cru l| grep soft_route_check)"
-        if [ "$tmp_cron" != "" ]; then
-            echo "|  $tmp_cron"
-        fi
-    fi
-    
     echo "+---------------------------------------------------"
     echo "| Clash重启信息: [$(grep 'clash 服务启动' /tmp/syslog.log|wc -l)] 次, 最近 [3次] 时间如下:"
     echo "$(grep 'clash 服务启动' /tmp/syslog.log|tail -3| awk '{printf("| %s\n", $0);}')"
@@ -566,45 +559,6 @@ iptables_status() {
 
 status() {
     pidof ${app_name}
-    # ps | grep ${app_name} | grep -v grep |grep -v /bin/sh | grep -v " vi "
-}
-
-## 劫持 路由器 本机 产生的DNS请求转发给 clash 处理
-start_dns() {
-    if [ "$clash_trans" = "off" ]; then
-        LOGGER "透明代理模式已关闭！不启动DNS转发请求"
-        return 0
-    fi
-    for fn in  `ls  ${KSHOME}/clash/dnsmasq_rules/*.conf` ; do
-        fname=`basename $fn`
-        if [ ! -f /jffs/configs/dnsmasq.d/${fname} ]; then
-            ln -sf ${fn} /jffs/configs/dnsmasq.d/${fname} && LOGGER "添加DNS劫持规则软链接 ${fn}"
-            [[ "$?" != "0" ]] && LOGGER "无法创建软链接(可能文件系统不支持软链接)，直接复制文件" && cp ${fn} /jffs/configs/dnsmasq.d/
-        fi
-    done
-    run_dnsmasq restart
-}
-stop_dns() {
-    
-    LOGGER "删除gfwlist.conf与wblist.conf文件:"
-    for fn in  `ls  ${KSHOME}/clash/dnsmasq_rules/*.conf` ; do
-        fname=`basename $fn`
-        rm -f /jffs/configs/dnsmasq.d/${fname}
-    done
-    LOGGER "开始重启dnsmasq,DNS解析"
-    run_dnsmasq restart
-}
-
-run_dnsmasq() {
-    case "$1" in
-    start | stop | restart)
-        LOGGER "执行 $1 dnsmasq 操作"
-        service $1_dnsmasq
-        ;;
-    *)
-        LOGGER "无效的 dnsmasq 操作"
-        ;;
-    esac
 }
 
 service_start() {
@@ -667,20 +621,6 @@ service_stop() {
 
 ########## config part ###########
 
-list_proxy_num() {
-    filename="$1"
-    ${YQ} e '.proxies[].type' ${filename} | awk '{ 
-        a[$1]++
-    }END{
-        printf("\n")
-        for(i in a){ 
-            printf("| %s:%.0f ",i,a[i]);
-        }
-        printf("|\n")
-    }'
-}
-
-
 # 更新Country.mmdb文件
 update_geoip() {
     #
@@ -712,20 +652,11 @@ switch_trans_mode(){
 }
 
 switch_ipv6_mode(){
-    LOGGER "开始切换IPv6模式..."
     if [ "$clash_ipv6_mode" = "on" ] ; then
-        # 开启IPv6模式
-        tmp_expr=".ipv6=true|.dns.ipv6=true|.bind-address=\"*\""
+        LOGGER "开启IPv6模式..."
     else
-        # 关闭IPv6模式
-        tmp_expr=".ipv6=false|.dns.ipv6=false|.bind-address=\"*\""
+        LOGGER "关闭IPv6模式..."
     fi
-    ${YQ} e -iP "$tmp_expr" ${config_file}
-    if [ "$?" != "0" ] ; then
-        LOGGER "切换IPv6模式失败!"
-        return 1
-    fi
-    LOGGER "切换IPv6模式成功!"
 }
 # 忽略clash新版本提醒
 ignore_vclash_new_version() {
@@ -866,62 +797,6 @@ update_clash_bin() {
     fi
 }
 
-# 修改网关和DNS服务器IP地址
-change_gateway() {
-    gateway_ip="$1"
-    nvram set dhcp_dns1_x=${gateway_ip}
-    nvram set dhcp_gateway_x=${gateway_ip}
-    nvram commit
-    echo "重启网卡!!!"
-    service restart_net_and_phy
-}
-
-# 软路由监控状态
-soft_route_check() {
-
-    cur_gateway=$(nvram get  dhcp_gateway_x)
-    if [ "$cur_gateway" = "" ] ; then
-        LOGGER "没有设置默认网关地址，取路由器本机IP地址,例如: 192.168.50.1"
-        cur_gateway="${lan_ipaddr}"
-    fi
-    ping -c 2 -W 1 -q $clash_watchdog_soft_ip
-    if [ "$?" != "0" ] ; then
-        if [ "${cur_gateway}" == "${lan_ipaddr}" ]; then
-            echo "软路由已下线,DHCP配置已经添加,不用重复添加"
-        else
-            echo "软路由已下线,开始配置软路由DHCP信息"
-
-            if [ "$clash_watchdog_start_clash" == "on" ] ; then
-                LOGGER "设置自动开启Clash服务"
-                dbus set clash_enable="on"
-            fi
-            change_gateway ${lan_ipaddr}
-        fi
-    else
-        # 软路由上线: 检测配置文件是否已添加
-        if [ "${cur_gateway}" == "${clash_watchdog_soft_ip}" ]; then
-            echo "软路由的DHCP配置已经添加"
-        else
-            echo "软路由的DHCP配置没添加, 开始配置软路由DHCP信息"
-            change_gateway ${clash_watchdog_soft_ip}
-            LOGGER "关闭Clash服务"
-            service_stop
-        fi
-    fi
-}
-
-# 启用旁路由监控工具
-switch_route_watchdog() {
-
-    if [ "$clash_watchdog_enable" == "on" ] ; then 
-        LOGGER "开启旁路由watchdog自动监控服务"
-        LOGGER "添加cron调度脚本"
-        cru a soft_route_ctl "*/2 * * * * $main_script soft_route_check >/dev/null"
-    else
-        LOGGER "关闭旁路由watchdog自动监控服务"
-        cru d soft_route_ctl
-    fi
-}
 get_fw_type() {
     local KS_TAG=$(nvram get extendno|grep koolshare)
     if [ -d "$KSHOME" ];then
@@ -1102,26 +977,6 @@ applay_new_config() {
     LOGGER "如果希望使用新配置，请手工切换新配置。"
 }
 
-check_valid_rule() {
-    # 检查rule参数是否有效
-    rule="$1"
-    # 检查是否为IPv4地址或IPv4段
-    
-    if [ "$(echo $rule | grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")" != "" ] ; then
-        return "IP-CIDR,$rule/32"
-    fi
-    # 检查rule是否为域名后缀
-    if [ "$(echo $rule | grep -E "^[a-zA-Z0-9]+\.[a-zA-Z]{2,}$")" != "" ] ; then
-        return "DOMAIN-SUFFIX,$rule"
-    fi
-    # 检查rule为单词
-    if [ "$(echo $rule | grep -E "^[a-zA-Z0-9]+$")" != "" ] ; then
-        return "DOMAIN-KEYWORD,$rule"
-    fi
-
-    # 返回字符串表示无效rule
-    return ""
-}
 
 save_current_tab() {
     # 保存当前tab标签页面id操作
@@ -1370,7 +1225,7 @@ do_action() {
         # 不需要重启操作
         $action_job
         ;;
-    set_one_file|add_iptables | del_iptables | switch_route_watchdog| soft_route_check| set_log_type|switch_option_tab)
+    set_one_file|add_iptables | del_iptables | set_log_type|switch_option_tab)
         # 不需要重启操作
         $action_job
         ;;
