@@ -57,6 +57,13 @@ proxy-providers:
       enable: true
       url: http://www.gstatic.com/generate_204
       interval: 300
+  proxy-provider-uri:
+    type: file
+    path: ./providers/provider_uri.yaml
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
 
 proxy-groups:
   - name: 个人节点组
@@ -66,12 +73,14 @@ proxy-groups:
     tolerance: 150
     use:
       - proxy-provider-diy
+      - proxy-provider-uri
   - name: AutoUrlTest节点组
     type: url-test
     proxies:
     use:
       - proxy-provider-http001
       - proxy-provider-diy
+      - proxy-provider-uri
     url: http://cp.cloudflare.com/generate_204
     interval: 600
     tolerance: 150
