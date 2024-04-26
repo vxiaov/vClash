@@ -79,7 +79,11 @@ check_config_file() {
     # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
     # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
 
-    yq_expr=${tun_exp}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
+    [[ "$clash_ipv6_mode" == "" ]] && dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
+    ipv6_expr=".ipv6=false|.dns.ipv6=false|.bind-address=\"*\"|"
+    [[ "$clash_ipv6_mode" == "on" ]] && ipv6_expr=".ipv6=true|.dns.ipv6=true|.bind-address=\"*\"|"
+
+    yq_expr=${ipv6_expr}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
     
     # 生成当前工作的配置文件
     tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
@@ -89,7 +93,6 @@ check_config_file() {
 
     [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     [[ "$clash_trans" == "" ]] && dbus set clash_trans="on"           # 默认开启透明代理模式
-    [[ "$clash_ipv6_mode" == "" ]] && dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
 
     [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
     dbus set clash_tmode_list=$tmode_list
@@ -564,13 +567,6 @@ iptables_status() {
 status() {
     pidof ${app_name}
     # ps | grep ${app_name} | grep -v grep |grep -v /bin/sh | grep -v " vi "
-}
-
-get_filelist() {
-    for fn in gfw apple google greatfire icloud proxy telegramcidr
-    do
-        printf "%s/%s.yaml " ${rule_src_dir} $fn
-    done
 }
 
 ## 劫持 路由器 本机 产生的DNS请求转发给 clash 处理
