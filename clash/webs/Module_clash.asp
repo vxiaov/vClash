@@ -1115,8 +1115,8 @@
                                 <label>恢复配置</label>
                             </th>
                             <td colspan="2">
-                                <input type="button" class="button_gen" onclick="restore_config_file();" value="开始恢复">
                                 <input style="color:#FFCC00;*color:#000;width: 200px;" id="restore_file" type="file" name="file">
+                                <input type="button" class="button_gen" onclick="restore_config_file();" value="恢复配置">
                             </td>
                         </tr>
                         <tr>
@@ -1124,8 +1124,8 @@
                                 <label>上传<b>config.yaml</b>文件</label>
                             </th>
                             <td colspan="2">
-                                <input type="button" class="button_gen" onclick="upload_config_file();" value="开始上传">
                                 <input style="color:#FFCC00;*color:#000;width: 200px;" id="file" type="file" name="file">
+                                <input type="button" class="button_gen" onclick="upload_config_file();" value="上传配置">
                             </td>
                         </tr>
                         <tr>
@@ -1133,18 +1133,18 @@
                                  <label>手工升级<b>Clash</b></label>
                             </th>
                             <td colspan="2">
-                                <input type="button" class="button_gen" onclick="upload_clash_file();" value="开始上传">
                                 <input style="color:#FFCC00;*color:#000;width: 200px;" id="clash_file" type="file" name="file">
+                                <input type="button" class="button_gen" onclick="upload_clash_file();" value="上传Clash">
                             </td>
                         </tr>
                         <tr>
                             <td colspan="3">
                                 <b>注意事项</b>:<br>
                                 &nbsp;&nbsp;&nbsp;&nbsp;1.<b>Clash升级地址可选: <a target="_blank" href="https://downloads.clash.wiki/ClashPremium/">【clash.wiki】</a> &nbsp;&nbsp; <a target="_blank" href="https://github.com/MetaCubeX/mihomo">【Clash.Meta】</a> &nbsp;&nbsp; <a target="_blank" href="https://github.com/vxiaov/clash_binary/">【clash官方发布包备份】</a><br/>
-                                &nbsp;&nbsp;&nbsp;&nbsp;2. 重要提醒: 上传新clash配置文件<b>不会立即生效</b>，请手工切换新配置。<br/>
+                                &nbsp;&nbsp;&nbsp;&nbsp;2. 重要提醒: 上传新Clash配置文件<b>不会立即生效</b>，请手工切换新配置。<br/>
+                                &nbsp;&nbsp;&nbsp;&nbsp;3. 重要提醒: 官方网站下载的Clash内核文件<b>18MB左右</b>，可能导致存储空间不够问题，建议(upx命令)缩减为更小的程序再上传。<br/>
                             </td>
                         </tr>
-
                     </table>
                     <!-- 在线编辑配置文件内容 -->
                     <table id="menu_config" class="FormTable">

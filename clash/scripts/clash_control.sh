@@ -987,7 +987,7 @@ backup_env() {
     # 输出环境变量到${CONFIG_HOME}/$env_file文件
     LOGGER "开始备份环境变量"
     echo "source ${KSHOME}/scripts/base.sh" > ${CONFIG_HOME}/$env_file
-    dbus list clash_ | grep -v "=o[nf]" | sed 's/^/dbus set /; s/=/=\"/;s/$/\"/' >> ${CONFIG_HOME}/$env_file
+    dbus list clash_ | grep -v "clash_enable" | sed 's/^/dbus set /; s/=/=\"/;s/$/\"/' >> ${CONFIG_HOME}/$env_file
     if [ "$?" != "0" ] ; then
         LOGGER "备份环境变量失败"
     else
@@ -997,24 +997,16 @@ backup_env() {
 
 backup_config_file() {
     # 备份配置信息,打包生成压缩包文件
-    # 备份文件名列表
-    file_list="providers config.yaml ruleset $env_file .cache"    
+    # 备份文件: 1.可编辑的文件列表 ； 2.当前clash运行环境变量
+    file_list="${clash_edit_filelist} $env_file"
     LOGGER "开始备份配置信息: $file_list"
     if [ -d "${CONFIG_HOME}" ] ; then
         backup_env
         cur_filelist=""
         for fn in $file_list
         do
-            if [ ! -r "${CONFIG_HOME}/${fn}" ] ; then
-                LOGGER "没不到备份文件或目录: ${CONFIG_HOME}/${fn}"
-                # return 1
-                continue
-            fi
-            if [ "$cur_filelist" == "" ] ; then
-                cur_filelist="$fn"
-            else
-                cur_filelist="$cur_filelist $fn"
-            fi
+            [[ ! -r "${CONFIG_HOME}/${fn}" ]] && LOGGER "没不到备份文件或目录: ${CONFIG_HOME}/${fn}" && continue
+            cur_filelist="$cur_filelist $fn"
         done
         # 压缩文件名
         tar -zcvf $backup_file -C ${CONFIG_HOME} ${cur_filelist}
@@ -1044,7 +1036,6 @@ restore_config_file() {
             if [ -f "${CONFIG_HOME}/$env_file" ] ; then
                 LOGGER "开始执行恢复环境变量脚本"
                 sh "${CONFIG_HOME}/$env_file"
-                # rm -f "${CONFIG_HOME}/$env_file"
                 LOGGER "执行恢复环境变量脚本完成"
             fi
             LOGGER "恢复配置信息成功"
@@ -1065,20 +1056,21 @@ update_clash_file() {
         return 1
     fi
     if [ -f "/tmp/upload/$clash_bin_file" ] ; then
-        gunzip "/tmp/upload/$clash_bin_file" -c > "${KSHOME}/bin/clash.new"
+        # 自动识别升级内核文件格式
+        gunzip "/tmp/upload/$clash_bin_file" -c > "${CONFIG_HOME}/bin/clash.new"
         if [ "$?" != "0" ] ; then
             LOGGER "解压Clash文件过程出错! 文件名:${clash_bin_file}"
         else
-            if [ -f "${KSHOME}/bin/clash" ] ; then
+            if [ -f "${CONFIG_HOME}/bin/clash" ] ; then
                 LOGGER "开始更新Clash文件"
-                mv "${KSHOME}/bin/clash" "${KSHOME}/bin/clash.old"
+                mv "${CONFIG_HOME}/bin/clash" "${CONFIG_HOME}/bin/clash.old"
             else
                 LOGGER "没有找到Clash文件,开始更新Clash文件"
             fi
-            mv "${KSHOME}/bin/clash.new" "${KSHOME}/bin/clash"
-            chmod +x "${KSHOME}/bin/clash"
+            mv "${CONFIG_HOME}/bin/clash.new" "${CONFIG_HOME}/bin/clash"
+            chmod +x "${CONFIG_HOME}/bin/clash"
             LOGGER "更新Clash文件完成"
-            rm -f "${KSHOME}/bin/clash.old"
+            rm -f "${CONFIG_HOME}/bin/clash.old"
         fi
     else
         LOGGER "没找到上传的Clash文件!"
