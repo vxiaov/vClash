@@ -199,21 +199,6 @@ copy_files() {
 
     chmod 755 ${KSHOME}/scripts/${app_name}_*.sh
 
-    LOGGER 复制相关二进制文件！
-    for fn in ${BIN_LIST} ; do
-
-        if [ -f "${KSHOME}/${app_name}/bin/${fn}" ]; then
-            # 采用软链接方式：减少写入操作
-            ln -sf ${KSHOME}/${app_name}/bin/${fn} ${KSHOME}/bin/${fn}
-        else
-            LOGGER "错误: 找不到 ${KSHOME}/${app_name}/bin/${fn} 文件！"
-            exit_install 1
-        fi
-        
-        chmod +x ${KSHOME}/bin/${fn}   # 设置可执行权限
-        LOGGER "安装可执行程序: ${fn} 完成."
-    done
-
     LOGGER 复制相关的网页文件！
     cp -rf ./webs/Module_${app_name}.asp ${KSHOME}/webs/
     cp -rf ./res/${app_name}_* ${KSHOME}/res/
