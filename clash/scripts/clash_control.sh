@@ -21,6 +21,7 @@ bin_list="${app_name} yq"
 
 dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
+tproxy_port="3330"      # TPROXY端口
 
 # 存放规则文件目录#
 rule_src_dir="${KSHOME}/clash/ruleset"
@@ -144,74 +145,327 @@ del_cron() {
     LOGGER "删除进程守护脚本成功!"
 }
 
+create_ipset() {
+    # 创建 ipset 表
+    tname="localnet4"
+    LOGGER "开始创建 ipset: $tname"
+    ipset -! destroy $tname > /dev/null 2>&1
+    ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
+    ipset add $tname  127.0.0.1/8
+    ipset add $tname  10.0.0.0/8
+    ipset add $tname  169.254.0.0/16
+    ipset add $tname  172.16.0.0/12
+    ipset add $tname  192.168.0.0/16
+    ipset add $tname  224.0.0.0/4
+    ipset add $tname  255.255.255.255/32
+
+    tname="localnet6"
+    LOGGER "开始创建 ipset: $tname"
+    ipset -! destroy $tname > /dev/null 2>&1
+    ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
+    ipset add $tname  ::1/128
+    ipset add $tname  fc00::/7   #本地链路专用网络
+    ipset add $tname  240e::/16   #电信IPv6地址段
+    ipset add $tname  2408::/16   #联通IPv6地址段
+    ipset add $tname  2409::/16   #移动IPv6地址段
+}
+
+del_iptables_tproxy() {
+
+    # 设置策略路由 v4
+    ip rule del fwmark 1 table 100
+    ip route del local 0.0.0.0/0 dev lo table 100
+
+    # 设置策略路由 v6
+    ip -6 rule del fwmark 1 table 106
+    ip -6 route del local ::/0 dev lo table 106
+
+    # 代理局域网设备 v4
+    iptables -t mangle -D PREROUTING -p udp -j ${app_name}_XRAY
+    iptables -t mangle -D PREROUTING -p tcp -j ${app_name}_XRAY
+    iptables -t mangle -F ${app_name}_XRAY
+    iptables -t mangle -X ${app_name}_XRAY
+
+    # 代理局域网设备 v6
+    ip6tables -t mangle -D PREROUTING -p udp -j ${app_name}_XRAY6
+    ip6tables -t mangle -D PREROUTING -p tcp -j ${app_name}_XRAY6
+    ip6tables -t mangle -F ${app_name}_XRAY6
+    ip6tables -t mangle -X ${app_name}_XRAY6
+
+    # 代理网关本机 v4
+    iptables -t mangle -D OUTPUT -p udp -j ${app_name}_XRAY_MASK
+    iptables -t mangle -D OUTPUT -p tcp -j ${app_name}_XRAY_MASK
+    iptables -t mangle -F ${app_name}_XRAY_MASK
+    iptables -t mangle -X ${app_name}_XRAY_MASK
+
+    # 代理网关本机 v6
+    ip6tables -t mangle -D OUTPUT -p udp -j ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -D OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -F ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -X ${app_name}_XRAY6_MASK
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+    iptables -t mangle -F ${app_name}_DIVERT
+    iptables -t mangle -X ${app_name}_DIVERT
+
+    ip6tables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+    ip6tables -t mangle -F ${app_name}_DIVERT
+    ip6tables -t mangle -X ${app_name}_DIVERT
+
+    iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+
+}
+
+# TPROXY模式（TCP+UDP）
+add_iptables_tproxy() {
+
+    if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
+        LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
+        return 0
+    fi
+    # 设置策略路由 v4
+    ip rule add fwmark 1 table 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -N ${app_name}_DIVERT
+    iptables -t mangle -F ${app_name}_DIVERT
+    iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+    # 代理局域网设备 v4
+    ! iptables -t mangle -N ${app_name}_XRAY && LOGGER "${app_name}_XRAY 表已经创建过，清理后再执行"
+    iptables -t mangle -F ${app_name}_XRAY
+    iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY
+    iptables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY
+
+    # 代理网关本机 v4
+    iptables -t mangle -N ${app_name}_XRAY_MASK
+    iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
+    iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
+
+    # 设置策略路由 v6
+    ip -6 rule add fwmark 1 table 106
+    ip -6 route add local ::/0 dev lo table 106
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    ip6tables -t mangle -N ${app_name}_DIVERT
+    ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+    # # 代理局域网设备 v6
+    ip6tables -t mangle -N ${app_name}_XRAY6
+    ip6tables -t mangle -F ${app_name}_XRAY6
+    ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
+    ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
+    ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+    ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+    ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
+    ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
+
+    # # 代理网关本机 v6
+    ip6tables -t mangle -N ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
+    ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
+}
+
+# TPROXY模式（TCP） + NAT模式转发(UDP协议的DNS服务)
+add_iptables_tproxy_nat() {
+
+    if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
+        LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
+        return 0
+    fi
+
+    # NAT转发UDP协议数据报 DNS服务#
+    iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+
+    # 设置策略路由 v4
+    ip rule add fwmark 1 table 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -N ${app_name}_DIVERT
+    iptables -t mangle -F ${app_name}_DIVERT
+    iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+    # 代理局域网设备 v4
+    ! iptables -t mangle -N ${app_name}_XRAY && LOGGER "${app_name}_XRAY 表已经创建过，清理后再执行"
+    iptables -t mangle -F ${app_name}_XRAY
+    iptables -t mangle -A ${app_name}_XRAY -p udp --dport 53 -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY -p udp --sport 53 -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY
+    iptables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY
+
+    # 代理网关本机 v4
+    iptables -t mangle -N ${app_name}_XRAY_MASK
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp --dport 53 -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp --sport 53 -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
+    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
+    iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
+
+    # 设置策略路由 v6
+    ip -6 rule add fwmark 1 table 106
+    ip -6 route add local ::/0 dev lo table 106
+
+    # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    ip6tables -t mangle -N ${app_name}_DIVERT
+    ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+
+    # # 代理局域网设备 v6
+    ip6tables -t mangle -N ${app_name}_XRAY6
+    ip6tables -t mangle -F ${app_name}_XRAY6
+    # ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --sport 53 -j RETURN
+    # ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --dport 53 -j RETURN
+    ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
+    ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
+    ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+    ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+    ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
+    ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
+
+    # # 代理网关本机 v6
+    ip6tables -t mangle -N ${app_name}_XRAY6_MASK
+    # ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --sport 53 -j RETURN
+    # ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --dport 53 -j RETURN
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
+    ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
+    ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK
+    ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
+}
+
 # 配置iptables规则
-add_iptables() {
-    # 1. 转发 HTTP/HTTPS 请求到 Clash redir-port 端口
-    # 2. 转发 DNS 53端口请求到 Clash dns.listen 端口
+add_iptables_nat() {
     if [ "$clash_trans" = "off" ]; then
-        LOGGER "透明代理模式已关闭！不需要添加iptables转发规则！"
+        LOGGER "透明代理模式已关闭!不需要添加iptables转发规则!"
         return 0
     fi
     if iptables -t nat -S ${app_name} >/dev/null 2>&1; then
-        LOGGER "已经配置过${app_name}的iptables规则！"
+        LOGGER "已经配置过 NAT透明代理模式 的iptables规则!"
         return 0
     fi
 
-    LOGGER "开始配置 ${app_name} iptables规则..."
-    
-    # Fake-IP 规则添加
-    iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
+    iptables -t nat -N ${app_name} || LOGGER "${app_name} 表已经存在！开始执行清空操作"
+    iptables -t nat -F ${app_name}
+    # 本地地址请求不转发
+    iptables -t nat -A ${app_name} -m set --match-set localnet4 dst -j RETURN
+    # 服务端口${redir_port}接管HTTP/HTTPS请求转发
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p udp -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A ${app_name} -s ${lan_ipaddr}/24 -p tcp -j REDIRECT --to-ports ${redir_port}
 
+    # 1.局域网DNS请求走代理
+    iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    # 2.代理所有TCP和UDP请求(UDP消息中排除TPROXY转发消息，暂时屏蔽UDP)
+    # iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
+    iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
+
+    # 3.路由器本机消息转发到代理(DNS请求和其他所有非本地请求)
+    iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -A OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
+
+    iptables -t nat -A OUTPUT -p udp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -A OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
     
-    if [ "$clash_gfwlist_mode" = "on" ] ; then
-        # 根据dnsmasq的ipset规则识别流量代理
-        LOGGER "创建ipset规则集"
-        ipset -! create gfwlist nethash && ipset flush gfwlist
-        # ipset -! create router nethash && ipset flush router
-        iptables -t nat -N ${app_name}
-        iptables -t nat -A ${app_name} -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports ${redir_port}
-        iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16 -m set --match-set gfwlist dst -j ${app_name}
-    else
-        iptables -t nat -N ${app_name}
-        iptables -t nat -F ${app_name}
-        iptables -t nat -A PREROUTING -p tcp -s ${lan_ipaddr}/16  -j ${app_name}
-        # 本地地址请求不转发
-        iptables -t nat -A ${app_name} -d 10.0.0.0/8 -j RETURN
-        iptables -t nat -A ${app_name} -d 127.0.0.0/8 -j RETURN
-        iptables -t nat -A ${app_name} -d 169.254.0.0/16 -j RETURN
-        iptables -t nat -A ${app_name} -d 172.16.0.0/12 -j RETURN
-        iptables -t nat -A ${app_name} -d ${lan_ipaddr}/16 -j RETURN
-        # 服务端口${redir_port}接管HTTP/HTTPS请求转发, 过滤 22,1080,8080一些代理常用端口
-        iptables -t nat -A ${app_name} -s ${lan_ipaddr}/16 -p tcp -m multiport --dport 80,443 -j REDIRECT --to-ports ${redir_port}
-        # 转发DNS请求到端口 dns_port 解析
-        iptables -t nat -N ${app_name}_dns
-        iptables -t nat -F ${app_name}_dns
-        iptables -t nat -A ${app_name}_dns -p udp -s ${lan_ipaddr}/16 --dport 53 -j REDIRECT --to-ports $dns_port
-        iptables -t nat -A PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
-        iptables -t nat -I OUTPUT -p udp --dport 53 -j ${app_name}_dns
+    LOGGER "完成添加 iptables NAT 配置"
+
+}
+
+# 清理iptables规则
+del_iptables_nat() {
+
+    # 1.局域网DNS请求走代理
+    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24 --dport 53 -j REDIRECT --to-ports $dns_port
+    # 2.代理所有TCP和UDP请求(UDP消息中排除TPROXY转发消息)
+    # iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/24  -j ${app_name}
+    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/24  -j ${app_name}
+
+    # 3.路由器本机消息转发到代理(DNS请求和其他所有非本地请求)
+    iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
+    iptables -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports $dns_port
+
+    iptables -t nat -D OUTPUT -p udp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
+    iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-ports ${redir_port}
+
+    iptables -t nat -F ${app_name}
+    iptables -t nat -X ${app_name}
+    LOGGER "完成清理 iptables NAT 配置"
+}
+
+# 配置iptables规则
+add_iptables() {
+    # 透明代理的方案启用原则：
+    #  1. 优先启用TPROXY模式
+    #  2. 其次，支持的TUN模式(TODO:暂时关闭)
+    #  3. 最后，使用NAT方式（不支持IPv6代理）
+    if [ "$clash_trans" = "off" ]; then
+        LOGGER "透明代理模式已关闭!不需要添加iptables转发规则!"
+        return 0
     fi
+
+    create_ipset
+    # TPROXY模式透明代理 #
+    modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+    if [ "$?" = "0" ] ; then 
+        LOGGER "透明代理模式: TPROXY+NAT模式"
+        add_iptables_tproxy_nat
+    else
+        LOGGER "透明代理模式: NAT模式"
+        add_iptables_nat
+    fi
+    LOGGER "完成配置 ${app_name} iptables 规则!"
 }
 
 # 清理iptables规则
 del_iptables() {
-    if ! iptables -t nat -S ${app_name} >/dev/null 2>&1; then
-        LOGGER "已经清理过 ${app_name} 的iptables规则！"
-        return 0
-    fi
     LOGGER "开始清理 ${app_name} iptables规则 ..."
-    # Fake-IP 规则清理
-    iptables -t nat -D OUTPUT -p tcp -d 198.18.0.0/16 -j REDIRECT --to-port ${redir_port}
-    
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -m set --match-set gfwlist dst -j ${app_name}
-    iptables -t nat -D PREROUTING -p tcp -s ${lan_ipaddr}/16 -j ${app_name}
-    iptables -t nat -D ${app_name} -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-ports ${redir_port}
-    iptables -t nat -F ${app_name}
-    iptables -t nat -X ${app_name}
+    # 执行全部清理(这里简化处理逻辑才这样做) #
+    del_iptables_nat
+    del_iptables_tproxy
+    LOGGER "完成清理 ${app_name} iptables规则!"
+}
 
-    iptables -t nat -D PREROUTING -p udp -s ${lan_ipaddr}/16 --dport 53 -j ${app_name}_dns
-    iptables -t nat -D OUTPUT -p udp --dport 53 -j ${app_name}_dns
-    iptables -t nat -F ${app_name}_dns
-    iptables -t nat -X ${app_name}_dns
+iptables_status() {
+    echo "IPv4 地址配置 NAT 规则:"
+    iptables -t nat -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    echo "+---------------------------------------------------------------+"
+    echo "IPv4 地址配置 mangle 规则:"
+    iptables -t mangle -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    echo "+---------------------------------------------------------------+"
+    echo "IPv6 地址配置 mangle 规则:"
+    ip6tables -t mangle -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
 }
 
 status() {
@@ -226,63 +480,6 @@ get_filelist() {
     done
 }
 
-## 已经废弃:生成 gfwlist.conf # dnsmasq 服务使用
-update_gfwlist() {
-    gfwlist_file=${KSHOME}/$app_name/gfwlist.conf
-
-    awk '!/^[a-z]/{
-        gsub(/\+|'\''/,"",$2);
-        rule[$2] += 1;
-    }END{
-        for( i in rule) {
-            printf("%s\n", i) | "sort"
-        }
-    }' $(get_filelist) | awk -v dnsport=${dns_port} '{
-        printf("server=/%s/%s#%s\n", $1, "127.0.0.1", dnsport);
-        printf("ipset=/%s/%s\n", $1, "gfwlist");
-    }' > ${gfwlist_file}
-    LOGGER "已生成 ${gfwlist_file} 文件！ 文件大小: $(du -sm ${gfwlist_file}|awk '{print $1}') MB ! 记录数: $(wc -l ${gfwlist_file}|awk '/^server/{ print $1}') 条."
-    run_dnsmasq restart
-}
-
-# 废弃操作
-start_dns() {
-    if [ "$clash_trans" = "off" ]; then
-        LOGGER "透明代理模式已关闭！不启动DNS转发请求"
-        return 0
-    fi
-    for fn in wblist.conf gfwlist.conf; do
-        if [ ! -f /jffs/configs/dnsmasq.d/${fn} ]; then
-            LOGGER "添加软链接 ${KSHOME}/clash/${fn} 到 dnsmasq.d 目录下"
-            ln -sf ${KSHOME}/clash/${fn} /jffs/configs/dnsmasq.d/${fn}
-        fi
-    done
-
-    run_dnsmasq restart
-}
-# 废弃操作
-stop_dns() {
-    
-    LOGGER "删除gfwlist.conf与wblist.conf文件:"
-    for fn in wblist.conf gfwlist.conf; do
-        rm -f /jffs/configs/dnsmasq.d/${fn}
-    done
-    LOGGER "开始重启dnsmasq,DNS解析"
-    run_dnsmasq restart
-}
-
-# 废弃操作
-run_dnsmasq() {
-    case "$1" in
-    start | stop | restart)
-        LOGGER "执行 $1 dnsmasq 操作"
-        service $1_dnsmasq
-        ;;
-    *)
-        LOGGER "无效的 dnsmasq 操作"
-        ;;
-    esac
-}
 
 start() {
     # 1. 启动服务进程
@@ -307,9 +504,7 @@ start() {
     fi
     [ ! -L "/www/ext/dashboard" ] && ln -sf /koolshare/${app_name}/dashboard /www/ext/dashboard
     add_iptables
-    if [ "$clash_gfwlist_mode" = "on" ] ; then
-        start_dns
-    fi
+
     add_cron
 }
 
@@ -328,7 +523,6 @@ stop() {
     else
         LOGGER "停止 ${CMD} 成功！"
     fi
-    stop_dns
     del_cron
 }
 
