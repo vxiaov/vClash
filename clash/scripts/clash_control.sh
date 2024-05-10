@@ -212,6 +212,11 @@ del_cron() {
 create_ipset() {
     # 创建 ipset 表
     tname="localnet4"
+
+    # 防止重复创建ipset #
+    if ipset test $tname 127.0.0.1/8  > /dev/null 2>&1 ; then
+        return
+    fi
     LOGGER "开始创建 ipset: $tname"
     ipset -! destroy $tname > /dev/null 2>&1
     ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
@@ -282,10 +287,15 @@ del_iptables_tproxy() {
 
 }
 
+check_iptables_tproxy() {
+    iptables -t mangle -C ${app_name}_DIVERT -j MARK --set-mark 1 || return 1
+    iptables -t mangle -C ${app_name}_XRAY -j RETURN -m mark --mark 0xff || return 1
+    iptables -t mangle -C ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff || return 1
+}
 # TPROXY模式（TCP+UDP）
 add_iptables_tproxy() {
 
-    if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
+    if check_iptables_tproxy ; then
         LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
         return 0
     fi
@@ -327,6 +337,7 @@ add_iptables_tproxy() {
 
         # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
         ip6tables -t mangle -N ${app_name}_DIVERT
+        ip6tables -t mangle -F ${app_name}_DIVERT
         ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
         ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
