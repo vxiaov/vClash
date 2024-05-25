@@ -366,8 +366,8 @@ add_iptables_tproxy() {
 # TPROXY模式（TCP） + NAT模式转发(UDP协议的DNS服务)
 add_iptables_tproxy_nat() {
 
-    if iptables -t mangle -S |grep ${app_name}_XRAY  >/dev/null 2>&1 ; then
-        LOGGER "已经配置过 TPROXY透明代理模式 的iptables 规则."
+    if check_iptables_tproxy ; then
+        LOGGER "已经配置过 TPROXY+NAT透明代理模式 的iptables 规则."
         return 0
     fi
 
@@ -446,13 +446,17 @@ add_iptables_tproxy_nat() {
     fi
 }
 
+check_iptables_nat() {
+    iptables -t nat -C ${app_name} -m set --match-set localnet4 dst -j RETURN || return 1
+}
+
 # 配置iptables规则
 add_iptables_nat() {
     if [ "$clash_trans" = "off" ]; then
         LOGGER "透明代理模式已关闭!不需要添加iptables转发规则!"
         return 0
     fi
-    if iptables -t nat -S ${app_name} >/dev/null 2>&1; then
+    if check_iptables_nat ; then
         LOGGER "已经配置过 NAT透明代理模式 的iptables规则!"
         return 0
     fi
