@@ -6,10 +6,6 @@
 # vClash项目说明
 >这个项目插件适用于`Koolshare的华硕官改、梅林改版 380/384/386固件`。~~会不会有openwrt版本呢？有时间再考虑吧~~，还有一个**Openwrt**版本，不过是运行在X86_64架构上并且是支持Koolshare的固件才能运行，有想尝试的可以访问这个项目[Koolshare-Clash-openwrt-amd64](https://github.com/vxiaov/Koolshare-Clash-openwrt-amd64)，内置了启动配置文件(安装即用!)
 
-## 支持功能
-
-- 支持IPv4+IPv6地址透传
-- 支持TCP+UDP协议的透传
 
 ## 获取安装包
 
@@ -19,21 +15,12 @@
 | ksmerlin386 | 华硕官改、梅林386版本(持续更新)       | [Github安装包](https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash.tar.gz) | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@ksmerlin386/release/clash.tar.gz) |
 
 
-## 功能
-
-- <b style="color:red">安装即用</b>: 只需要更新内部提供的 **代理节点订阅源**即可使用。
-- <b style="color:red">支持个人节点添加</b>: 支持ss/ssr/vmess链接、http链接订阅源。
-- <b style="color:red">配置两级中继代理组</b>: Clash启动配置文件配置了两级中继代理组，<b style="color:red">免费解锁奈飞</b>变得更加容易了。
-- ~~<b style="color:red">支持Cloudflare的DDNS功能</b>: 支持<b style="color:red">同时更新同一个帐号下的多个域名</b>，例如 CF帐号下有两个域名 a.com和 b.com, 可以配置 "home.a.com,home.b.com" 两个域名之间用逗号分隔。~~
-- <b style="color:red">支持在线编辑配置文件</b>: 修改配置文件可以在插件页面上完成。
-- <b style="color:red">Clash-Premium可用的配置文件</b>： https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/config.yaml
-
 ## 说明
 
-1. 如果你的 /koolshare目录所在分区使用的是 jffs2 文件系统类型，推荐你使用`v2.3.0`之前的版本，原因可以在WIKI文档中看到（可记忆上次选择节点）。
+1. 如果你的 /koolshare目录所在分区使用的是 jffs2 文件系统类型，推荐你使用`v2.3.0`之前的版本，原因可以在WIKI文档中看到（可记忆上次选择节点），当然你可以使用U盘替换/jffs 分区。
 2. 最新版本将会一直保持与 Clash Premium最新版一致，省去了自己手动更新的问题。
 3. 20240403更新(告别软路由的高功耗100W+，回归自己的小路由插件10W功耗太省电了)：去掉了uri解码功能（添加节点直接编辑yaml文件)，取消clash内核版本检查功能(有能力就自己更新吧，历史版本链接本插件wiki能找到）， 更宽松的yaml配置文件检查（意味着更为通用的yaml配置规则定制，近自动修改yacdUI控制参数，提供更大的DIY能力）。
-4. 20240423更新： 透明代理模式升级，增加TPROXY+NAT模式，支持IPv6透传，解决DNS污染问题。
+4. 20240423更新： 透明代理模式升级，增加TPROXY+NAT模式，支持IPv6透传。
 
 
 ## 主界面
