@@ -617,11 +617,6 @@ rule-providers:
     url: https://raw.githubusercontent.com/vxiaov/vClash/ksmerlin386/clash/clash/ruleset/my_whitelist.yaml
     path: ./ruleset/my_whitelist.yaml
     interval: 86400
-  Cloudflare:
-    type: file
-    behavior: classical
-    path: ./ruleset/Cloudflare.yaml
-    interval: 86400
 
 script:
   shortcuts:
@@ -636,7 +631,6 @@ rules:
   - IP-CIDR,10.0.0.0/8,DIRECT
   - IP-CIDR6,fe80::/10,DIRECT
   - RULE-SET,MyWhitelist,DIRECT
-  - RULE-SET,Cloudflare,DIRECT
   - RULE-SET,MyBlacklist,⭐默认节点组⭐
   # - SCRIPT,quic,REJECT,no-resolve
   - RULE-SET,Reject,AdBlock
