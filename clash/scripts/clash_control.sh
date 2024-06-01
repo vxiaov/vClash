@@ -288,9 +288,9 @@ del_iptables_tproxy() {
 }
 
 check_iptables_tproxy() {
-    iptables -t mangle -C ${app_name}_DIVERT -j MARK --set-mark 1 || return 1
-    iptables -t mangle -C ${app_name}_XRAY -j RETURN -m mark --mark 0xff || return 1
-    iptables -t mangle -C ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff || return 1
+    iptables -t mangle -C ${app_name}_DIVERT -j MARK --set-mark 1 2>/dev/null || return 1
+    iptables -t mangle -C ${app_name}_XRAY -j RETURN -m mark --mark 0xff 2>/dev/null || return 1
+    iptables -t mangle -C ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff 2>/dev/null || return 1
 }
 # TPROXY模式（TCP+UDP）
 add_iptables_tproxy() {
@@ -447,7 +447,7 @@ add_iptables_tproxy_nat() {
 }
 
 check_iptables_nat() {
-    iptables -t nat -C ${app_name} -m set --match-set localnet4 dst -j RETURN || return 1
+    iptables -t nat -C ${app_name} -m set --match-set localnet4 dst -j RETURN 2>/dev/null || return 1
 }
 
 # 配置iptables规则
