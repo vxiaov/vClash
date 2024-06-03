@@ -21,11 +21,6 @@ bin_list="${app_name} yq jq"
 # 清理旧文件，升级情况需要
 remove_files() {
     LOGGER 清理旧文件
-    LOGGER "正在清理目录(先清理内部文件，最后删除目录): /koolshare/${app_name}"
-    rm -rf /koolshare/${app_name}/*
-    
-    # 清理目录
-    rmdir /koolshare/${app_name} >/dev/null 2>&1
 
     LOGGER "执行命令： rm -rf /koolshare/webs/Module_${app_name}.asp"
     rm -f /koolshare/webs/Module_${app_name}.asp
@@ -41,6 +36,12 @@ remove_files() {
     rm -f /koolshare/res/${app_name}_control.sh
     LOGGER "执行命令： rm -f /koolshare/init.d/S??${app_name}.sh"
     rm -f /koolshare/init.d/S??${app_name}.sh
+    LOGGER "正在清理目录(先清理内部文件，最后删除目录): /koolshare/${app_name}"
+    rm -rf /koolshare/${app_name}/*
+    
+    # 清理目录
+    rmdir /koolshare/${app_name} >/dev/null 2>&1
+
 }
 
 

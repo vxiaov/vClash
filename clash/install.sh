@@ -143,9 +143,6 @@ remove_files() {
         rm -rf ${CONFIG_HOME}
         rm -rf ${KSHOME}/scripts/${app_name}_*
         rm -rf ${KSHOME}/webs/Module_${app_name}.asp
-        for fn in ${BIN_LIST}; do
-            rm -f ${KSHOME}/bin/${fn}
-        done
         rm -rf ${KSHOME}/res/icon-${app_name}.png
         rm -rf ${KSHOME}/res/${app_name}_*
         rm -rf ${KSHOME}/init.d/S??${app_name}.sh
@@ -198,6 +195,15 @@ copy_files() {
     cp -f ./uninstall.sh ${KSHOME}/scripts/uninstall_${app_name}.sh
 
     chmod 755 ${KSHOME}/scripts/${app_name}_*.sh
+
+    LOGGER "拷贝可知性文件!"
+    for fn in ${BIN_LIST}; do
+        cp -f ./bin/${fn}_for_${ARCH} ${KSHOME}/${app_name}/bin/${fn}
+    done
+    LOGGER "拷贝内核文件!"
+    mkdir -p ${KSHOME}/${app_name}/core
+    cp -f ./bin/clash*${ARCH} ${KSHOME}/${app_name}/core/
+    chmod +x ${KSHOME}/${app_name}/core/clash*${ARCH}
 
     LOGGER 复制相关的网页文件！
     cp -rf ./webs/Module_${app_name}.asp ${KSHOME}/webs/

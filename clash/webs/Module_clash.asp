@@ -63,6 +63,24 @@
                 switch_clash_tmode();
             }
         }
+        // 切换Clash内核
+        function switch_clash_core() {
+            apply_action("switch_clash_core", "0", function () {
+                show_result("切换为" + dbus["clash_core_current"] + "内核文件", 1000);
+            }, {
+                "clash_core_current": dbus["clash_core_current"]
+            });
+        }
+        function bind_clash_core_change() {
+            if ($j(this).val() == dbus["clash_core_current"]) {
+                // 没有变化
+                return;
+            } else {
+                // 切换Clash 内核设置
+                dbus["clash_core_current"] = $j(this).val();
+                switch_clash_core();
+            }
+        }
 
         function bind_edit_filepath_change() {
             if ($j(this).val() == dbus["clash_edit_filepath"]) {
@@ -128,6 +146,7 @@
 
             });
 
+            $j("#clash_switch_core").bind("change", bind_clash_core_change);
             $j("#clash_switch_config").bind("change", bind_config_filepath_change);
             $j("#clash_switch_tmode").bind("change", bind_switch_tmode);
             $j("#clash_edit_filelist").bind("change", bind_edit_filepath_change);
@@ -172,6 +191,8 @@
 
             // 更新 tmode_list
             update_clash_tmode_list();
+            // 更新 clash_core_list
+            update_clash_core_list();
             // 更新配置文件列表选项
             update_clash_filelist();
 
@@ -232,6 +253,26 @@
                 }
             }
 
+        }
+
+        function update_clash_core_list() {
+            if (dbus["clash_core_list"]) {
+                var opt = document.getElementById("clash_switch_core");
+                opt.options.length = 0;
+                items_list = dbus["clash_core_list"].trim().split(" ");
+                current_file = dbus["clash_core_current"];
+                if (items_list.length > 0) {
+                    for (var i = 0; i < items_list.length; i++) {
+                        opt.options.add(new Option(items_list[i], items_list[i]));
+                    }
+                    if (current_file) {
+                        opt.value = current_file;
+                    } else {
+                        opt.value = items_list[0];
+                        dbus["clash_core_current"] = items_list[0];
+                    }
+                }
+            }
         }
 
         function update_clash_tmode_list() {
@@ -493,7 +534,6 @@
         function vclash_version_check() {
             // 更新vClash 检测
             $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']  + "</i>");
-            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version'] + "</i>");
             $j.ajax({
                 url: 'https://api.github.com/repos/vxiaov/vclash/tags',
                 type: 'GET',
@@ -775,7 +815,7 @@
                     if (res.status == 200) {
                         show_result("已上传成功! 3秒后重启服务...", 3000);
                         dbus["clash_bin_file"] = filename;
-                        apply_action("update_clash_file", "0", function() {
+                        apply_action("upload_clash_file", "0", function() {
                             show_result("应用新配置成功，3秒后重启服务...", 3000);
                         }, {
                             "clash_bin_file": filename
@@ -814,6 +854,13 @@
             show_result("重新加载内容完成!", 1000);
         }
 
+        // 获取Clash内核文件列表
+        function list_clash_core() {
+            apply_action("list_clash_core", "2", function(data) {
+                dbus["clash_core_list"] = data.clash_core_list;
+                update_clash_core_list();
+            }, {});
+        }
         // 获取编辑文件列表
         function list_config_files() {
             apply_action("list_config_files", "2", function(data) {
@@ -978,7 +1025,7 @@
                     </div>
                     <!-- Tab菜单 -->
                     <div class="tabs">
-                        <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default')">主面板</button>
+                        <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default');list_clash_core();">主面板</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
                         <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
                         <button id="btn_log_tab" class="tab" onclick="switch_tabs(event, 'menu_log');">日志信息</button>
@@ -994,7 +1041,7 @@
                         </thead>
                         <tr>
                             <th>
-                                <label>开启Clash服务</label>
+                                <label>开启vClash</label>
                             </th>
                             <td colspan="2">
                                 <div class="switch_field">
@@ -1009,7 +1056,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <th>切换透明代理模式: </th>
+                            <th>透明代理模式: </th>
                             <td>
                                 <div class="switch_field">
                                     <select id="clash_switch_tmode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
@@ -1018,31 +1065,31 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>Clash-Premium版本:</label>
+                                <label>Clash内核:</label>
                             </th>
-                            <td colspan="2">
-                                <div id="clash_version_status"><i>正在获取...</i></div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>vClash(本插件)版本:</label>
-                            </th>
-                            <td colspan="2">
-                                <div id="clash_vclash_version_status"><i>正在获取...</i></div>
-
-
-                                <div id="clash_vclash_install_show" style="display: none;">
-                                    <a type="button" class="button_gen" onclick="ignore_vclash_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
-                                    <a type="button" class="button_gen" onclick="update_vclash_bin()" href="javascript:void(0);">更新最新版</a>
+                            <td colspan="2"> <!-- Clash内核切换 -->
+                                <div class="switch_field">
+                                    <select id="clash_switch_core" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                         </tr>
                         <tr>
-                            <th>切换配置: </th>
+                            <th>启动配置: </th>
                             <td>
                                 <div class="switch_field">
                                     <select id="clash_switch_config" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>vClash版本:</label>
+                            </th>
+                            <td colspan="2">
+                                <div id="clash_vclash_version_status"><i>正在获取...</i></div>
+                                <div id="clash_vclash_install_show" style="display: none;">
+                                    <a type="button" class="button_gen" onclick="ignore_vclash_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <a type="button" class="button_gen" onclick="update_vclash_bin()" href="javascript:void(0);">更新最新版</a>
                                 </div>
                             </td>
                         </tr>

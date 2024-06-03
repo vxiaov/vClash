@@ -69,12 +69,12 @@ check_config_file() {
     # 修改UI控制参数
     # 修改代理端口 redir-port 和 tproxy-port
     # 修改 是否可以使用 tun模式
-    [[ "$clash_config_filepath" == "" ]] && clash_config_filepath="./config/config_default.yaml" && dbus set clash_config_filepath="$clash_config_filepath"
+    [[ "$clash_config_filepath" == "" ]] && clash_config_filepath="config/config_default.yaml" && dbus set clash_config_filepath="$clash_config_filepath"
 
     # clash_tmode支持检测
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
     # support_tun && tmode_list="$tmode_list TUN"
-    modprobe xt_TPROXY && tmode_list="$tmode_list TPROXY TPROXY+NAT"
+    lsmod | grep xt_TPROXY >/dev/null 2>&1 && tmode_list="$tmode_list TPROXY TPROXY+NAT"
 
     # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
     # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
@@ -87,8 +87,7 @@ check_config_file() {
     
     # 生成当前工作的配置文件
     tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
-
-    [[ "$?" != "0" ]] && return 1
+    [[ "$?" != "0" ]] && LOGGER "生成Clash启动配置文件失败!请检查Yaml格式！" && return 1
 
 
     [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
@@ -96,6 +95,10 @@ check_config_file() {
 
     [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
     dbus set clash_tmode_list=$tmode_list
+
+    # 设置默认的Clash内核 #
+    [[ "$clash_core_current" == "" ]] && dbus set clash_core_current="clash_for_arm64"
+    [[ "$clash_core_list" == "" ]] && list_clash_core
 
     # 编辑文件没指定或文件不存在则获取默认值 #
     [[ "$clash_edit_filepath" == "" || ! -f "${CONFIG_HOME}/$clash_edit_filepath" ]] && dbus set clash_edit_filepath="$clash_config_filepath"
@@ -227,6 +230,7 @@ create_ipset() {
     ipset add $tname  192.168.0.0/16
     ipset add $tname  224.0.0.0/4
     ipset add $tname  255.255.255.255/32
+    ipset add $tname  ${wan_ipaddr}
 
     tname="localnet6"
     LOGGER "开始创建 ipset: $tname"
@@ -274,10 +278,12 @@ del_iptables_tproxy() {
     ip6tables -t mangle -X ${app_name}_XRAY6_MASK
 
     # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
+    iptables -t mangle -D PREROUTING -p udp -m socket -j ${app_name}_DIVERT
     iptables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
     iptables -t mangle -F ${app_name}_DIVERT
     iptables -t mangle -X ${app_name}_DIVERT
 
+    ip6tables -t mangle -D PREROUTING -p udp -m socket -j ${app_name}_DIVERT
     ip6tables -t mangle -D PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
     ip6tables -t mangle -F ${app_name}_DIVERT
     ip6tables -t mangle -X ${app_name}_DIVERT
@@ -384,6 +390,7 @@ add_iptables_tproxy_nat() {
     iptables -t mangle -F ${app_name}_DIVERT
     iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
     iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
 
     # 代理局域网设备 v4
@@ -419,6 +426,7 @@ add_iptables_tproxy_nat() {
         ip6tables -t mangle -N ${app_name}_DIVERT
         ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+        ip6tables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
         ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
 
         # # 代理局域网设备 v6
@@ -595,6 +603,9 @@ service_start() {
     [[ "$?" != "0" ]] && LOGGER "配置文件格式错误！修正好配置文件后再尝试启动!" && return 1
 
     LOGGER "启动配置文件 ${config_file} : 检测完毕!"
+
+    switch_clash_core
+
     # nohup ${CMD} >/dev/null 2>&1 &   # ${BINFILE} ${PARAMS}
     start-stop-daemon -b --start -x ${BINFILE} -- ${PARAMS}
     # 节省了下面检测时间，这样会无法识别启动失败结果
@@ -934,7 +945,7 @@ restore_config_file() {
     dbus remove clash_restore_file
 }
 
-update_clash_file() {
+upload_clash_file() {
     # 升级clash文件
     LOGGER "开始升级Clash内核文件"
     if [ "$clash_bin_file" = "" ] ; then
@@ -943,20 +954,17 @@ update_clash_file() {
     fi
     if [ -f "/tmp/upload/$clash_bin_file" ] ; then
         # 自动识别升级内核文件格式
-        gunzip "/tmp/upload/$clash_bin_file" -c > "${CONFIG_HOME}/bin/clash.new"
+        gunzip "/tmp/upload/$clash_bin_file" -c > "${CONFIG_HOME}/core/${clash_bin_file%%.gz}"
         if [ "$?" != "0" ] ; then
             LOGGER "解压Clash文件过程出错! 文件名:${clash_bin_file}"
         else
-            if [ -f "${CONFIG_HOME}/bin/clash" ] ; then
-                LOGGER "开始更新Clash文件"
-                mv "${CONFIG_HOME}/bin/clash" "${CONFIG_HOME}/bin/clash.old"
+            if [ -f "${CONFIG_HOME}/core/${clash_bin_file%%.gz}" ] ; then
+                chmod +x ${CONFIG_HOME}/core/${clash_bin_file%%.gz}
+                LOGGER "上传Clash内核文件成功: ${clash_bin_file%%.gz}"
+                LOGGER "使用方法: 1.手动切换Clash内核. 2.切换正确的config配置."
             else
-                LOGGER "没有找到Clash文件,开始更新Clash文件"
+                LOGGER "没有找到Clash内核文件,上传失败!"
             fi
-            mv "${CONFIG_HOME}/bin/clash.new" "${CONFIG_HOME}/bin/clash"
-            chmod +x "${CONFIG_HOME}/bin/clash"
-            LOGGER "更新Clash文件完成"
-            rm -f "${CONFIG_HOME}/bin/clash.old"
         fi
     else
         LOGGER "没找到上传的Clash文件!"
@@ -1016,20 +1024,14 @@ list_config_files() {
     [[ "$is_ok" == 1 ]] && LOGGER "请先修改配置文件或手动添加缺失的配置文件"
 
     # 可用clash启动配置文件列表
-    cd $CONFIG_HOME && config_filelist="$(ls -1 ./config/*.yaml ./config/*.yml 2>/dev/null| awk '{ if(i>0)printf(" "); printf("%s",$0); i++; }' )"
+    cd $CONFIG_HOME && config_filelist="$(find config/ -type f -name "*.yaml" 2>/dev/null| awk '{ if(i>0)printf(" "); printf("%s",$0); i++; }' )"
     [[ "${config_filelist}" == "" ]] && LOGGER "糟糕！你没有任何可用的启动配置文件！请上传启动配置文件后再来启动!" && return 0
     dbus set clash_config_filelist="$config_filelist"
 
     tmp_filelist="$config_filelist"
     for fn in $tmp_rule_list $tmp_proxy_list
     do
-        # 忽略 96KB大小以上的文件: dbus value大小限制为128KB
-        if [ `cat $CONFIG_HOME/$fn | wc -c` -lt 98304 ]; then
-            # 保留文件内容比较少的文件,文件过大无法直接保存和修改
-            tmp_filelist="$tmp_filelist $fn"
-        else
-            LOGGER "$CONFIG_HOME/$fn 文件过大(超过96KB)，无法在线编辑，您可以修剪文件大小后再尝试在线编辑，也可以后台手工编辑。"
-        fi
+        tmp_filelist="$tmp_filelist $fn"
     done
     dbus set clash_edit_filelist="$tmp_filelist"
     LOGGER "获取配置文件列表成功!"
@@ -1088,6 +1090,18 @@ switch_clash_config() {
     return 1
 }
 
+# 获取所有 Clash Core 文件列表 #
+list_clash_core() {
+    cd $CONFIG_HOME && clash_core_list="$(find core/ -type f 2>/dev/null | grep -vE 'bak|old' | awk '{ if(i>0)printf(" "); printf("%s",$0); i++; }' )"
+    [[ "${clash_core_list}" == "" ]] && LOGGER "糟糕！你没有任何可用的Clash 内核文件！请上传Clash内核文件后再来启动!" && return 0
+    dbus set clash_core_list="$clash_core_list"
+}
+# 切换 Clash内核 #
+switch_clash_core() {
+    LOGGER "切换Clash内核: ${clash_core_current}"
+    ln -sf ${CONFIG_HOME}/${clash_core_current} ${BINFILE}
+}
+
 # 切换透明代理模式
 switch_clash_tmode() {
     # 修改iptables规则
@@ -1096,6 +1110,7 @@ switch_clash_tmode() {
 }
 clash_config_init() {
     # 校验配置文件
+    list_clash_core
     list_config_files
     check_config_file
 }
@@ -1184,6 +1199,12 @@ do_action() {
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;
+            list_clash_core|switch_clash_core)
+                $action_job
+                ret_data="{$(dbus list clash_core | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
             clash_config_init)
                 clash_config_init
                 ret_data="{$(dbus list clash_  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
@@ -1226,7 +1247,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    switch_clash_tmode|update_clash_bin | update_vclash_bin |update_clash_file| switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
+    switch_clash_tmode|update_clash_bin | update_vclash_bin | switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -1236,7 +1257,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|update_provider_file|update_geoip|backup_config_file|applay_new_config)
+    get_proc_status|update_provider_file|update_geoip|backup_config_file|applay_new_config|upload_clash_file)
         # 不需要重启操作
         $action_job
         ;;
