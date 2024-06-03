@@ -19,26 +19,8 @@ external-controller: 192.168.50.1:9090
 external-ui: /koolshare/clash/dashboard
 secret: route
 
-# 控制是否让 Clash 去匹配进程 always 开启，强制匹配所有进程 , strict 默认，由 Clash 判断是否开启, off 不匹配进程，推荐在路由器上使用此模式
-find-process-mode: off
-
-#tcp-concurrent: true
-
-# 更改 geoip 使用文件，mmdb 或者 dat，可选 true/false
-geodata-mode: true
-# geodata-loader: memconservative
-# geo-auto-update: false
-# geo-update-interval: 24
-# geox-url:
-#   geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
-#   geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
-#   mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
-#   asn: "https://github.com/xishang0128/geoip/releases/download/latest/GeoLite2-ASN.mmdb"
-# global-ua: clash.meta
-
 dns:
   enable: true
-  prefer-h3: true
   ipv6: false
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
@@ -51,57 +33,12 @@ dns:
     - https://dns.cloudflare.com/dns-query
     - tls://dns.google:853
     - https://1.1.1.1/dns-query
-  proxy-server-nameserver:
-    - https://doh.pub/dns-query
-  fake-ip-filter: # fakeip 过滤，以下地址不会下发 fakeip 映射用于连接
-    - '+.lan'
-    - '+.local'
-    - 'localhost'
-    - '+.localhost'
-    - '*localnet'
-
- # 这是对抗 DNS 污染攻击的一种措施.
-  fallback-filter:
-    geoip: true
-    geoip-code: CN
-    ipcidr:
-      - 240.0.0.0/4
-    domain:
-      - '+.google.com'
-      - '+.facebook.com'
-      - '+.youtube.com'
-      - 'google'
-      - 'youtube'
+  fake-ip-filter:
+    - +.*   # 过滤所有域名，这样内网不会使用fake-ip
 
 
 profile:
   store-selected: true
-  # 储存 API 对策略组的选择，以供下次启动时使用
-  store-fake-ip: true
-  # 储存 fakeip 映射表，域名再次发生连接时，使用原有映射地址
-
-# Clash使用Mapping机制解决透明代理情况下,无法通过Redir端口传递域名的问题；但此机制会导致如果不使用Clash内置的DNS解析服务,就无法准确还原域名,进行域名分流的问题。
-# Meta内置了Sniffer域名嗅器,通过读取握手包内的域名字段,将IP还原成域名,有效解决Mapping机制的短板。
-sniffer:
-  enable: true
-  force-dns-mapping: true
-  parse-pure-ip: true
-  override-destination: false
-  sniff:
-    HTTP:
-      ports: [80, 8080-8880]
-      override-destination: true
-    TLS:
-      ports: [443, 8443]
-    QUIC:
-      ports: [443, 8443]
-  force-domain:
-    - +.v2ex.com
-  skip-domain:
-    - Mijia
-
-# 更换延迟计算方式，去除握手等额外延迟
-unified-delay: true
 
 # 保留的proxy节点列表(启动配置文件不包含任何节点信息,节点信息通过 proxy-provider 提供)
 proxies: []

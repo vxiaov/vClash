@@ -25,7 +25,8 @@ BUILD_VERSION="$(nvram get buildno| cut -d '.' -f1)"
 
 LINUX_VER=$(uname -r|awk -F"." '{print $1$2}')  # Linux内核版本
 
-BIN_LIST="${app_name} yq jq"
+BIN_LIST="yq jq"
+CORE_LIST="clash-meta clash-premium"
 
 # 反馈问题链接
 open_issue="请将安装过程日志内容(上面的所有内容)复制好后反馈给开发者,以便于帮您找到安装失败原因！反馈地址: https://github.com/vxiaov/vClash/issues/"
@@ -195,15 +196,6 @@ copy_files() {
     cp -f ./uninstall.sh ${KSHOME}/scripts/uninstall_${app_name}.sh
 
     chmod 755 ${KSHOME}/scripts/${app_name}_*.sh
-
-    LOGGER "拷贝可知性文件!"
-    for fn in ${BIN_LIST}; do
-        cp -f ./bin/${fn}_for_${ARCH} ${KSHOME}/${app_name}/bin/${fn}
-    done
-    LOGGER "拷贝内核文件!"
-    mkdir -p ${KSHOME}/${app_name}/core
-    cp -f ./bin/clash*${ARCH} ${KSHOME}/${app_name}/core/
-    chmod +x ${KSHOME}/${app_name}/core/clash*${ARCH}
 
     LOGGER 复制相关的网页文件！
     cp -rf ./webs/Module_${app_name}.asp ${KSHOME}/webs/

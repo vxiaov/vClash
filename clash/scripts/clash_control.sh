@@ -74,7 +74,7 @@ check_config_file() {
     # clash_tmode支持检测
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
     # support_tun && tmode_list="$tmode_list TUN"
-    lsmod | grep xt_TPROXY >/dev/null 2>&1 && tmode_list="$tmode_list TPROXY TPROXY+NAT"
+    modprobe xt_TPROXY >/dev/null 2>&1 && tmode_list="$tmode_list TPROXY TPROXY+NAT"
 
     # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
     # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
@@ -314,6 +314,7 @@ add_iptables_tproxy() {
     iptables -t mangle -F ${app_name}_DIVERT
     iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
     iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
 
     # 代理局域网设备 v4
@@ -346,6 +347,7 @@ add_iptables_tproxy() {
         ip6tables -t mangle -F ${app_name}_DIVERT
         ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
+        ip6tables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
         ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
 
         # # 代理局域网设备 v6
@@ -424,6 +426,7 @@ add_iptables_tproxy_nat() {
 
         # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
         ip6tables -t mangle -N ${app_name}_DIVERT
+        ip6tables -t mangle -F ${app_name}_DIVERT
         ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
         ip6tables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT

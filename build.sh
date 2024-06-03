@@ -34,22 +34,35 @@ generate_package() {
 	echo "正在生成 release 安装包 ..."
 	outdir="./release/"
 	new_version="$1"
-	arch="${2:-arm64}"
 	sed -i "s/vClash:.*/vClash:$new_version/" clash/clash/version
-	echo -n "arm384" >clash/.valid
 
 	# 拷贝可执行文件，构建最小安装包
-	rm -rf ./clash/clash/bin
-	mkdir ./clash/clash/bin
-	bin_list="yq jq clash"
-	for fn in ${bin_list}; do
-		cp ./bin/${fn}_for_${arch} ./clash/clash/bin/${fn}
+	for arch in arm64 armv5 ; do
+		
+		echo -n "arm384" >clash/.valid
+		rm -rf ./clash/clash/bin
+		mkdir ./clash/clash/bin
+		bin_list="yq jq"
+		for fn in ${bin_list}; do
+			cp ./bin/${fn}_for_${arch} ./clash/clash/bin/${fn}
+		done
+		rm -rf ./clash/clash/core
+		mkdir -p ./clash/clash/core
+		bin_list="clash.meta clash.premium"
+		for fn in ${bin_list}; do
+			cp ./bin/${fn}_for_${arch} ./clash/clash/core/${fn}_for_${arch}
+		done
+		if [ "$arch" = "armv5" ]; then
+			tar zcf ./release/clash_384.${arch}.tar.gz clash/
+			echo -n "hnd|arm384|arm386|p1axhnd.675x" >clash/.valid
+			tar zcf ./release/clash.${arch}.tar.gz clash/
+		else
+			tar zcf ./release/clash_384.tar.gz clash/
+			echo -n "hnd|arm384|arm386|p1axhnd.675x" >clash/.valid
+			tar zcf ./release/clash.tar.gz clash/
+		fi
 	done
-	tar zcf ./release/clash_384.tar.gz clash/
-	echo -n "hnd|arm384|arm386|p1axhnd.675x" >clash/.valid
-	tar zcf ./release/clash.tar.gz clash/
-	rm -rf ./clash/clash/bin
-
+	rm -rf ./clash/clash/bin ./clash/clash/core
 }
 
 # 更新ruleset内部的文件
