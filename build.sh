@@ -83,20 +83,41 @@ generate_dnsmasq_conf() {
 
 	# 国内DNS直连优化 #
 	default_dns="114.114.114.114"
+
+	# 清华大学TUNA协会IPV6 DNS    2001:da8::666
+	# DNSPod Public DNS 2402:4e00::
+	# 阿里 IPv6 DNS 2400:3200::1
+	default_ipv6_dns="2001:da8::666"
+
 	url_addr="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
 	out_file="./clash/clash/dnsmasq_rules/002-chinalist.conf"
 	echo -n >${out_file} # 清空历史数据
 	curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
 		[[ "$line" != "" ]] && echo "server=/${line}/${default_dns}"
+		[[ "$line" != "" ]] && echo "server=/${line}/${default_ipv6_dns}"
 	done >>${out_file}
 
+	# 自定义国内直连规则
+
+
 	# 国外优化DNS #
+	gfw_dns="8.8.8.8"   # 如果需要内部clash解析处理,设置为 127.0.0.1#1053
+	
+	# 谷歌DNS 2001:4860:4860::8888  2001:4860:4860::8844
+	# cloudflare DNS  2606:4700:4700::1111	2606:4700:4700::1001
+	gfw_ipv6_dns="2001:4860:4860::8888"
+	
 	gfw_url="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/gfw.txt"
 	out_file="./clash/clash/dnsmasq_rules/003-gfwlist.conf"
 	echo -n >${out_file} # 清空历史数据
-	curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
-		[[ "$line" != "" ]] && echo "server=/${line}/127.0.0.1#1053"
-	done >>${out_file}
+	echo "server=${gfw_dns}" >> ${out_file}
+	echo "server=${gfw_ipv6_dns}" >> ${out_file}
+
+	# curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
+	# 	[[ "$line" != "" ]] && echo "server=/${line}/${gfw_dns}"
+	# 	[[ "$line" != "" ]] && echo "server=/${line}/${gfw_ipv6_dns}"
+	# done >>${out_file}
+
 
 }
 

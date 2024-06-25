@@ -9,10 +9,13 @@
 
 ## 获取安装包
 
-| Github分支    | 支持Koolshare路由器固件版本 | Github下载链接                                                                                                                                                                        | 国内CDN下载链接                                                                                             |
-| ----------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| main        | 华硕380版本(停止更新)            | [Github安装包](https://github.com/vxiaov/vClash/raw/main/release/clash.tar.gz)                     | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@main/release/clash.tar.gz)              |
-| ksmerlin386 | 华硕官改、梅林386版本(持续更新)       | [Github安装包](https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash.tar.gz) | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@ksmerlin386/release/clash.tar.gz) |
+| Github分支    | 支持Koolshare路由器固件版本 | CPU架构| Github下载链接                                                                                                                                                                        | 国内CDN下载链接                                                                                             |
+| ----------- | ------------------ |  ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| main        | 华硕380版本(停止更新)            |armv7l| [Github安装包](https://github.com/vxiaov/vClash/raw/main/release/clash.tar.gz)                     | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@main/release/clash.tar.gz)              |
+| ksmerlin386 | 华硕官改、梅林386/388版本(持续更新)       |aarch64/arm64| [Github安装包](https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash.tar.gz) | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@ksmerlin386/release/clash.tar.gz) |
+| ksmerlin386 | 华硕官改、梅林386/388版本(持续更新)       |armv7l| [Github安装包](https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash.armv5.tar.gz) | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@ksmerlin386/release/clash.armv5.tar.gz) |
+| ksmerlin386 | 华硕官改、梅林384版本(持续更新)       |armv7l| [Github安装包](https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash_384.tar.gz) | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@ksmerlin386/release/clash_384.tar.gz) |
+| ksmerlin386 | 华硕官改、梅林384版本(持续更新)       |aarch64/arm64| [Github安装包](https://github.com/vxiaov/vClash/raw/ksmerlin386/release/clash_384.armv5.tar.gz) | [CDN安装包](https://cdn.jsdelivr.net/gh/vxiaov/vClash@ksmerlin386/release/clash_384.armv5.tar.gz) |
 
 
 ## 说明
