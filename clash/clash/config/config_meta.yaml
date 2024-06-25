@@ -1,6 +1,3 @@
-#######################################
-## Clash.Meta 专用配置(支持uri订阅节点)
-#######################################
 port: 7890
 socks-port: 1080 # SOCKS5代理端口，DNS请求会中转
 redir-port: 3333 # 透明代理端口
@@ -34,11 +31,32 @@ dns:
     - tls://dns.google:853
     - https://1.1.1.1/dns-query
   fake-ip-filter:
-    - +.*   # 过滤所有域名，这样内网不会使用fake-ip
-
+    - +.*
 
 profile:
   store-selected: true
+  # 持久化 fakeip
+  store-fake-ip: true
+
+# Clash使用Mapping机制解决透明代理情况下,无法通过Redir端口传递域名的问题；但此机制会导致如果不使用Clash内置的DNS解析服务,就无法准确还原域名,进行域名分流的问题。
+# Meta内置了Sniffer域名嗅器,通过读取握手包内的域名字段,将IP还原成域名,有效解决Mapping机制的短板。
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  parse-pure-ip: true
+  override-destination: false
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
+  force-domain:
+    - +.v2ex.com
+  skip-domain:
+    - Mijia
 
 # 保留的proxy节点列表(启动配置文件不包含任何节点信息,节点信息通过 proxy-provider 提供)
 proxies: []
@@ -47,6 +65,18 @@ proxy-providers:
   proxy-provider-http001:
     type: http
     path: ./providers/provider_http_001.yaml
+    url: https://raw.githubusercontent.com/vxiaov/free_proxies/main/clash/clash.provider.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: https://cp.cloudflare.com
+      interval: 300
+      timeout: 5000
+      lazy: true
+      expected-status: 204
+  proxy-provider-http002:
+    type: http
+    path: ./providers/provider_http_002.yaml
     url: https://raw.githubusercontent.com/vxiaov/free_proxies/main/clash/clash.provider.yaml
     interval: 3600
     health-check:
@@ -87,163 +117,37 @@ proxy-groups:
     type: url-test
     proxies:
     use:
+      - proxy-provider-http002
       - proxy-provider-http001
       - proxy-provider-diy
   - name: 订阅组001
     type: select
     use:
       - proxy-provider-http001
-
-  - name: ⭐默认节点组⭐
+  - name: 订阅组002
+    type: select
+    udp: false
+    use:
+      - proxy-provider-http002
+  - name: ⭐默认组⭐
     type: select
     proxies:
       - Auto组
       - 个人组
       - 订阅组001
+      - 订阅组002
       - DIRECT
   - name: Domestic
     type: select
     proxies:
       - DIRECT
-      - ⭐默认节点组⭐
+      - ⭐默认组⭐
   - name: Others
     type: select
     proxies:
-      - ⭐默认节点组⭐
+      - ⭐默认组⭐
       - DIRECT
       - Domestic
-  - name: Microsoft
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: ChatGPT
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: Apple
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: AppleTV
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: GoogleFCM
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: Scholar
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: Bilibili
-    type: select
-    proxies:
-      - AsianTV
-      - DIRECT
-  - name: Bahamut
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: HBOMax
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: HBOGo
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: Pornhub
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: Netflix
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: Disney
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: Youtube
-    type: select
-    disable-udp: true
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: DiscoveryPlus
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: DAZN
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: Spotify
-    type: select
-    proxies:
-      - GlobalTV
-      - DIRECT
-  - name: Steam
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: AdBlock
-    type: select
-    proxies:
-      - REJECT
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: AsianTV
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
-  - name: GlobalTV
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: Speedtest
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: Telegram
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: Crypto
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: Discord
-    type: select
-    proxies:
-      - ⭐默认节点组⭐
-      - DIRECT
-  - name: PayPal
-    type: select
-    proxies:
-      - DIRECT
-      - ⭐默认节点组⭐
 
 rule-providers:
   Reject:
@@ -601,10 +505,6 @@ rule-providers:
     path: ./ruleset/my_whitelist.yaml
     interval: 86400
 
-script:
-  shortcuts:
-    quic: network == 'udp' and dst_port == 443
-
 rules:
   - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
   - DOMAIN-SUFFIX,local,DIRECT
@@ -614,63 +514,62 @@ rules:
   - IP-CIDR,10.0.0.0/8,DIRECT
   - IP-CIDR6,fe80::/10,DIRECT
   - RULE-SET,MyWhitelist,DIRECT
-  - RULE-SET,MyBlacklist,⭐默认节点组⭐
-  #- SCRIPT,quic,REJECT,no-resolve
-  - RULE-SET,Reject,AdBlock
-  - RULE-SET,Netflix,Netflix
-  - RULE-SET,Spotify,Spotify
-  - RULE-SET,YouTube,Youtube
-  - RULE-SET,DisneyPlus,Disney
-  - RULE-SET,Bilibili,Bilibili
-  - RULE-SET,IQ,AsianTV
-  - RULE-SET,IQIYI,AsianTV
-  - RULE-SET,Letv,AsianTV
-  - RULE-SET,NeteaseMusic,AsianTV
-  - RULE-SET,TencentVideo,AsianTV
-  - RULE-SET,Youku,AsianTV
-  - RULE-SET,WeTV,AsianTV
-  - RULE-SET,ABC,GlobalTV
-  - RULE-SET,AbemaTV,GlobalTV
-  - RULE-SET,Amazon,GlobalTV
-  - RULE-SET,Bahamut,Bahamut
-  - RULE-SET,BBCiPlayer,GlobalTV
-  - RULE-SET,DAZN,DAZN
-  - RULE-SET,DiscoveryPlus,DiscoveryPlus
-  - RULE-SET,encoreTVB,GlobalTV
-  - RULE-SET,F1TV,GlobalTV
-  - RULE-SET,FoxNow,GlobalTV
-  - RULE-SET,Fox+,GlobalTV
-  - RULE-SET,HBOGo,HBOGo
-  - RULE-SET,HBOMax,HBOMax
-  - RULE-SET,HuluJapan,GlobalTV
-  - RULE-SET,Hulu,GlobalTV
-  - RULE-SET,Japonx,GlobalTV
-  - RULE-SET,JOOX,GlobalTV
-  - RULE-SET,KKBOX,GlobalTV
-  - RULE-SET,KKTV,GlobalTV
-  - RULE-SET,LineTV,GlobalTV
-  - RULE-SET,myTVSUPER,GlobalTV
-  - RULE-SET,Niconico,GlobalTV
-  - RULE-SET,Pandora,GlobalTV
-  - RULE-SET,PBS,GlobalTV
-  - RULE-SET,Pornhub,Pornhub
-  - RULE-SET,Soundcloud,GlobalTV
-  - RULE-SET,ViuTV,GlobalTV
-  - RULE-SET,Telegram,Telegram
-  - RULE-SET,Crypto,Crypto
-  - RULE-SET,Discord,Discord
-  - RULE-SET,Steam,Steam
-  - RULE-SET,Speedtest,Speedtest
-  - RULE-SET,PayPal,PayPal
-  - RULE-SET,Microsoft,Microsoft
-  - RULE-SET,ChatGPT,ChatGPT
-  - RULE-SET,AppleMusic,AppleTV
-  - RULE-SET,AppleNews,AppleTV
-  - RULE-SET,AppleTV,AppleTV
-  - RULE-SET,Apple,Apple
-  - RULE-SET,GoogleFCM,GoogleFCM
-  - RULE-SET,Scholar,Scholar
-  - RULE-SET,PROXY,⭐默认节点组⭐
+  - RULE-SET,MyBlacklist,⭐默认组⭐
+  - RULE-SET,Reject,REJECT
+  - RULE-SET,Netflix,⭐默认组⭐
+  - RULE-SET,Spotify,⭐默认组⭐
+  - RULE-SET,YouTube,⭐默认组⭐
+  - RULE-SET,DisneyPlus,⭐默认组⭐
+  - RULE-SET,Bilibili,⭐默认组⭐
+  - RULE-SET,IQ,⭐默认组⭐
+  - RULE-SET,IQIYI,⭐默认组⭐
+  - RULE-SET,Letv,Domestic
+  - RULE-SET,NeteaseMusic,Domestic
+  - RULE-SET,TencentVideo,Domestic
+  - RULE-SET,Youku,Domestic
+  - RULE-SET,WeTV,Domestic
+  - RULE-SET,ABC,⭐默认组⭐
+  - RULE-SET,AbemaTV,⭐默认组⭐
+  - RULE-SET,Amazon,⭐默认组⭐
+  - RULE-SET,Bahamut,⭐默认组⭐
+  - RULE-SET,BBCiPlayer,⭐默认组⭐
+  - RULE-SET,DAZN,⭐默认组⭐
+  - RULE-SET,DiscoveryPlus,⭐默认组⭐
+  - RULE-SET,encoreTVB,⭐默认组⭐
+  - RULE-SET,F1TV,⭐默认组⭐
+  - RULE-SET,FoxNow,⭐默认组⭐
+  - RULE-SET,Fox+,⭐默认组⭐
+  - RULE-SET,HBOGo,⭐默认组⭐
+  - RULE-SET,HBOMax,⭐默认组⭐
+  - RULE-SET,HuluJapan,⭐默认组⭐
+  - RULE-SET,Hulu,⭐默认组⭐
+  - RULE-SET,Japonx,⭐默认组⭐
+  - RULE-SET,JOOX,⭐默认组⭐
+  - RULE-SET,KKBOX,⭐默认组⭐
+  - RULE-SET,KKTV,⭐默认组⭐
+  - RULE-SET,LineTV,⭐默认组⭐
+  - RULE-SET,myTVSUPER,⭐默认组⭐
+  - RULE-SET,Niconico,⭐默认组⭐
+  - RULE-SET,Pandora,⭐默认组⭐
+  - RULE-SET,PBS,⭐默认组⭐
+  - RULE-SET,Pornhub,⭐默认组⭐
+  - RULE-SET,Soundcloud,⭐默认组⭐
+  - RULE-SET,ViuTV,⭐默认组⭐
+  - RULE-SET,Telegram,⭐默认组⭐
+  - RULE-SET,Crypto,⭐默认组⭐
+  - RULE-SET,Discord,⭐默认组⭐
+  - RULE-SET,Steam,⭐默认组⭐
+  - RULE-SET,Speedtest,⭐默认组⭐
+  - RULE-SET,PayPal,⭐默认组⭐
+  - RULE-SET,Microsoft,⭐默认组⭐
+  - RULE-SET,ChatGPT,⭐默认组⭐
+  - RULE-SET,AppleMusic,⭐默认组⭐
+  - RULE-SET,AppleNews,⭐默认组⭐
+  - RULE-SET,AppleTV,⭐默认组⭐
+  - RULE-SET,Apple,⭐默认组⭐
+  - RULE-SET,GoogleFCM,⭐默认组⭐
+  - RULE-SET,Scholar,⭐默认组⭐
+  - RULE-SET,PROXY,⭐默认组⭐
   - RULE-SET,Domestic,Domestic
   - RULE-SET,DomesticIPs,Domestic
   - GEOIP,CN,Domestic

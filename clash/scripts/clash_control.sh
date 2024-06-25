@@ -31,6 +31,7 @@ fi
 dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
 tproxy_port="3330"      # TPROXY 透明代理端口，支持TCP/UDP
+tproxy_mark="0x99"      # TPROXY 数据包标记
 yacd_port="9090"        # Yacd 端口
 # 存放规则文件目录#
 rule_src_dir="${CONFIG_HOME}/ruleset"
@@ -79,21 +80,24 @@ check_config_file() {
     # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
     # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
 
+    [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
+
+    tmode_exp=""
+    [[ "${clash_tmode:0:6}" == "TPROXY" ]] && tmode_exp=".routing-mark=env(tproxy_mark)|.tproxy-port=env(tport)|"
     [[ "$clash_ipv6_mode" == "" ]] && dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
     ipv6_expr=".ipv6=false|.dns.ipv6=false|.bind-address=\"*\"|"
     [[ "$clash_ipv6_mode" == "on" ]] && ipv6_expr=".ipv6=true|.dns.ipv6=true|.bind-address=\"*\"|"
 
-    yq_expr=${ipv6_expr}'.tproxy-port=env(tport)|.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
+    yq_expr=${tmode_exp}${ipv6_expr}'.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
     
     # 生成当前工作的配置文件
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tproxy_mark=$tproxy_mark tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
     [[ "$?" != "0" ]] && LOGGER "生成Clash启动配置文件失败!请检查Yaml格式！" && return 1
 
 
     [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     [[ "$clash_trans" == "" ]] && dbus set clash_trans="on"           # 默认开启透明代理模式
 
-    [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
     dbus set clash_tmode_list=$tmode_list
 
     # 设置默认的Clash内核 #
@@ -230,7 +234,6 @@ create_ipset() {
     ipset add $tname  192.168.0.0/16
     ipset add $tname  224.0.0.0/4
     ipset add $tname  255.255.255.255/32
-    ipset add $tname  ${wan_ipaddr}
 
     tname="localnet6"
     LOGGER "开始创建 ipset: $tname"
@@ -295,8 +298,8 @@ del_iptables_tproxy() {
 
 check_iptables_tproxy() {
     iptables -t mangle -C ${app_name}_DIVERT -j MARK --set-mark 1 2>/dev/null || return 1
-    iptables -t mangle -C ${app_name}_XRAY -j RETURN -m mark --mark 0xff 2>/dev/null || return 1
-    iptables -t mangle -C ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff 2>/dev/null || return 1
+    iptables -t mangle -C ${app_name}_XRAY -j RETURN -m mark --mark ${tproxy_mark} 2>/dev/null || return 1
+    iptables -t mangle -C ${app_name}_XRAY_MASK -j RETURN -m mark --mark ${tproxy_mark} 2>/dev/null || return 1
 }
 # TPROXY模式（TCP+UDP）
 add_iptables_tproxy() {
@@ -321,7 +324,7 @@ add_iptables_tproxy() {
     ! iptables -t mangle -N ${app_name}_XRAY && LOGGER "${app_name}_XRAY 表已经创建过，清理后再执行"
     iptables -t mangle -F ${app_name}_XRAY
     iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
-    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark ${tproxy_mark}
     iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
     iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
     iptables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY
@@ -330,7 +333,7 @@ add_iptables_tproxy() {
     # 代理网关本机 v4
     iptables -t mangle -N ${app_name}_XRAY_MASK
     iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
-    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark ${tproxy_mark}
     iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
     iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
@@ -354,7 +357,7 @@ add_iptables_tproxy() {
         ip6tables -t mangle -N ${app_name}_XRAY6
         ip6tables -t mangle -F ${app_name}_XRAY6
         ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
-        ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark ${tproxy_mark}
         ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
         ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
@@ -363,7 +366,7 @@ add_iptables_tproxy() {
         # # 代理网关本机 v6
         ip6tables -t mangle -N ${app_name}_XRAY6_MASK
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
-        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark ${tproxy_mark}
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
         ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK
@@ -392,16 +395,15 @@ add_iptables_tproxy_nat() {
     iptables -t mangle -F ${app_name}_DIVERT
     iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
-    iptables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
-    iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+    iptables -t mangle -I PREROUTING -p udp -m socket -j ${app_name}_DIVERT
+    iptables -t mangle -I PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
 
     # 代理局域网设备 v4
     ! iptables -t mangle -N ${app_name}_XRAY && LOGGER "${app_name}_XRAY 表已经创建过，清理后再执行"
     iptables -t mangle -F ${app_name}_XRAY
     iptables -t mangle -A ${app_name}_XRAY -p udp --dport 53 -j RETURN
-    iptables -t mangle -A ${app_name}_XRAY -p udp --sport 53 -j RETURN
     iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
-    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark ${tproxy_mark}
     iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
     iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
     iptables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY
@@ -410,9 +412,8 @@ add_iptables_tproxy_nat() {
     # 代理网关本机 v4
     iptables -t mangle -N ${app_name}_XRAY_MASK
     iptables -t mangle -A ${app_name}_XRAY_MASK -p udp --dport 53 -j RETURN
-    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp --sport 53 -j RETURN
     iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
-    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark 0xff
+    iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark ${tproxy_mark}
     iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
     iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
     iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
@@ -429,16 +430,15 @@ add_iptables_tproxy_nat() {
         ip6tables -t mangle -F ${app_name}_DIVERT
         ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
-        ip6tables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
-        ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
+        ip6tables -t mangle -I PREROUTING -p udp -m socket -j ${app_name}_DIVERT
+        ip6tables -t mangle -I PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
 
         # # 代理局域网设备 v6
         ip6tables -t mangle -N ${app_name}_XRAY6
         ip6tables -t mangle -F ${app_name}_XRAY6
-        # ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --sport 53 -j RETURN
-        # ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --dport 53 -j RETURN
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp --dport 53 -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
-        ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark ${tproxy_mark}
         ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
         ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
@@ -446,10 +446,9 @@ add_iptables_tproxy_nat() {
 
         # # 代理网关本机 v6
         ip6tables -t mangle -N ${app_name}_XRAY6_MASK
-        # ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --sport 53 -j RETURN
-        # ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --dport 53 -j RETURN
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp --dport 53 -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
-        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark 0xff
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark ${tproxy_mark}
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
         ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK

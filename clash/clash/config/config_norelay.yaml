@@ -4,7 +4,7 @@ redir-port: 3333 # 透明代理端口
 tproxy-port: 3330 # TPROXY使用的透明代理端口 支持TCP和UDP
 mode: rule
 allow-lan: true
-routing-mark: 0xff  # TPROXY使用，标记处过的数据包
+routing-mark: 0xff  # TPROXY使用，标记处理过的数据包
 # allow-lan=true时,最好设置内网访问IP,关闭IPv6监听
 # '*': bind all IP addresses
 # 192.168.122.11: bind a single IPv4 address
@@ -32,8 +32,7 @@ dns:
     - https://1.1.1.1/dns-query
   fake-ip-filter:
     - +.*
-experimental:
-  sniff-tls-sni: true
+
 profile:
   store-selected: true
 
@@ -594,12 +593,7 @@ rule-providers:
     path: ./ruleset/my_whitelist.yaml
     interval: 86400
 
-script:
-  shortcuts:
-    quic: network == 'udp' and dst_port == 443
-
 rules:
-  - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
   - DOMAIN-SUFFIX,local,DIRECT
   - IP-CIDR,127.0.0.0/8,DIRECT
   - IP-CIDR,172.16.0.0/12,DIRECT
@@ -608,7 +602,6 @@ rules:
   - IP-CIDR6,fe80::/10,DIRECT
   - RULE-SET,MyWhitelist,DIRECT
   - RULE-SET,MyBlacklist,⭐默认节点组⭐
-  # - SCRIPT,quic,REJECT,no-resolve
   - RULE-SET,Reject,AdBlock
   - RULE-SET,Netflix,Netflix
   - RULE-SET,Spotify,Spotify
