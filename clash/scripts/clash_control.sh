@@ -81,7 +81,14 @@ check_config_file() {
     # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
     # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
 
-    [[ "$clash_tmode" == "" ]] && dbus set clash_tmode="NAT"
+    if [[ "$clash_tmode" == "" ]] ; then
+        if echo $tmode_list | grep TPROXY >/dev/null 2>&1 ; then
+            # 优先选择 TPROXY模式
+            dbus set clash_tmode="TPROXY"
+        else
+            dbus set clash_tmode="NAT"
+        fi
+    fi
 
     tmode_exp=""
     [[ "${clash_tmode:0:6}" == "TPROXY" ]] && tmode_exp=".routing-mark=env(tproxy_mark)|.tproxy-port=env(tport)|"

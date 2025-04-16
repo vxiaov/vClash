@@ -48,7 +48,7 @@ generate_package() {
 		rm -rf ./clash/clash/core
 		mkdir -p ./clash/clash/core
 		#bin_list="clash.meta clash.premium"
-		bin_list="clash.premium"
+		bin_list="clash.meta"
 		for fn in ${bin_list}; do
 			cp ./bin/${fn}_for_${arch} ./clash/clash/core/${fn}_for_${arch}
 		done
