@@ -76,47 +76,51 @@ update_ruleset() {
 
 generate_dnsmasq_conf() {
 
-	# 过滤广告规则 #
-	url_addr="https://anti-ad.net/anti-ad-for-dnsmasq.conf"
-	out_file="./clash/clash/dnsmasq_rules/001-anti-ad-for-dnsmasq.conf"
-	curl $url_addr >${out_file}
-
 	# 国内DNS直连优化 #
-	default_dns="114.114.114.114"
+	ipv4_cn_dns="114.114.114.114"
 
 	# 清华大学TUNA协会IPV6 DNS    2001:da8::666
 	# DNSPod Public DNS 2402:4e00::
 	# 阿里 IPv6 DNS 2400:3200::1
-	default_ipv6_dns="2001:da8::666"
-
-	url_addr="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
-	out_file="./clash/clash/dnsmasq_rules/002-chinalist.conf"
-	echo -n >${out_file} # 清空历史数据
-	curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
-		[[ "$line" != "" ]] && echo "server=/${line}/${default_dns}"
-		[[ "$line" != "" ]] && echo "server=/${line}/${default_ipv6_dns}"
-	done >>${out_file}
-
-	# 自定义国内直连规则
-
+	ipv6_cn_dns="2402:4e00::"
 
 	# 国外优化DNS #
-	gfw_dns="8.8.8.8"   # 如果需要内部clash解析处理,设置为 127.0.0.1#1053
+	ipv4_gfw_dns="8.8.8.8"
 	
 	# 谷歌DNS 2001:4860:4860::8888  2001:4860:4860::8844
 	# cloudflare DNS  2606:4700:4700::1111	2606:4700:4700::1001
-	gfw_ipv6_dns="2001:4860:4860::8888"
-	
-	gfw_url="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/gfw.txt"
-	out_file="./clash/clash/dnsmasq_rules/003-gfwlist.conf"
-	echo -n >${out_file} # 清空历史数据
-	echo "server=${gfw_dns}" >> ${out_file}
-	echo "server=${gfw_ipv6_dns}" >> ${out_file}
+	ipv6_gfw_dns="2606:4700:4700::1111"
 
-	# curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
-	# 	[[ "$line" != "" ]] && echo "server=/${line}/${gfw_dns}"
-	# 	[[ "$line" != "" ]] && echo "server=/${line}/${gfw_ipv6_dns}"
-	# done >>${out_file}
+	# 生成Dnsmasq配置规则 #	 国内直连优化 #
+	url_addr="https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/refs/heads/master/accelerated-domains.china.conf"
+	out_file="./clash/clash/dnsmasq_rules/china-accelerated-domains.conf"
+	curl $url_addr | sed "s/114.114.114.114/${ipv4_cn_dns}/g" > ${out_file}
+	echo "server=/githubusercontent.com/${ipv4_cn_dns}" >> ${out_file}
+	echo "server=/githubusercontent.com/${ipv6_cn_dns}" >> ${out_file}
+
+	url_addr="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
+	out_file="./clash/clash/dnsmasq_rules/china-direct.conf"
+	echo -n >${out_file} # 清空历史数据
+	curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
+		[[ "$line" != "" ]] && echo "server=/${line}/${ipv4_cn_dns}"
+		[[ "$line" != "" ]] && echo "server=/${line}/${ipv6_cn_dns}"
+	done >>${out_file}
+
+	# 自定义国外规则 #
+	gfw_url="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/gfw.txt"
+	out_file="./clash/clash/dnsmasq_rules/gfw-list.conf"
+	echo -n >${out_file} # 清空历史数据
+	curl $url_addr | awk -F\' '{ print $2 }' | sed 's/+.//g' | awk '!/^$/' | sort -u | while read line; do
+		[[ "$line" != "" ]] && echo "server=/${line}/${ipv4_gfw_dns}"
+		[[ "$line" != "" ]] && echo "server=/${line}/${ipv6_gfw_dns}"
+	done >>${out_file}
+
+	# 过滤广告规则 #
+	url_addr="https://anti-ad.net/anti-ad-for-dnsmasq.conf"
+	out_file="./clash/clash/dnsmasq_rules/ad-anti-for-dnsmasq.conf"
+	curl $url_addr >${out_file}
+	echo "server=/githubusercontent.com/${ipv4_gfw_dns}" >> ${out_file}
+	echo "server=/githubusercontent.com/${ipv6_gfw_dns}" >> ${out_file}
 
 
 }
