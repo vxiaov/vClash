@@ -33,6 +33,7 @@ dns_port="1053"         # Clash DNS端口
 redir_port="3333"       # Clash 透明代理端口
 tproxy_port="3330"      # TPROXY 透明代理端口，支持TCP/UDP
 tproxy_mark="0x99"      # TPROXY 数据包标记
+route_mark="0x01"
 yacd_port="9090"        # Yacd 端口
 # 存放规则文件目录#
 rule_src_dir="${CONFIG_HOME}/ruleset"
@@ -307,7 +308,7 @@ del_iptables_tproxy() {
 }
 
 check_iptables_tproxy() {
-    iptables -t mangle -C ${app_name}_DIVERT -j MARK --set-mark 1 2>/dev/null || return 1
+    iptables -t mangle -C ${app_name}_DIVERT -j MARK --set-mark  ${route_mark} 2>/dev/null || return 1
     iptables -t mangle -C ${app_name}_XRAY -j RETURN -m mark --mark ${tproxy_mark} 2>/dev/null || return 1
     iptables -t mangle -C ${app_name}_XRAY_MASK -j RETURN -m mark --mark ${tproxy_mark} 2>/dev/null || return 1
 }
@@ -319,13 +320,13 @@ add_iptables_tproxy() {
         return 0
     fi
     # 设置策略路由 v4
-    ip rule add fwmark 1 table 100
+    ip rule add fwmark ${route_mark} table 100
     ip route add local default dev lo table 100
 
     # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
     iptables -t mangle -N ${app_name}_DIVERT
     iptables -t mangle -F ${app_name}_DIVERT
-    iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark  ${route_mark}
     iptables -t mangle -A ${app_name}_DIVERT -j ACCEPT
     iptables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
     iptables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
@@ -335,8 +336,8 @@ add_iptables_tproxy() {
     iptables -t mangle -F ${app_name}_XRAY
     iptables -t mangle -A ${app_name}_XRAY -m set --match-set localnet4 dst -j RETURN
     iptables -t mangle -A ${app_name}_XRAY -j RETURN -m mark --mark ${tproxy_mark}
-    iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
-    iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark 1
+    iptables -t mangle -A ${app_name}_XRAY -p udp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark  ${route_mark}
+    iptables -t mangle -A ${app_name}_XRAY -p tcp -j TPROXY --on-ip 127.0.0.1 --on-port ${tproxy_port} --tproxy-mark  ${route_mark}
     iptables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY
     iptables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY
 
@@ -344,21 +345,21 @@ add_iptables_tproxy() {
     iptables -t mangle -N ${app_name}_XRAY_MASK
     iptables -t mangle -A ${app_name}_XRAY_MASK -m set --match-set localnet4 dst -j RETURN
     iptables -t mangle -A ${app_name}_XRAY_MASK -j RETURN -m mark --mark ${tproxy_mark}
-    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark 1
-    iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark 1
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p udp -j MARK --set-mark  ${route_mark}
+    iptables -t mangle -A ${app_name}_XRAY_MASK -p tcp -j MARK --set-mark  ${route_mark}
     iptables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY_MASK
     iptables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY_MASK
 
 
     if [ "$clash_ipv6_mode" = "on" ] ; then
         # 设置策略路由 v6
-        ip -6 rule add fwmark 1 table 106
+        ip -6 rule add fwmark  ${route_mark} table 106
         ip -6 route add local default dev lo table 106
 
         # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
         ip6tables -t mangle -N ${app_name}_DIVERT
         ip6tables -t mangle -F ${app_name}_DIVERT
-        ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark 1
+        ip6tables -t mangle -A ${app_name}_DIVERT -j MARK --set-mark  ${route_mark}
         ip6tables -t mangle -A ${app_name}_DIVERT -j ACCEPT
         ip6tables -t mangle -A PREROUTING -p udp -m socket -j ${app_name}_DIVERT
         ip6tables -t mangle -A PREROUTING -p tcp -m socket -j ${app_name}_DIVERT
@@ -368,8 +369,8 @@ add_iptables_tproxy() {
         ip6tables -t mangle -F ${app_name}_XRAY6
         ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark ${tproxy_mark}
-        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
-        ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark 1
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p udp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark  ${route_mark}
+        ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark  ${route_mark}
         ip6tables -t mangle -A PREROUTING -p udp -j ${app_name}_XRAY6
         ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
 
@@ -377,8 +378,8 @@ add_iptables_tproxy() {
         ip6tables -t mangle -N ${app_name}_XRAY6_MASK
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -m set --match-set localnet6 dst -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -j RETURN -m mark --mark ${tproxy_mark}
-        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark 1
-        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark 1
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p udp -j MARK --set-mark  ${route_mark}
+        ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark  ${route_mark}
         ip6tables -t mangle -A OUTPUT -p udp -j ${app_name}_XRAY6_MASK
         ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
     fi
