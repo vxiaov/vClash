@@ -44,7 +44,7 @@ exit_install() {
         exit 0
     ;;
     *)
-        LOGGER "糟糕！ 不支持 `uname -m` 平台呀！ 您的路由器型号:$MODEL ,固件类型： $FW_TYPE_NAME ,固件版本：$BUILD_VERSION ,$open_issue"
+        LOGGER "糟糕 返回错误[$1]！ 不支持 `uname -m` 平台呀！ 您的路由器型号:$MODEL ,固件类型： $FW_TYPE_NAME ,固件版本：$BUILD_VERSION ,$open_issue"
         exit $1
     ;;
     esac
@@ -194,14 +194,14 @@ copy_files() {
     
     [[ ! -d "${KSHOME}/${app_name}" ]] && LOGGER "目录缺失: ${KSHOME}/${app_name} ,无法继续安装!" && exit_install 1
 
-    for tn in bin config core dashboard providers ruleset version Country.mmdb
+    for tn in bin config core dashboard providers ruleset version Country.mmdb dnsmasq_rules
     do
         cp -rf ./${app_name}/${tn} ${KSHOME}/${app_name}/ || LOGGER "拷贝${tn}目录失败!"
     done
     core_files=`ls ${KSHOME}/${app_name}/core`
     LOGGER "安装内置的内核文件列表: ${core_files}"
     
-    default_clash_bin=`find ${KSHOME}/${app_name}/core -name "clash.premium*"`
+    default_clash_bin=`find ${KSHOME}/${app_name}/core -name "clash.*"`
     [[ ! -f "${default_clash_bin}" ]] && LOGGER "Clash内核文件缺失!安装失败!" && exit_install 2
     ln -sf ${default_clash_bin} ${KSHOME}/${app_name}/bin/clash
     default_clash_filename="core/`basename $default_clash_bin`"

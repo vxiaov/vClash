@@ -37,10 +37,8 @@ remove_files() {
     LOGGER "执行命令： rm -f /koolshare/init.d/S??${app_name}.sh"
     rm -f /koolshare/init.d/S??${app_name}.sh
     LOGGER "正在清理目录(先清理内部文件，最后删除目录): /koolshare/${app_name}"
-    rm -rf /koolshare/${app_name}/*
+    rm -rf /koolshare/${app_name}/
     
-    # 清理目录
-    rmdir /koolshare/${app_name} >/dev/null 2>&1
 
 }
 
@@ -69,7 +67,7 @@ remove_env
 LOGGER "卸载完成啦！一切都归于尘土，哦不！是垃圾站！"
 
 LOGGER "执行命令：rm -rf /koolshare/scripts/${app_name}_*"
-rm -rf /koolshare/scripts/${app_name}_*
+rm -rf /koolshare/scripts/clash_control.sh
 # delete myself
 rm -f /koolshare/scripts/uninstall_${app_name}.sh
 
