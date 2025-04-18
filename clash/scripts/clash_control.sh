@@ -61,7 +61,7 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
 
-tmode_list="NAT"  # 支持的透明代理模式列表
+tmode_list=""  # 支持的透明代理模式列表
 # 检测是否支持TUN设备 #
 support_tun() {
     [[ -r /dev/net/tun ]] || [[ -r /dev/tun ]]
@@ -77,7 +77,7 @@ check_config_file() {
     # clash_tmode支持检测
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
     # support_tun && tmode_list="$tmode_list TUN"
-    modprobe xt_TPROXY >/dev/null 2>&1 && tmode_list="$tmode_list TPROXY TPROXY+NAT"
+    modprobe xt_TPROXY >/dev/null 2>&1 && tmode_list="TPROXY"
 
     # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
     # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
@@ -87,7 +87,7 @@ check_config_file() {
             # 优先选择 TPROXY模式
             dbus set clash_tmode="TPROXY"
         else
-            dbus set clash_tmode="NAT"
+            dbus set clash_tmode=""
         fi
     fi
 
@@ -227,6 +227,66 @@ del_cron() {
 }
 
 
+add_dnsmasq_rules() {
+    # 添加 DNSMASQ 配置
+    LOGGER "添加 DNSMASQ 配置"
+    dns_dir="/jffs/configs/dnsmasq.d"
+    for fp in `ls $CONFIG_HOME/dnsmasq_rules/*.conf` ; do
+        fn=`basename $fp`
+        ln -sf $fp ${dns_dir}/${fn}
+        LOGGER "添加规则: $fn "
+    done
+    # 修改 /tmp/resolve.conf 配置
+    conf_file="/tmp/resolv.conf"
+    dnsmasq_file="/tmp/resolv.dnsmasq"
+    ipv4_dns1="223.5.5.5"
+    ipv4_dns2="114.114.114.114"
+    ipv6_dns1="2402:4e00::"
+    ipv6_dns2="2400:3200::1"
+    # bak files
+    mv ${conf_file} ${conf_file}.bak
+    mv ${dnsmasq_file} ${dnsmasq_file}.bak
+    for dns in ${ipv4_dns1} ${ipv4_dns2} ${ipv6_dns1} ${ipv6_dns2} ; do
+        [[ "$dns" == "" ]] && continue
+        echo "nameserver ${dns}" >>${conf_file}
+        echo "server=${dns}" >>${dnsmasq_file}
+    done
+    # nvram set wan0_dns1_x=${ipv4_dns1}
+    # nvram set wan0_dns2_x=${ipv4_dns2}
+    # nvram set wan_dns1_x=${ipv4_dns1}
+    # nvram set wan_dns2_x=${ipv4_dns2}
+    # nvram set wan_dns="${ipv4_dns1} ${ipv4_dns2}"
+    # nvram set wan0_dns="${ipv4_dns1} ${ipv4_dns2}"
+    # nvram set wan_dnsenable_x=0
+    # nvram set wan0_dnsenable_x=0
+
+    # nvram set ipv6_dns1=${ipv6_dns1}
+    # nvram set ipv6_dns2=${ipv6_dns2}
+    # nvram set ipv6_dnsenable=0
+    # nvram commit
+}
+del_dnsmasq_rules() {
+    # 删除 DNSMASQ 配置
+    LOGGER "删除 DNSMASQ 配置"
+    dns_dir="/jffs/configs/dnsmasq.d"
+    rm -f ${dns_dir}/*.conf
+    # for fp in `ls $CONFIG_HOME/dnsmasq_rules/*.conf` ; do
+    #     fn=`basename $fp`
+    #     rm -f ${dns_dir}/${fn}
+    #     LOGGER "删除规则: $fn "
+    # done
+}
+restart_dnsmasq() {
+    # 重启 DNSMASQ 服务
+    LOGGER "重启 DNSMASQ 服务"
+    service restart_dnsmasq >/dev/null 2>&1
+}
+
+update_default_dns() {
+    LOGGER "更新DNS服务器为: $clash_ipv4_dns1 , $clash_ipv4_dns2 / $clash_ipv6_dns1 / $clash_ipv6_dns2 !"
+    add_dnsmasq_rules
+}
+
 create_ipset() {
     # 创建 ipset 表
     tname="localnet4"
@@ -239,6 +299,7 @@ create_ipset() {
     ipset add $tname  169.254.0.0/16
     ipset add $tname  172.16.0.0/12
     ipset add $tname  192.168.0.0/16
+    ipset add $tname  198.18.0.1/16
     ipset add $tname  224.0.0.0/4
     ipset add $tname  255.255.255.255/32
 
@@ -257,11 +318,11 @@ create_ipset() {
 del_iptables_tproxy() {
 
     # 设置策略路由 v4
-    ip rule del fwmark ${route_mask} table 100
+    ip rule del fwmark ${route_mark} table 100
     ip route del local 0.0.0.0/0 dev lo table 100
 
     # 设置策略路由 v6
-    ip -6 rule del fwmark ${route_mask} table 106
+    ip -6 rule del fwmark ${route_mark} table 106
     ip -6 route del local ::/0 dev lo table 106
 
     # 代理局域网设备 v4
@@ -302,6 +363,8 @@ del_iptables_tproxy() {
     iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $dns_port
     iptables -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
 
+    del_dnsmasq_rules
+    restart_dnsmasq
 }
 
 check_iptables_tproxy() {
@@ -369,6 +432,8 @@ add_iptables_tproxy() {
         ip6tables -t mangle -A ${app_name}_XRAY6_MASK -p tcp -j MARK --set-mark  ${route_mark}
         ip6tables -t mangle -A OUTPUT -p tcp -j ${app_name}_XRAY6_MASK
     fi
+    add_dnsmasq_rules
+    restart_dnsmasq
 }
 # TPROXY模式（TCP） + NAT模式转发(UDP协议的DNS服务)
 add_iptables_tproxy_nat() {
@@ -383,7 +448,7 @@ add_iptables_tproxy_nat() {
     iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports $dns_port
 
     # 设置策略路由 v4
-    ip rule add fwmark ${route_mask} table 100
+    ip rule add fwmark ${route_mark} table 100
     ip route add local default dev lo table 100
 
     # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
@@ -418,7 +483,7 @@ add_iptables_tproxy_nat() {
 
     if [ "$clash_ipv6_mode" = "on" ] ; then
         # 设置策略路由 v6
-        ip -6 rule add fwmark ${route_mask} table 106
+        ip -6 rule add fwmark ${route_mark} table 106
         ip -6 route add local default dev lo table 106
 
         # 新建 ${app_name}_DIVERT 规则，避免已有连接的包二次通过 TPROXY，理论上有一定的性能提升
@@ -573,13 +638,13 @@ del_iptables_all() {
 
 iptables_status() {
     echo "IPv4 地址配置 NAT 规则:"
-    iptables -t nat -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    iptables -t nat -S
     echo "+---------------------------------------------------------------+"
     echo "IPv4 地址配置 mangle 规则:"
-    iptables -t mangle -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    iptables -t mangle -S
     echo "+---------------------------------------------------------------+"
     echo "IPv6 地址配置 mangle 规则:"
-    ip6tables -t mangle -S | grep -E "${dns_port}|${redir_port}|${tproxy_port}|${app_name}"
+    ip6tables -t mangle -S
 }
 
 
@@ -1267,7 +1332,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|update_provider_file|update_geoip|update_lan_ipv6_ports|backup_config_file|applay_new_config|upload_clash_file)
+    get_proc_status|update_provider_file|update_geoip|update_lan_ipv6_ports|update_default_dns|backup_config_file|applay_new_config|upload_clash_file)
         # 不需要重启操作
         $action_job
         ;;

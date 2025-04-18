@@ -29,6 +29,25 @@
         var _responseLen;
         var noChange = 0;
 
+        const dnsv4List = [
+            { name: '阿里公共 DNS (Alibaba)', ips: '223.5.5.5' },
+            { name: 'DNSPod DNS (Tencent)', ips: '119.29.29.29' },
+            { name: '114 公共 DNS', ips: '114.114.114.114' },
+            { name: 'Cloudflare DNS', ips: '1.1.1.1 ' },
+            { name: '谷歌公共 DNS (Google)', ips: '8.8.8.8' },
+            { name: '华为公共 DNS (Huawei)', ips: '129.213.4.5' },
+            { name: 'AdGuard DNS (安全版)', ips: '94.140.14.14' },
+            { name: 'AdGuard DNS (家庭版，含广告过滤)', ips: '176.103.130.130' },
+            { name: 'CleanBrowsing DNS (基础版)', ips: '185.228.168.168' },
+            { name: 'CleanBrowsing DNS (家庭保护版)', ips: '185.228.168.166' },
+        ];
+        const dnsv6List = [
+            { name: '腾讯 IPv6 DNS (Tencent)', ips: '2402:4e00::' },
+            { name: '阿里 IPv6 DNS (Alidns)', ips: '2400:3200::1' },
+            { name: '谷歌 IPv6 DNS (Google)', ips: '2001:4860:4860::8888' },
+            { name: 'Cloudflare IPv6 DNS', ips: '2606:4700:4700::1111' },
+        ]
+
         var $j = jQuery.noConflict();
 
 
@@ -180,15 +199,19 @@
             });
         }
 
+    
+
         function conf2obj() {
 
             var params = [
-                'clash_geoip_url', 'clash_yacd_ui','clash_lan_ipv6_ports', 'clash_arch_type'
+                'clash_geoip_url', 'clash_yacd_ui','clash_lan_ipv6_ports', 'clash_arch_type',
             ];
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_ipv6_mode', 'clash_log_type'
             ];
 
+            // 更新 DNS 列表 
+            update_dns_list();
             // 更新 tmode_list
             update_clash_tmode_list();
             // 更新 clash_core_list
@@ -276,6 +299,42 @@
                         opt.value = items_list[0];
                         dbus["clash_core_current"] = items_list[0];
                     }
+                }
+            }
+        }
+
+        function update_dns_list() {
+            // 更新 dns 列表
+            var opt = document.getElementById("clash_ipv4_dns1");
+            opt.options.length = 0;
+            for (var i = 0; i < dnsv4List.length; i++) {
+                opt.options.add(new Option(dnsv4List[i].name, dnsv4List[i].ips));
+                if(dbus["clash_ipv4_dns1"] == dnsv4List[i].ips){
+                    opt.value = dnsv4List[i].ips;
+                }
+            }
+            opt = document.getElementById("clash_ipv4_dns2");
+            opt.options.length = 0;
+            for (var i = 0; i < dnsv4List.length; i++) {
+                opt.options.add(new Option(dnsv4List[i].name, dnsv4List[i].ips));
+                if(dbus["clash_ipv4_dns2"] == dnsv4List[i].ips){
+                    opt.value = dnsv4List[i].ips;
+                }
+            }
+            opt = document.getElementById("clash_ipv6_dns1");
+            opt.options.length = 0;
+            for (var i = 0; i < dnsv6List.length; i++) {
+                opt.options.add(new Option(dnsv6List[i].name, dnsv6List[i].ips));
+                if(dbus["clash_ipv6_dns1"] == dnsv6List[i].ips){
+                    opt.value = dnsv6List[i].ips;
+                }
+            }
+            opt = document.getElementById("clash_ipv6_dns2");
+            opt.options.length = 0;
+            for (var i = 0; i < dnsv6List.length; i++) {
+                opt.options.add(new Option(dnsv6List[i].name, dnsv6List[i].ips));
+                if(dbus["clash_ipv6_dns2"] == dnsv6List[i].ips){
+                    opt.value = dnsv6List[i].ips;
                 }
             }
         }
@@ -679,6 +738,18 @@
             });
         }
 
+        function update_default_dns() {
+            dbus["clash_ipv4_dns1"] = document.getElementById("clash_ipv4_dns1").value;
+            dbus["clash_ipv4_dns2"] = document.getElementById("clash_ipv4_dns2").value;
+            dbus["clash_ipv6_dns1"] = document.getElementById("clash_ipv6_dns1").value;
+            dbus["clash_ipv6_dns2"] = document.getElementById("clash_ipv6_dns2").value;
+            apply_action("update_default_dns", "0", null, {
+                "clash_ipv4_dns1": document.getElementById("clash_ipv4_dns1").value,
+                "clash_ipv4_dns2": document.getElementById("clash_ipv4_dns2").value,
+                "clash_ipv6_dns1": document.getElementById("clash_ipv6_dns1").value,
+                "clash_ipv6_dns2": document.getElementById("clash_ipv6_dns2").value,
+            });
+        }
 
         function ignore_vclash_new_version() {
             // 忽略新版本提示
@@ -1158,6 +1229,18 @@
                             <td class="hasButton">
                                 <button type="button" class="button_gen" onclick="update_lan_ipv6_ports();" href="javascript:void(0);">更新</button>
                             </td>
+                        </tr>
+                        <tr>
+                            <th><label title="DNS修改只是临时生效，重启后恢复运营商的DNS">默认DNS</label></th>
+                            <td>
+                                <div class="switch_field">
+                                    <select id="clash_ipv4_dns1" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_ipv4_dns2" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_ipv6_dns1" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_ipv6_dns2" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                </div>
+                            </td>
+                            <td class="hasButton"><button type="button" class="button_gen" onclick="update_default_dns();" href="javascript:void(0);">更新DNS</button></td>
                         </tr>
                         <tr>
                             <th>
