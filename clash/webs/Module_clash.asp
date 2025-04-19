@@ -208,6 +208,10 @@
 
             set_log_type(); //初始化日志类型
 
+            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version'] + "</i>");
+            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version'] + "</i>");
+
+
 
             for (var i = 0; i < params_chk.length; i++) {
                 if (dbus[params_chk[i]]) {
@@ -440,11 +444,11 @@
         // 显示动态结果消息
         function show_result(message, duration) {
             if (!duration) duration = 1000;
-            $j('#copy_info').text(message);
-            $j('#copy_info').fadeIn(100);
-            $j('#copy_info').css('display', 'inline-block');
+            $j('#status_info').text(message);
+            $j('#status_info').fadeIn(100);
+            $j('#status_info').css('display', 'inline-block');
             setTimeout(() => {
-                $j('#copy_info').fadeOut(1000);
+                $j('#status_info').fadeOut(1000);
             }, duration);
         }
 
@@ -517,7 +521,7 @@
 
         // 关闭日志消息提示
         function ready_close_log_msg() {
-            var time_sec = 5;
+            var time_sec = 10;
             var timeoutid = setInterval(function() {
                 $j("#btn_log_msg_close").text("关闭(" + time_sec-- + "秒后)");
                 if (time_sec == 0) {
@@ -577,7 +581,6 @@
 
         function vclash_version_check() {
             // 更新vClash 检测
-            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus['clash_vclash_version']  + "</i>");
             $j.ajax({
                 url: 'https://api.github.com/repos/vxiaov/vclash/tags',
                 type: 'GET',
@@ -601,7 +604,7 @@
                     }
                 },
                 error: function(res) {
-                    $j("#clash_vclash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。</i>");
+                    $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。</i>");
                 }
             }).fail(() => {
                 console.log('failed');
@@ -633,7 +636,7 @@
                     }
                 },
                 error: function(res) {
-                    $j("#clash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。</i>");
+                    $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。</i>");
                 }
             }).fail(() => {
                 console.log('failed');
@@ -778,8 +781,39 @@
             });
         }
 
+        // 删除文件
+        function remove_file(file_path) {
+            apply_action("remove_file", "3", function(data){
+                // update data
+                 show_result('已经删除文件:' + file_path, 1000);
+            }, {
+                "clash_remove_file": file_path, // 相对路径
+            });
+        }
+
+        function remove_config_file() {
+            var opt = document.getElementById("clash_switch_config");
+            remove_file(opt.value);
+            var selectedIndex = opt.selectedIndex;
+            if (selectedIndex !== -1) {
+                opt.remove(selectedIndex);
+            }
+            // 手动触发 change 事件
+            opt.dispatchEvent(new Event('change'));
+        }
+        function remove_core_file() {
+            var opt = document.getElementById("clash_switch_core");
+            remove_file(opt.value);
+            var selectedIndex = opt.selectedIndex;
+            if (selectedIndex !== -1) {
+                opt.remove(selectedIndex);
+            }
+            // 手动触发 change 事件
+            opt.dispatchEvent(new Event('change'));
+        }
+
         function ignore_vclash_new_version() {
-            // 忽略新版本提示
+            // 忽略提示
             apply_action("ignore_vclash_new_version", "3", function(data) {
                 dbus["clash_vclash_version"] = data["clash_vclash_version"];
                 vclash_version_check();
@@ -788,7 +822,7 @@
             });
         }
         function ignore_core_new_version() {
-            // 忽略新版本提示
+            // 忽略提示
             apply_action("ignore_core_new_version", "3", function(data) {
                 dbus["clash_version"] = data["clash_version"];
                 clash_core_version_check();
@@ -843,7 +877,7 @@
                 alert('压缩包文件格式不正确!');
                 return false;
             }
-            document.getElementById('copy_info').style.display = "none";
+            document.getElementById('status_info').style.display = "none";
             var formData = new FormData();
             formData.append(filename, $j('#restore_file')[0].files[0]);
             $j.ajax({
@@ -888,7 +922,7 @@
                 alert('Yaml文件格式不正确,非yaml/yml后缀名！');
                 return false;
             }
-            document.getElementById('copy_info').style.display = "none";
+            document.getElementById('status_info').style.display = "none";
             var formData = new FormData();
             formData.append(filename, $j('#file')[0].files[0]);
             $j.ajax({
@@ -903,7 +937,7 @@
                         show_result("已上传成功! 3秒后重启服务...", 3000);
                         dbus["clash_config_file"] = filename;
                         apply_action("applay_new_config", "0", function() {
-                            show_result("应用新配置成功，3秒后重启服务...", 3000);
+                            show_result("上传新配置成功", 3000);
                         }, {
                             "clash_config_file": filename
                         });
@@ -930,7 +964,7 @@
                 alert('请上传gz后缀名的文件！');
                 return false;
             }
-            document.getElementById('copy_info').style.display = "none";
+            document.getElementById('status_info').style.display = "none";
             var formData = new FormData();
             formData.append(filename, $j('#clash_file')[0].files[0]);
             $j.ajax({
@@ -942,10 +976,9 @@
                 contentType: false,
                 complete: function(res) {
                     if (res.status == 200) {
-                        show_result("已上传成功! 3秒后重启服务...", 3000);
                         dbus["clash_bin_file"] = filename;
                         apply_action("upload_clash_file", "0", function() {
-                            show_result("应用新配置成功，3秒后重启服务...", 3000);
+                            show_result("上传Clash内核文件 " + filename + " 成功，手动刷新页面.", 3000);
                         }, {
                             "clash_bin_file": filename
                         });
@@ -1003,8 +1036,8 @@
             apply_action("clash_config_init", "2", function(data) {
                 dbus = data;
                 conf2obj();
-                vclash_version_check();
-                clash_core_version_check();
+                // vclash_version_check();
+                // clash_core_version_check();
             }, {});
         }
 
@@ -1085,7 +1118,7 @@
             try {
                 var successful = document.execCommand('copy');
                 if (successful) {
-                    // jquery 设置 #copy_info 1秒后慢慢消失
+                    // jquery 设置 #status_info 1秒后慢慢消失
                     show_result('已复制到剪贴板', 1000);
                 } else {
                     alert('复制失败！');
@@ -1153,19 +1186,22 @@
                 <div id="tabMenu" class="submenuBlock"></div>
                 <div class="apply_gen FormTitle">
                     <div class="clash_top" style="padding-top: 20px;">
-                        <div class="formfonttitle" ><b>Clash</b>版科学上网工具
+                        <div class="formfonttitle" ><a class="links" target="_blank" href="https://github.com/vxiaov/vClash">vClash</a>:配置简单、安装即用。
                             <img id="return_btn" onclick="reload_Soft_Center();" class="softcenterRetBtn" title="返回软件中心""></img>
                         </div>
                     </div>
                     <div class="clash_basic_info">
                         <!--插件特点-->
                         <p style="color:#FC0;">
-                            <b>* <a target="_blank" href="https://github.com/vxiaov/vClash" style="font-weight: bold;color: blue;">vClash</a></b>:简单配置、安装即用的科学上网插件。<br/>
-                            <b style="color: rgb(255, 26, 26);">* 问题反馈:</b>新建<a class="button_gen" href="https://github.com/vxiaov/vClash/issues" target="_blank">Issue</a>，将<b>"路由信息"按钮</b>显示内容提交出来辅助调试。<br />
-                            <b>* 透明代理模式说明:</b> <b style="color: red;"> TPROXY模式</b> ,让你告别选择困难。<br />
-                            <b>* 运营商DNS污染问题解决：</b>支持修改默认DNS功能,可以随时更换默认DNS啦。<br/>
-                            <b>* 破U盘再利用</b><b style="color: red;">(必须要做):</b>具体方法请阅读<a class="button_gen"  href="https://github.com/vxiaov/vClash/wiki/U%E7%9B%98%E6%8C%82%E8%BD%BD%E8%B7%AF%E7%94%B1%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95%E6%80%BB%E7%BB%93">wiki文档</a>了解。<br />
+                            <b style="color: rgb(255, 26, 26);">* 问题反馈:</b>点击<a class="links" href="https://github.com/vxiaov/vClash/issues" target="_blank">Issue</a>，提交<b>"路由信息"</b>。<br />
+                            <b>* DNS污染问题解决：</b>支持修改默认DNS功能，可以更换默认DNS啦。<br/>
+                            <b>* 破U盘再利用</b><b style="color: red;">(必须要做):</b>具体方法请阅读<a class="links" href="https://github.com/vxiaov/vClash/wiki/U%E7%9B%98%E6%8C%82%E8%BD%BD%E8%B7%AF%E7%94%B1%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95%E6%80%BB%E7%BB%93">wiki文档</a>了解。<br />
                         </p>
+                        <div style="margin:8px;">
+                            <a class="links" href="https://vlike.work/" target="_blank ">小V的博客</a>
+                            <a class="links" href="https://t.me/share_proxy_001" target="_blank ">Telegram群</a>
+                            <a class="links" href="https://www.youtube.com/@xiaov" target="_blank ">小V的油管</a>
+                        </div>
                         <hr>
                     </div>
                     <!-- Tab菜单 -->
@@ -1181,14 +1217,14 @@
                     <table id="menu_default" class="FormTable">
                         <thead width="100%">
                             <tr>
-                                <td colspan="2">Clash - 设置面板</td>
+                                <td colspan="3">Clash - 设置面板</td>
                             </tr>
                         </thead>
                         <tr>
                             <th>
                                 <label>开启vClash</label>
                             </th>
-                            <td>
+                            <td colspan="2">
                                 <div class="switch_field">
                                     <label for="clash_enable">
                                         <input id="clash_enable" onclick="switch_service();" class="switch" type="checkbox" style="display: none;">
@@ -1201,21 +1237,40 @@
                             </td>
                         </tr>
                         <tr>
+                            <th>订阅配置:</th>
+                            <td>
+                                <input type="text" class="input_text" id="clash_config_http" placeholder="http(s)订阅配置">
+                            </td>
+                            <td>
+                                <a class="button_gen" onclick="add_config_http();" href="javascript:void(0);">添加订阅</a>
+                            </td>
+                        </tr>
+                        <tr>
                             <th>启动配置: </th>
                             <td>
                                 <div class="switch_field">
-                                    <select id="clash_switch_config" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_switch_config" class="input_option" style="width:260px;margin:0px 0px 0px 2px;"></select>
                                 </div>
+                            </td>
+                            <td>
+                                <input style="display:none;" id="file" type="file" name="file">
+                                <a class="button_gen" onclick="document.getElementById('file').click();" href="javascript:void(0);">上传(.yaml)</a>
+                                <a class="button_gen" onclick="remove_config_file();" href="javascript:void(0);">删除</a>
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>Clash内核:</label>
+                                <label>Clash内核(<b id="clash_arch_type"></b>):</label>
                             </th>
                             <td> <!-- Clash内核切换 -->
                                 <div class="switch_field">
-                                    <select id="clash_switch_core" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_switch_core" class="input_option" style="width:260px;margin:0px 0px 0px 2px;"></select>
                                 </div>
+                            </td>
+                            <td>
+                                <input style="display:none;" id="clash_file" type="file" name="clash_file">
+                                <a class="button_gen" onclick="document.getElementById('clash_file').click();" href="javascript:void(0);">上传(.gz格式)</a>
+                                <a class="button_gen" onclick="remove_core_file();" href="javascript:void(0);">删除</a>
                             </td>
                         </tr>
                         <tr>
@@ -1225,10 +1280,13 @@
                             <td>
                                 <div id="clash_version_status"><i>正在获取...</i></div>
                                 <div id="clash_install_show" style="display: none;">
-                                    <a type="button" class="button_gen" onclick="ignore_core_new_version()" href="javascript:void(0);">忽略新版本</a>
+                                    <a class="button_gen" onclick="ignore_core_new_version()" href="javascript:void(0);">忽略</a>
                                     &nbsp;&nbsp;&nbsp;&nbsp;
-                                    <a type="button" class="button_gen" onclick="update_core_bin()" href="javascript:void(0);">更新最新版</a>
+                                    <a class="button_gen" onclick="update_core_bin()" href="javascript:void(0);">更新</a>
                                 </div>
+                            </td>
+                            <td>
+                                    <a class="button_gen" onclick="clash_core_version_check();" href="javascript:void(0);">检查更新</a>
                             </td>
                         </tr>
                         <tr>
@@ -1238,9 +1296,12 @@
                             <td>
                                 <div id="clash_vclash_version_status"><i>正在获取...</i></div>
                                 <div id="clash_vclash_install_show" style="display: none;">
-                                    <a type="button" class="button_gen" onclick="ignore_vclash_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
-                                    <a type="button" class="button_gen" onclick="update_vclash_bin()" href="javascript:void(0);">更新最新版</a>
+                                    <a class="button_gen" onclick="ignore_vclash_new_version()" href="javascript:void(0);">忽略</a> &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <a class="button_gen" onclick="update_vclash_bin()" href="javascript:void(0);">更新</a>
                                 </div>
+                            </td>
+                            <td>
+                                    <a class="button_gen" onclick="vclash_version_check()" href="javascript:void(0);">检查更新</a>
                             </td>
                         </tr>
                     </table>
@@ -1336,25 +1397,6 @@
                                 <input type="button" class="button_gen" onclick="document.getElementById('restore_file').click();" value="恢复配置">
                             </td>
                         </tr>
-                        <tr>
-                            <th>
-                                <label title="上传新Clash配置文件，不会立即生效，请手工切换新配置。">启动配置(.yaml格式)</label>
-                            </th>
-                            <td colspan="2">
-                                <input style="display:none;" id="file" type="file" name="file">
-                                <input type="button" class="button_gen" onclick="document.getElementById('file').click();" value="上传">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                 <label title="请选择正确架构类型Clash内核文件(.gz格式)上传.">Clash内核(.gz格式)</label>
-                            </th>
-                            <td colspan="2">
-                                <input style="display:none;" id="clash_file" type="file" name="clash_file">
-                                <input type="button" class="button_gen" onclick="document.getElementById('clash_file').click();" value="上传">
-                                &nbsp;&nbsp;&nbsp;&nbsp;<b>提醒</b>: 选择<b id="clash_arch_type"></b>的 .gz 格式文件上传</p>
-                            </td>
-                        </tr>
                     </table>
                     <!-- 在线编辑配置文件内容 -->
                     <table id="menu_config" class="FormTable">
@@ -1379,9 +1421,9 @@
                         </tr>
                         <tr>
                             <td colspan="2" style="text-align: center;">
-                                <a type="button" class="button_gen" onclick="edit_config_content(); " href="javascript:void(0); ">编辑</a> &nbsp;&nbsp;&nbsp;
-                                <a type="button" class="button_gen" onclick="set_edit_content(); " href="javascript:void(0); ">保存</a> &nbsp;&nbsp;&nbsp;
-                                <a type="button" class="button_gen" onclick="load_config_content(); " href="javascript:void(0); ">重载</a>
+                                <a class="button_gen" onclick="edit_config_content(); " href="javascript:void(0); ">编辑</a> &nbsp;&nbsp;&nbsp;
+                                <a class="button_gen" onclick="set_edit_content(); " href="javascript:void(0); ">保存</a> &nbsp;&nbsp;&nbsp;
+                                <a class="button_gen" onclick="load_config_content(); " href="javascript:void(0); ">重载</a>
                             </td>
                         </tr>
                         <tr>
@@ -1436,46 +1478,35 @@
                         </tr>
                         <tr id="logBackup">
                             <td colspan="2">
-                                <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">日志信息</p>
                                 <input type="button" class="button_gen" onclick="copyTextBakLog();" value="复制日志">
                                 <textarea rows="20 " wrap="off" readonly="readonly" id="clash_log_backup" class="input_text"></textarea>
                             </td>
                         </tr>
                     </table>
                     <!--打开 Clash控制面板-->
-                    <div id="status_tools " style="margin-top: 25px; padding-bottom: 20px;">
-                        <a type="button" class="button_gen" onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button" class="button_gen" onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
-                        <a type="button" class="button_gen" id="clash_yacd_ui"  href="javascript:void(0); " target="_blank">控制面板</a>
+                    <div style="margin-top: 5px; padding-bottom: 10px;">
+                        <a class="button_gen" onclick="get_proc_status(); " href="javascript:void(0); ">状态检查</a> &nbsp;&nbsp;&nbsp;
+                        <a class="button_gen" onclick="show_router_info(); " href="javascript:void(0); ">路由信息</a> &nbsp;&nbsp;&nbsp;
+                        <a class="button_gen" id="clash_yacd_ui"  href="javascript:void(0); " target="_blank">控制面板</a>
                     </div>
 
                     <div>
-                        <div style="height: 60px;margin-top:10px; ">
-                            <div><img id="loadingIcon" style="display:none; " src="/images/loading.gif"></div>
+                        <div>
+                            <img id="loadingIcon" style="display:none; " src="/images/loading.gif">
                             <!-- 显示动态消息 -->
-                            <label id="copy_info" style="display: none;color:#ffc800;font-size: 24px; "></label>
+                            <label id="status_info" style="display: none;color:#ffc800;font-size: 24px; "></label>
                         </div>
                     </div>
-
                     <div id="logMsg" style="display: none;">
-                        <div>显示日志信息</div>
                         <input type="button" class="button_gen" onclick="copyLogMsg();" value="复制日志">
-                        <textarea rows="20 " wrap="off" readonly="readonly" id="clash_log_msg" class="input_text"></textarea>
+                        <textarea rows="16" wrap="off" readonly="readonly" id="clash_log_msg" class="input_text"></textarea>
                     </div>
 
                     <div id="logArea" style="display: none; ">
-                        <div>显示日志信息</div>
+                        <div>日志信息</div>
                         <input type="button" class="button_gen" onclick="copyTextLog();" value="复制日志">
-                        <textarea rows="20 " wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
-                        <a type="button" class="button_gen" id="btn_log_msg_close" onclick="close_log_msg(); " href="javascript:void(0); ">关闭(5秒后)</a>
-                    </div>
-
-                    <div class="KoolshareBottom" style="margin-top:5px; ">
-                        <a class="tab item-tab " href="https://github.com/Dreamacro/clash" target="_blank ">Clash项目</a>
-                        <a class="tab item-tab " href="https://github.com/vxiaov/vClash" target="_blank ">vClash项目</a>
-                        <a class="tab item-tab " href="https://t.me/share_proxy_001" target="_blank ">TG讨论群</a>
-                        <a class="tab item-tab " href="https://vlike.work/" target="_blank ">小V的博客</a>
-                        <a class="tab item-tab " href="https://www.youtube.com/@xiaov" target="_blank ">小V的油管</a>
+                        <textarea rows="30 " wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
+                        <a class="button_gen" id="btn_log_msg_close" onclick="close_log_msg(); " href="javascript:void(0); ">关闭(10秒后)</a>
                     </div>
             </td>
             <div class="author-info"></div>

@@ -25,6 +25,11 @@
 .switch_field {
     display: table-cell;
     float: left;
+    width: 100%;
+}
+
+#clash_log_msg {
+    margin: 10px;
 }
 
 .blank_line {
@@ -43,7 +48,14 @@
 }
 
 .button_gen {
-    font-size: 18px;
+    font-size: 16px;
+}
+.links {
+    font-size: 12px !important;
+    font-weight: bold;
+    text-decoration: none;
+    border-bottom: 1px dashed #28a745; /* 虚线下划线 */
+    color: #00ff3c !important;
 }
 
 .apply_gen {

@@ -986,7 +986,7 @@ restore_config_file() {
 
 upload_clash_file() {
     # 升级clash文件
-    LOGGER "开始升级Clash内核文件"
+    LOGGER "上传Clash内核文件"
     if [ "$clash_bin_file" = "" ] ; then
         LOGGER "Clash升级文件上传失败"
         return 1
@@ -1000,7 +1000,6 @@ upload_clash_file() {
             if [ -f "${CONFIG_HOME}/core/${clash_bin_file%%.gz}" ] ; then
                 chmod +x ${CONFIG_HOME}/core/${clash_bin_file%%.gz}
                 LOGGER "上传Clash内核文件成功: ${clash_bin_file%%.gz}"
-                LOGGER "使用方法: 1.手动切换Clash内核. 2.切换正确的config配置."
             else
                 LOGGER "没有找到Clash内核文件,上传失败!"
             fi
@@ -1016,7 +1015,7 @@ upload_clash_file() {
 # 上传并应用新的config.yaml配置文件
 applay_new_config() {
     
-    LOGGER "开始应用新配置"
+    LOGGER "开始上传新配置"
     if [ "$clash_config_file" = "" ] ; then
         LOGGER "没有设置[clash_config_file]参数"
         return 1
@@ -1026,17 +1025,15 @@ applay_new_config() {
         return 2
     fi
     # 生成新配置文件
-    rnd=$(openssl rand -hex 3)
-    new_file=${CONFIG_HOME}/config_${rnd}.yaml
+    new_file=${CONFIG_HOME}/config/config_$(openssl rand -hex 4).yaml
     cp -f "/tmp/upload/${clash_config_file}" ${new_file}
     if [ -f "${new_file}" ] ; then
-        LOGGER "拷贝新配置成功"
+        LOGGER "新配置文件: [ ${new_file} ] 上传成功"
     else
-        LOGGER "拷贝新配置失败"
+        LOGGER "新配置文件: [ ${new_file} ] 上传失败"
     fi
     rm -f "/tmp/upload/${clash_config_file}"
     dbus remove clash_config_file
-    LOGGER "如果希望使用新配置，请手工切换新配置。"
 }
 
 
@@ -1139,6 +1136,11 @@ list_clash_core() {
 switch_clash_core() {
     LOGGER "切换Clash内核: ${clash_core_current}"
     ln -sf ${CONFIG_HOME}/${clash_core_current} ${BINFILE}
+}
+
+remove_file() {
+    LOGGER "删除文件:  $CONFIG_HOME/$clash_remove_file"
+    rm $CONFIG_HOME/$clash_remove_file
 }
 
 clash_config_init() {
@@ -1259,6 +1261,12 @@ do_action() {
             ignore_core_new_version)
                 ignore_core_new_version
                 ret_data="{$(dbus list clash_version  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            remove_file)
+                remove_file
+                ret_data="{$(dbus list clash_core  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;
