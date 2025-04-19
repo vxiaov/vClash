@@ -46,7 +46,15 @@
             { name: '阿里 IPv6 DNS (Alidns)', ips: '2400:3200::1' },
             { name: '谷歌 IPv6 DNS (Google)', ips: '2001:4860:4860::8888' },
             { name: 'Cloudflare IPv6 DNS', ips: '2606:4700:4700::1111' },
-        ]
+        ];
+        const mmdbList = [
+            { name: "Dreamacro维护的MaxMin数据", href: "https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb"},
+            { name: "(国内加速)Dreamacro维护的MaxMin数据",  href: "https://cdn.jsdelivr.net/gh/Dreamacro/maxmind-geoip@raw/release/Country.mmdb"},
+            { name: "alecthw维护的多合一版本IP数据", href: "https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb"},
+            { name: "(国内加速)alecthw维护的多合一版本IP数据", href: "https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"},
+            { name: "Hackl0us维护的精简版IP数据(非必要不使用)", href: "https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb"},
+            { name: "(国内加速)Hackl0us维护的精简版IP数据(非必要不使用)", href: "https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@raw/release/Country.mmdb" },
+        ];
 
         var $j = jQuery.noConflict();
 
@@ -62,26 +70,6 @@
             tablink[tablink.length - 1] = new Array("", "Module_Softcenter.asp", "Module_Softsetting.asp", "Module_clash.asp");
         }
 
-
-        // 切换透明代理模式
-        function switch_clash_tmode() {
-            apply_action("switch_clash_tmode", "0", function () {
-                show_result("切换为" + dbus["clash_tmode"] + "配置文件", 1000);
-            }, {
-                "clash_tmode": dbus["clash_tmode"]
-            });
-        }
-
-        function bind_switch_tmode() {
-            if ($j(this).val() == dbus["clash_tmode"]) {
-                // 没有变化
-                return;
-            } else {
-                // 切换配置文件
-                dbus["clash_tmode"] = $j(this).val();
-                switch_clash_tmode();
-            }
-        }
         // 切换Clash内核
         function switch_clash_core() {
             apply_action("switch_clash_core", "0", function () {
@@ -91,14 +79,8 @@
             });
         }
         function bind_clash_core_change() {
-            if ($j(this).val() == dbus["clash_core_current"]) {
-                // 没有变化
-                return;
-            } else {
-                // 切换Clash 内核设置
-                dbus["clash_core_current"] = $j(this).val();
-                switch_clash_core();
-            }
+            dbus["clash_core_current"] = $j(this).val();
+            switch_clash_core();
         }
 
         function bind_edit_filepath_change() {
@@ -167,8 +149,10 @@
 
             $j("#clash_switch_core").bind("change", bind_clash_core_change);
             $j("#clash_switch_config").bind("change", bind_config_filepath_change);
-            $j("#clash_switch_tmode").bind("change", bind_switch_tmode);
             $j("#clash_edit_filelist").bind("change", bind_edit_filepath_change);
+            $j("#restore_file").bind("change", restore_config_file);
+            $j("#file").bind("change", upload_config_file);
+            $j("#clash_file").bind("change", upload_clash_file);
 
             // class="tab"的button被点击时，触发保存当前button的id
             $j(".tab").bind("click", function() {
@@ -204,16 +188,16 @@
         function conf2obj() {
 
             var params = [
-                'clash_geoip_url', 'clash_yacd_ui','clash_lan_ipv6_ports', 'clash_arch_type',
+                'clash_yacd_ui','clash_lan_ipv6_ports', 'clash_arch_type',
             ];
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_ipv6_mode', 'clash_log_type'
             ];
 
+            // 更新 geoip mmdb 列表
+            update_mmdb_list();
             // 更新 DNS 列表 
             update_dns_list();
-            // 更新 tmode_list
-            update_clash_tmode_list();
             // 更新 clash_core_list
             update_clash_core_list();
             // 更新配置文件列表选项
@@ -303,6 +287,23 @@
             }
         }
 
+        function update_mmdb_list() {
+            // 更新 mmdb 列表
+            var opt = document.getElementById("clash_geoip_url");
+            opt.options.length = 0;
+            var matched = false;
+            for (var i = 0; i < mmdbList.length; i++) {
+                opt.options.add(new Option(mmdbList[i].name, mmdbList[i].href));
+                if(dbus["clash_geoip_url"] == mmdbList[i].href){
+                    opt.value = mmdbList[i].href;
+                    matched = true;
+                }
+            }
+            if (! matched) {
+                opt.options.add(new Option(dbus["clash_geoip_url"], dbus["clash_geoip_url"]));
+                opt.value = dbus["clash_geoip_url"];
+            }
+        }
         function update_dns_list() {
             // 更新 dns 列表
             var opt = document.getElementById("clash_ipv4_dns1");
@@ -337,27 +338,6 @@
                     opt.value = dnsv6List[i].ips;
                 }
             }
-        }
-
-        function update_clash_tmode_list() {
-            if (dbus["clash_tmode_list"]) {
-                var opt = document.getElementById("clash_switch_tmode");
-                opt.options.length = 0;
-                filelist = dbus["clash_tmode_list"].trim().split(" ");
-                current_file = dbus["clash_tmode"];
-                if (filelist.length > 0) {
-                    for (var i = 0; i < filelist.length; i++) {
-                        opt.options.add(new Option(filelist[i], filelist[i]));
-                    }
-                    if (current_file) {
-                        opt.value = current_file;
-                    } else {
-                        opt.value = filelist[0];
-                        dbus["clash_tmode"] = filelist[0];
-                    }
-                }
-            }
-
         }
 
         function update_edit_filelist() {
@@ -610,8 +590,8 @@
                         var obj = res[0];
                         var ver_res = compareVersions(obj.name, dbus["clash_vclash_version"]);
                         console.log(ver_res,dbus["clash_vclash_version"],obj);
-                        if (ver_res > 0 ) { // obj.name != dbus["clash_vclash_version"]
-                            $j("#clash_vclash_version_status").html("<i>当前版本：" + dbus["clash_vclash_version"] + "，</i>有新版本：" + obj.name);
+                        if (ver_res > 0 ) {
+                            $j("#clash_vclash_version_status").html("当前版本：<i>" + dbus["clash_vclash_version"] + "</i>，发现新版本：<b>" + obj.name + "</b>");
                             dbus["clash_vclash_new_version"] = obj.name;
                             $j("#clash_vclash_install_show").show();
                         } else {
@@ -622,6 +602,38 @@
                 },
                 error: function(res) {
                     $j("#clash_vclash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_vclash_version"] + "，已是最新版本。</i>");
+                }
+            }).fail(() => {
+                console.log('failed');
+            });
+        }
+        function clash_core_version_check() {
+            // 更新 Clash Meta 检测
+            $j("#clash_version_status").html("<i>当前版本：" + dbus['clash_version']  + "</i>");
+            $j.ajax({
+                url: 'https://api.github.com/repos/MetaCubeX/mihomo/tags',
+                type: 'GET',
+                async: true,
+                cache: false,
+                retries: 0,
+                dataType: 'json',
+                success: function(res) {
+                    if (typeof(res) != "undefined" && res.length > 0) {
+                        var obj = res[0];
+                        var ver_res = compareVersions(obj.name, dbus["clash_version"]);
+                        console.log(ver_res,dbus["clash_version"],obj);
+                        if (ver_res > 0 ) {
+                            $j("#clash_version_status").html("当前版本：<i>" + dbus["clash_version"] + "</i>，发现新版本：<b>" + obj.name + "</b>");
+                            dbus["clash_new_version"] = obj.name;
+                            $j("#clash_install_show").show();
+                        } else {
+                            $j("#clash_version_status").html("<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。</i>");
+                            $j("#clash_install_show").hide();
+                        }
+                    }
+                },
+                error: function(res) {
+                    $j("#clash_version_status").html("访问最新版本信息失败!<i>当前版本：" + dbus["clash_version"] + "，已是最新版本。</i>");
                 }
             }).fail(() => {
                 console.log('failed');
@@ -658,13 +670,15 @@
                 conf2obj();
             }, {
                 "clash_enable": dbus["clash_enable"],
-                "clash_switch_config": dbus["clash_switch_config"]
+                "clash_switch_config": dbus["clash_switch_config"],
+                "clash_core_current" : E("clash_switch_core").value,
             });
         }
 
         function switch_service() {
             if (document.getElementById('clash_enable').checked) {
                 dbus["clash_enable"] = "on";
+                dbus["clash_core_current"] = E("clash_switch_core").value;
                 service_start();
             } else {
                 dbus["clash_enable"] = "off";
@@ -695,6 +709,18 @@
             });
         }
 
+        // 根据 ipv6_mode 开关决定显示 ipv6_dns[12]
+        function switch_ipv6_dns() {
+            if (document.getElementById('clash_ipv6_mode').checked) {
+                // 开启 ipv6支持
+                document.getElementById("clash_ipv6_dns1").style.display = "";
+                document.getElementById("clash_ipv6_dns2").style.display = "";
+            } else {
+                document.getElementById("clash_ipv6_dns1").style.display = "none";
+                document.getElementById("clash_ipv6_dns2").style.display = "none";
+            }
+        }
+
         // 切换支持ipv6模式
         function switch_ipv6_mode() {
             if (document.getElementById('clash_ipv6_mode').checked) {
@@ -702,6 +728,7 @@
             } else {
                 dbus["clash_ipv6_mode"] = "off";
             }
+            switch_ipv6_dns();
             apply_action("switch_ipv6_mode", "0", set_log_type, {
                 "clash_ipv6_mode": dbus["clash_ipv6_mode"]
             });
@@ -758,6 +785,23 @@
                 vclash_version_check();
             }, {
                 "clash_vclash_new_version": dbus["clash_vclash_new_version"]
+            });
+        }
+        function ignore_core_new_version() {
+            // 忽略新版本提示
+            apply_action("ignore_core_new_version", "3", function(data) {
+                dbus["clash_version"] = data["clash_version"];
+                clash_core_version_check();
+            }, {
+                "clash_new_version": dbus["clash_new_version"]
+            });
+        }
+        function update_core_bin() {
+            // 更新 clash core 内核到最新版本
+            apply_action("update_clash_bin", "3", function(data){
+                dbus["clash_version"]  = data["clash_version"];
+            }, {
+                "clash_new_version": dbus["clash_new_version"],
             });
         }
 
@@ -960,6 +1004,7 @@
                 dbus = data;
                 conf2obj();
                 vclash_version_check();
+                clash_core_version_check();
             }, {});
         }
 
@@ -1099,12 +1144,11 @@
                     <div class="clash_basic_info">
                         <!--插件特点-->
                         <p style="color:#FC0;">
-                            <b><a style="color: rgb(0, 255, 60);font-size: 16px;" href="https://github.com/vxiaov/vClash">vClash目标</a></b>:实现一个简单、安装即用的科学上网插件,支持ss/ssr/v2ray/trojan等方式科学上网。<br/>
-                            <b style="color: rgb(255, 26, 26);">问题反馈:</b>访问<a style="color: rgb(255, 26, 26);text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);" href="https://github.com/vxiaov/vClash/issues" target="_blank">vClash项目>新建Issue</a>反馈你的问题，请尽量详细描述问题现象，将你的<b>路由信息</b>内容也包含在内。<br />
-                            <b>透明代理模式说明: </b> <br />
-                            <b>&nbsp;&nbsp; 1.NAT模式:</b>默认模式,万能通用规则,但不支持IPv6透传,国内IPv6直连正常<br/>
-                            <b>&nbsp;&nbsp; 2.TPROXY模式:</b>支持IPv6透传,UDP协议透传存在问题,比如访问raw.githusercontent.com返回0.0.0.0<br />
-                            <b>&nbsp;&nbsp; 3.TPROXY+NAT模式(推荐):</b>解决了TPROXY模式的DNS解析问题,同时支持IPv6透传<br />
+                            <b>* <a target="_blank" href="https://github.com/vxiaov/vClash" style="font-weight: bold;color: blue;">vClash</a></b>:简单配置、安装即用的科学上网插件。<br/>
+                            <b style="color: rgb(255, 26, 26);">* 问题反馈:</b>新建<a class="button_gen" href="https://github.com/vxiaov/vClash/issues" target="_blank">Issue</a>，将<b>"路由信息"按钮</b>显示内容提交出来辅助调试。<br />
+                            <b>* 透明代理模式说明:</b> <b style="color: red;"> TPROXY模式</b> ,让你告别选择困难。<br />
+                            <b>* 运营商DNS污染问题解决：</b>支持修改默认DNS功能,可以随时更换默认DNS啦。<br/>
+                            <b>* 破U盘再利用</b><b style="color: red;">(必须要做):</b>具体方法请阅读<a class="button_gen"  href="https://github.com/vxiaov/vClash/wiki/U%E7%9B%98%E6%8C%82%E8%BD%BD%E8%B7%AF%E7%94%B1%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95%E6%80%BB%E7%BB%93">wiki文档</a>了解。<br />
                         </p>
                         <hr>
                     </div>
@@ -1112,7 +1156,7 @@
                     <div class="tabs">
                         <button id="btn_default_tab" class="tab" onclick="switch_tabs(event, 'menu_default');list_clash_core();">主面板</button>
                         <button id="btn_config_tab" class="tab" onclick="switch_tabs(event, 'menu_config');switch_edit_filecontent();">在线编辑</button>
-                        <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options');">可选配置</button>
+                        <button id="btn_option_tab" class="tab" onclick="switch_tabs(event, 'menu_options'); switch_ipv6_dns();">可选配置</button>
                         <button id="btn_log_tab" class="tab" onclick="switch_tabs(event, 'menu_log');">日志信息</button>
                         <button id="btn_help_tab" class="tab" onclick="switch_tabs(event, 'menu_help');">自助学习</button>
                     </div>
@@ -1128,7 +1172,7 @@
                             <th>
                                 <label>开启vClash</label>
                             </th>
-                            <td colspan="2">
+                            <td>
                                 <div class="switch_field">
                                     <label for="clash_enable">
                                         <input id="clash_enable" onclick="switch_service();" class="switch" type="checkbox" style="display: none;">
@@ -1137,24 +1181,6 @@
                                             <div class="switch_circle transition_style"></div>
                                         </div>
                                     </label>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>透明代理模式: </th>
-                            <td>
-                                <div class="switch_field">
-                                    <select id="clash_switch_tmode" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>
-                                <label>Clash内核:</label>
-                            </th>
-                            <td colspan="2"> <!-- Clash内核切换 -->
-                                <div class="switch_field">
-                                    <select id="clash_switch_core" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                         </tr>
@@ -1168,9 +1194,32 @@
                         </tr>
                         <tr>
                             <th>
+                                <label>Clash内核:</label>
+                            </th>
+                            <td> <!-- Clash内核切换 -->
+                                <div class="switch_field">
+                                    <select id="clash_switch_core" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
+                                <label>Clash内核版本:</label>
+                            </th>
+                            <td>
+                                <div id="clash_version_status"><i>正在获取...</i></div>
+                                <div id="clash_install_show" style="display: none;">
+                                    <a type="button" class="button_gen" onclick="ignore_core_new_version()" href="javascript:void(0);">忽略新版本</a>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                                    <a type="button" class="button_gen" onclick="update_core_bin()" href="javascript:void(0);">更新最新版</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>
                                 <label>vClash版本:</label>
                             </th>
-                            <td colspan="2">
+                            <td>
                                 <div id="clash_vclash_version_status"><i>正在获取...</i></div>
                                 <div id="clash_vclash_install_show" style="display: none;">
                                     <a type="button" class="button_gen" onclick="ignore_vclash_new_version()" href="javascript:void(0);">忽略新版本</a> &nbsp;&nbsp;&nbsp;&nbsp;
@@ -1220,12 +1269,11 @@
                         </tr>
                         <tr>
                             <th>
-                                <label title="用于外网访问内网IPv6地址主机放行规则">内网IPv6开放端口</label>
+                                <label title="用于外网访问内网IPv6地址主机放行规则">开放IPv6访问端口</label>
                             </th>
                             <td>
                                 <input type="text" class="input_text" id="clash_lan_ipv6_ports" placeholder="22,80,443">
                             </td>
-
                             <td class="hasButton">
                                 <button type="button" class="button_gen" onclick="update_lan_ipv6_ports();" href="javascript:void(0);">更新</button>
                             </td>
@@ -1236,66 +1284,59 @@
                                 <div class="switch_field">
                                     <select id="clash_ipv4_dns1" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                     <select id="clash_ipv4_dns2" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
-                                    <select id="clash_ipv6_dns1" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
-                                    <select id="clash_ipv6_dns2" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_ipv6_dns1" class="input_option" style="display:none;width:300px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_ipv6_dns2" class="input_option" style="display:none;width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                             <td class="hasButton"><button type="button" class="button_gen" onclick="update_default_dns();" href="javascript:void(0);">更新DNS</button></td>
                         </tr>
                         <tr>
                             <th>
-                                <label title="更新频率不同过高,一周更新一次即可." class="hintstyle">Country.mmdb文件</label>
+                                <label title="更新频率不高." class="hintstyle">Country.mmdb文件</label>
                             </th>
                             <td>
-                                <span style="text-align:left;">
-                                    1. 全量GeoIP版本(6MB左右)<a class="copyToClipboard"  href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
-                                    2. 精简版(200KB左右，默认使用)<a class="copyToClipboard" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
-                                    3. <b>(推荐)</b>全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
-                                </span>
-                                <input type="text" class="input_text" id="clash_geoip_url" placeholder="设置GeoIP数据下载地址">
+                                <div class="switch_field">
+                                    <select id="clash_geoip_url" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
+                                </div>
                             </td>
                             <td class="hasButton">
-                                <button type="button" class="button_gen" onclick="update_geoip()" href="javascript:void(0);">更新</button>
+                                <button type="button" class="button_gen" onclick="update_geoip();" href="javascript:void(0);">更新</button>
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>备份配置</label>
+                                <label title="包括:环境变量、自定义providers、自定义rules等。不包括: clash内核文件和网络自动下载的文件">备份配置</label>
                             </th>
                             <td colspan="2">
                                 <input type="button" class="button_gen" onclick="backup_config_file();" value="开始备份">
-                                <p><b>包括</b>:环境变量、自定义providers、自定义rules等。<b>不包括</b>: clash内核文件和网络自动下载的文件.</p>
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>恢复配置</label>
+                                <label title=">提示：上传.gz后缀格式备份文件。">恢复配置</label>
                             </th>
                             <td colspan="2">
-                                <input style="color:#FFCC00;*color:#000;width: 200px;" id="restore_file" type="file" name="file">
-                                <input type="button" class="button_gen" onclick="restore_config_file();" value="恢复配置">
-                                <p><b>提示：</b>上传之前备份的配置压缩文件，通过恢复备份配置可以快速恢复个性化配置。</p>
+                                <input style="display:none;" id="restore_file" type="file" name="file">
+                                <input type="button" class="button_gen" onclick="document.getElementById('restore_file').click();" value="恢复配置">
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                <label>上传<b>启动配置</b></label>
+                                <label title="上传新Clash配置文件，不会立即生效，请手工切换新配置。">启动配置(.yaml格式)</label>
                             </th>
                             <td colspan="2">
-                                <input style="color:#FFCC00;*color:#000;width: 200px;" id="file" type="file" name="file">
-                                <input type="button" class="button_gen" onclick="upload_config_file();" value="上传启动配置">
-                                <p><b>提醒</b>: 上传新Clash配置文件<b>不会立即生效</b>，请手工切换新配置。</p>
+                                <input style="display:none;" id="file" type="file" name="file">
+                                <input type="button" class="button_gen" onclick="document.getElementById('file').click();" value="上传">
                             </td>
                         </tr>
                         <tr>
                             <th>
-                                 <label>上传<b>Clash内核</b></label>
+                                 <label title="请选择正确架构类型Clash内核文件(.gz格式)上传.">Clash内核(.gz格式)</label>
                             </th>
                             <td colspan="2">
-                                <input style="color:#FFCC00;*color:#000;width: 200px;" id="clash_file" type="file" name="file">
-                                <input type="button" class="button_gen" onclick="upload_clash_file();" value="上传Clash内核">
-                                <br />
-                                <p><b>提醒</b>: 请选择<b id="clash_arch_type"></b>架构类型Clash内核上传，错误类型内核是无法使用的!</p>
+                                <input style="display:none;" id="clash_file" type="file" name="clash_file">
+                                <input type="button" class="button_gen" onclick="document.getElementById('clash_file').click();" value="上传">
+                                &nbsp;&nbsp;&nbsp;&nbsp;<b>提醒</b>: 选择<b id="clash_arch_type"></b>的 .gz 格式文件上传</p>
                             </td>
                         </tr>
                     </table>
@@ -1331,6 +1372,7 @@
                             <td colspan="2">
                                 <p style="color: rgb(182, 222, 2);"><br/></p>
                                 <p style="color: rgb(248, 5, 62);">&nbsp;&nbsp;&nbsp;&nbsp;编辑快捷键: Ctrl+E: <b>开始编辑</b> Ctrl+S: <b>保存</b> Ctrl+R: <b>重新加载</b><br/>&nbsp;&nbsp;&nbsp;&nbsp; Ctrl+C:<b>复制</b> Ctrl+V:<b>粘帖</b>  Ctrl+Z: <b>撤销(undo)</b> Ctrl+Shift+Z: <b>重做(redo)</b></p>
+                                <p style="color: rgb(248, 5, 62);">&nbsp;&nbsp;&nbsp;&nbsp; <b>保存失败？</b>文件太大就会如此，可以先本地编辑，然后通过  可选配置页 -> 上传启动配置 上传覆盖配置。</p>
                             </td>
                         </tr>
                     </table>
@@ -1343,11 +1385,16 @@
                         </thead>
                         <tr>
                             <td>
-                                <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">使用说明：</p>
-                                <p>&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(248, 5, 62);">1. 插件的兼容性</b>: 透明代理模式时会与<b style="color: rgb(248, 5, 62);">其他代理插件冲突</b> ，使用前要关闭其他透明代理插件。</p>
-                                <p>&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 学习vClash插件用法</b>: 请阅读 <a target="_blank" href="https://github.com/vxiaov/vClash/wiki">vClash项目文档</a></p>
-                                <p>&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. Clash配置规则</b>: <a target="_blank" href="https://clash.wiki/configuration/configuration-reference.html">Clash.wiki配置文档</a> <a target="_blank" href="https://wiki.metacubex.one/config/">Clash.Meta配置文档</a></p>
-                                <p>&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 可选Clash内核下载源</b>: <a target="_blank" href="https://downloads.clash.wiki/ClashPremium/">【ClashPremium备份】</a> 、 <a target="_blank" href="https://github.com/MetaCubeX/mihomo">【Clash.Meta】</a></p>
+                                <div style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">使用说明：</div>
+                                <div style="padding-top: 5px;" >&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(248, 5, 62);">1. 插件的兼容性</b>: 透明代理模式可能会与<b style="color: rgb(248, 5, 62);">其他代理插件冲突</b> ，使用前要关闭其他透明代理插件。</div>
+                                <div style="padding-top: 5px;">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">2. 学习vClash插件用法</b>: <a class="button_gen" target="_blank" href="https://github.com/vxiaov/vClash/wiki">vClash介绍</a></div>
+                                <div style="padding-top: 5px;">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">3. Clash配置规则</b>: <a class="button_gen" target="_blank" href="https://wiki.metacubex.one/config/">Meta文档</a></div>
+                                <div style="padding-top: 5px;">&nbsp;&nbsp;&nbsp;&nbsp;<b style="color: rgb(32, 252, 32);">4. 可选Clash内核下载源</b>: <a class="button_gen" target="_blank" href="https://github.com/MetaCubeX/mihomo/releases">Clash Meta</a></div>
+                                <span style="text-align:left;">
+                                    1. 全量GeoIP版本(6MB左右)<a class="copyToClipboard"  href="https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color:chartreuse" href="https://github.com/Dreamacro/maxmind-geoip" target="_blank" rel="noopener noreferrer">Github地址</a> <br>
+                                    2. 精简版(200KB左右，默认使用)<a class="copyToClipboard" href="https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp;  <a style="color: chartreuse;" href="https://github.com/Hackl0us/GeoIP2-CN" target="_blank" rel="noopener noreferrer">Github地址</a><br>
+                                    3. <b>(推荐)</b>全量多源合并版(6MB左右)<a class="copyToClipboard" href="https://raw.githubusercontent.com/alecthw/mmdb_china_ip_list/release/Country.mmdb" onclick="copyURI(event)">点击复制</a> &nbsp;&nbsp; <a style="color: chartreuse;" href="https://github.com/alecthw/mmdb_china_ip_list" target="_blank" rel="noopener noreferrer">Github地址</a> 
+                                </span>
                             </td>
                         </tr>
                     </table>

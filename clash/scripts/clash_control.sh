@@ -7,6 +7,7 @@
 
 KSHOME="/koolshare"
 app_name="clash"
+default_secret="route"
 
 source ${KSHOME}/scripts/base.sh
 
@@ -61,63 +62,40 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
 
-tmode_list=""  # 支持的透明代理模式列表
-# 检测是否支持TUN设备 #
-support_tun() {
-    [[ -r /dev/net/tun ]] || [[ -r /dev/tun ]]
-}
-
 check_config_file() {
     # 检查 config.yaml 文件配置信息
     # 修改UI控制参数
     # 修改代理端口 redir-port 和 tproxy-port
-    # 修改 是否可以使用 tun模式
     [[ "$clash_config_filepath" == "" ]] && clash_config_filepath="config/config_default.yaml" && dbus set clash_config_filepath="$clash_config_filepath"
 
-    # clash_tmode支持检测
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
-    # support_tun && tmode_list="$tmode_list TUN"
-    modprobe xt_TPROXY >/dev/null 2>&1 && tmode_list="TPROXY"
-
-    # tun_exp=".tun.enable=false|" # 默认不支持TUN，不填写任何修改表达式 #
-    # [[ "$clash_tmode" = "TUN" ]] && tun_exp=".tun.enable=true|"
-
-    if [[ "$clash_tmode" == "" ]] ; then
-        if echo $tmode_list | grep TPROXY >/dev/null 2>&1 ; then
-            # 优先选择 TPROXY模式
-            dbus set clash_tmode="TPROXY"
-        else
-            dbus set clash_tmode=""
-        fi
-    fi
-
-    tmode_exp=""
-    [[ "${clash_tmode:0:6}" == "TPROXY" ]] && tmode_exp=".routing-mark=env(tproxy_mark)|.tproxy-port=env(tport)|"
+    modprobe xt_TPROXY >/dev/null 2>&1 || (LOGGER "不支持TPROXY模式"  && return 1 )
+    dbus set clash_tmode="TPROXY"
+    # 强制采用 TPROXY 模式
+    tmode_exp=".routing-mark=env(tproxy_mark)|.tproxy-port=env(tport)|"
     [[ "$clash_ipv6_mode" == "" ]] && dbus set clash_ipv6_mode="off"      # 默认关闭IPv6模式
     ipv6_expr=".ipv6=false|.dns.ipv6=false|.bind-address=\"*\"|"
     [[ "$clash_ipv6_mode" == "on" ]] && ipv6_expr=".ipv6=true|.dns.ipv6=true|.bind-address=\"*\"|"
 
-    yq_expr=${tmode_exp}${ipv6_expr}'.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.allow-lan=true'
+    yq_expr=${tmode_exp}${ipv6_expr}'.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.secret=strenv(default_secret)|.allow-lan=true'
     
     # 生成当前工作的配置文件
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tproxy_mark=$tproxy_mark tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tproxy_mark=$tproxy_mark tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" default_secret="$default_secret" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
     [[ "$?" != "0" ]] && LOGGER "生成Clash启动配置文件失败!请检查Yaml格式！" && return 1
-
 
     [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     [[ "$clash_trans" == "" ]] && dbus set clash_trans="on"           # 默认开启透明代理模式
 
-    dbus set clash_tmode_list=$tmode_list
-
     # 设置默认的Clash内核 #
-    [[ "$clash_core_current" == "" ]] && dbus set clash_core_current="clash_for_arm64"
+    [[ "$clash_core_current" == "" ]] && dbus set clash_core_current="clash.meta_for_`get_arch`"
     [[ "$clash_core_list" == "" ]] && list_clash_core
 
     [[ "$clash_arch_type" == "" ]] && dbus set clash_arch_type=`get_arch`
     
     # 编辑文件没指定或文件不存在则获取默认值 #
     [[ "$clash_edit_filepath" == "" || ! -f "${CONFIG_HOME}/$clash_edit_filepath" ]] && dbus set clash_edit_filepath="$clash_config_filepath"
-    clash_yacd_secret=$(${YQ} e '.secret' $config_file)
+    # clash_yacd_secret=$(${YQ} e '.secret' $config_file)
+    clash_yacd_secret=${default_secret}
     clash_yacd_ui="http://${lan_ipaddr}:${yacd_port}/ui/yacd/?hostname=${lan_ipaddr}&port=${yacd_port}&secret=$clash_yacd_secret"
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
@@ -161,15 +139,13 @@ get_arch() {
     # 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
     case $(uname -m) in
         armv7l)
-            if grep -i vfpv3 /proc/cpuinfo >/dev/null 2>&1; then
-                ARCH="armv7"
-            else
-                ARCH="armv5"
-            fi
+            ARCH="armv5"
             ;;
         aarch64)
-            # ARCH="armv8"
             ARCH="arm64"        # 更新aarch64架构名称，由 armv8 改为 arm64 架构,2022/12/12
+            ;;
+        amd64|x86_64)
+            ARCH="amd64"      # 为软路由做准备
             ;;
         *)
             LOGGER "糟糕!平台类型不支持呀!赶紧通知开发者适配!或者自己动手丰衣足食!"
@@ -239,42 +215,34 @@ add_dnsmasq_rules() {
     # 修改 /tmp/resolve.conf 配置
     conf_file="/tmp/resolv.conf"
     dnsmasq_file="/tmp/resolv.dnsmasq"
-    ipv4_dns1="223.5.5.5"
-    ipv4_dns2="114.114.114.114"
-    ipv6_dns1="2402:4e00::"
-    ipv6_dns2="2400:3200::1"
+    ipv4_dns1=${clash_ipv4_dns1:-"223.5.5.5"}
+    ipv4_dns2=${clash_ipv4_dns2:-"114.114.114.114"}
+    ipv6_dns1=${clash_ipv6_dns1:-"2402:4e00::"}
+    ipv6_dns2=${clash_ipv6_dns2:-"2400:3200::1"}
     # bak files
     mv ${conf_file} ${conf_file}.bak
     mv ${dnsmasq_file} ${dnsmasq_file}.bak
-    for dns in ${ipv4_dns1} ${ipv4_dns2} ${ipv6_dns1} ${ipv6_dns2} ; do
+    dns_list=""
+    if [ "$clash_ipv6_mode" == "on" ] ; then
+        dns_list="${ipv4_dns1} ${ipv4_dns2} ${ipv6_dns1} ${ipv6_dns2}"
+    else
+        dns_list="${ipv4_dns1} ${ipv4_dns2}"
+    fi
+    for dns in $dns_list ; do
         [[ "$dns" == "" ]] && continue
         echo "nameserver ${dns}" >>${conf_file}
         echo "server=${dns}" >>${dnsmasq_file}
     done
-    # nvram set wan0_dns1_x=${ipv4_dns1}
-    # nvram set wan0_dns2_x=${ipv4_dns2}
-    # nvram set wan_dns1_x=${ipv4_dns1}
-    # nvram set wan_dns2_x=${ipv4_dns2}
-    # nvram set wan_dns="${ipv4_dns1} ${ipv4_dns2}"
-    # nvram set wan0_dns="${ipv4_dns1} ${ipv4_dns2}"
-    # nvram set wan_dnsenable_x=0
-    # nvram set wan0_dnsenable_x=0
-
-    # nvram set ipv6_dns1=${ipv6_dns1}
-    # nvram set ipv6_dns2=${ipv6_dns2}
-    # nvram set ipv6_dnsenable=0
-    # nvram commit
 }
 del_dnsmasq_rules() {
     # 删除 DNSMASQ 配置
     LOGGER "删除 DNSMASQ 配置"
     dns_dir="/jffs/configs/dnsmasq.d"
-    rm -f ${dns_dir}/*.conf
-    # for fp in `ls $CONFIG_HOME/dnsmasq_rules/*.conf` ; do
-    #     fn=`basename $fp`
-    #     rm -f ${dns_dir}/${fn}
-    #     LOGGER "删除规则: $fn "
-    # done
+    for fp in `ls $CONFIG_HOME/dnsmasq_rules/*.conf` ; do
+        fn=`basename $fp`
+        rm -f ${dns_dir}/${fn}
+        # LOGGER "删除规则: $fn "
+    done
 }
 restart_dnsmasq() {
     # 重启 DNSMASQ 服务
@@ -291,7 +259,7 @@ create_ipset() {
     # 创建 ipset 表
     tname="localnet4"
 
-    LOGGER "开始创建 ipset: $tname"
+    # LOGGER "开始创建 ipset: $tname"
     ipset -! destroy $tname > /dev/null 2>&1
     ipset create $tname hash:net family inet hashsize 1024 maxelem 65536
     ipset add $tname  127.0.0.1/8
@@ -304,7 +272,7 @@ create_ipset() {
     ipset add $tname  255.255.255.255/32
 
     tname="localnet6"
-    LOGGER "开始创建 ipset: $tname"
+    #LOGGER "开始创建 ipset: $tname"
     ipset -! destroy $tname > /dev/null 2>&1
     ipset create $tname hash:net family inet6 hashsize 1024 maxelem 65536
     ipset add $tname  ::1/128
@@ -421,6 +389,8 @@ add_iptables_tproxy() {
         ip6tables -t mangle -N ${app_name}_XRAY6
         ip6tables -t mangle -F ${app_name}_XRAY6
         ip6tables -t mangle -A ${app_name}_XRAY6 -m set --match-set localnet6 dst -j RETURN
+        # 放行IPV6端口访问规则: 某些IPv6地址的端口外部访问不走Clash代理 #
+        ip6tables -t mangle -A ${app_name}_XRAY6 -s ${ipv6_prefix}/64 -p tcp -m multiport --sports ${clash_lan_ipv6_ports} -m conntrack --ctstate NEW,RELATED,ESTABLISHED -j RETURN
         ip6tables -t mangle -A ${app_name}_XRAY6 -j RETURN -m mark --mark ${tproxy_mark}
         ip6tables -t mangle -A ${app_name}_XRAY6 -p tcp -j TPROXY --on-ip ::1 --on-port ${tproxy_port} --tproxy-mark  ${route_mark}
         ip6tables -t mangle -A PREROUTING -p tcp -j ${app_name}_XRAY6
@@ -600,13 +570,16 @@ add_iptables_all() {
 
     if [ "$clash_tmode" = "TPROXY" ]; then
         # TPROXY模式透明代理 #
-        modprobe xt_TPROXY && modprobe xt_socket && LOGGER "加载 xt_TPROXY 和 xt_socket 模块成功!"
+        modprobe xt_TPROXY && modprobe xt_socket
         if [ "$?" = "0" ] ; then 
             # 支持 TPROXY 内核模块 #
             LOGGER "透明代理模式: $clash_tmode 模式"
             add_iptables_tproxy
             LOGGER "完成配置 ${app_name} iptables $clash_tmode 模式规则!"
             return
+        else
+            LOGGER "加载 TPROXY 模块失败，无法继续执行."
+            exit 1
         fi
     elif [ "$clash_tmode" = "TPROXY+NAT" ]; then
         # TPROXY模式透明代理 #
@@ -660,6 +633,8 @@ service_start() {
         return 0
     fi
 
+    update_default_dns
+
     # IPv6内网放行端口列表 #
     [[ "$clash_lan_ipv6_ports" == "" ]] && clash_lan_ipv6_ports="22,80,443" && dbus set clash_lan_ipv6_ports="22,80,443"
 
@@ -672,7 +647,7 @@ service_start() {
     fi
 
     check_config_file  # 检查文件比较慢
-    [[ "$?" != "0" ]] && LOGGER "配置文件格式错误！修正好配置文件后再尝试启动!" && return 1
+    [[ "$?" != "0" ]] && LOGGER "检查配置文件出现错误!" && return 1
 
     LOGGER "启动配置文件 ${config_file} : 检测完毕!"
 
@@ -698,16 +673,14 @@ service_start() {
 }
 
 service_stop() {
-    # 1. 停止服务进程
-    # 2. 清理iptables策略
-    #echo "停止 $app_name"
     if status >/dev/null 2>&1; then
         LOGGER "开始停止 ${app_name} ..."
         killall ${app_name}
     fi
     del_iptables_all  2>/dev/null
-    #stop_dns
     del_cron
+    LOGGER "等待进程停止...."
+    sleep 1
     if status >/dev/null 2>&1; then
         LOGGER "${CMD} 停止失败!"
         dbus set ${app_name}_enable="on"
@@ -765,6 +738,10 @@ ignore_vclash_new_version() {
     LOGGER "已忽略当前版本:$clash_vclash_new_version"
 }
 
+ignore_core_new_version() {
+    dbus set clash_version=$clash_new_version
+    LOGGER "已忽略当前版本:$clash_new_version"
+}
 md5sum_update() {
     # 如果md5sum结果不一致就更新替换文件
     old_file="$1"
@@ -859,7 +836,7 @@ ignore_new_version() {
 
 # 更新新版本clash客户端可执行程序
 update_clash_bin() {
-    cd /tmp
+    cd $CONFIG_HOME/core/
     new_ver=$clash_new_version
     old_version=$clash_version
     
@@ -869,32 +846,24 @@ update_clash_bin() {
     # Github更新了API调用获取release文件
     # https://github.com/Dreamacro/clash/releases/expanded_assets/premium
     # 更新URL地址
-    tag_url="https://github.com/Dreamacro/clash/releases/expanded_assets/premium"
+    tag_url="https://github.com/MetaCubeX/mihomo/releases/expanded_assets/${new_ver}"
     LOGGER "CURL_OPTS:${CURL_OPTS}"
     LOGGER "正在执行命令: curl ${CURL_OPTS} $tag_url"
     ARCH="`get_arch`"
-    NEW_VERSION="$(curl -sL $tag_url | grep href= | grep linux-arm64 | awk -F \" '{ print $2 }')"
+    # 匹配文件名格式： mihomo-linux-arm64-v1.19.4.gz
+    bin_file="mihomo-linux-${ARCH}-${new_ver}"
+    NEW_VERSION="$(curl -sL $tag_url | grep href= | grep ${bin_file}.gz | awk -F \" '{ print $2 }')"
     download_url="https://github.com${NEW_VERSION}"
-    bin_file="new_$app_name"
     LOGGER "正在下载新版本:curl ${CURL_OPTS} -o ${bin_file}.gz $download_url"
-    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file} && mv ${BINFILE} ${BINFILE}.${old_version} && mv ${bin_file} ${BINFILE}
+    curl ${CURL_OPTS} -o ${bin_file}.gz $download_url && gzip -d ${bin_file}.gz && chmod +x ${bin_file}
     if [ "$?" != "0" ]; then
-        LOGGER "更新出现了点问题!"
-        [[ -f ${BINFILE}.${old_version} ]] && mv ${BINFILE}.${old_version} ${BINFILE}
-        if [ -f ${BINFILE} ]; then
-            LOGGER "更新 ${BINFILE} 失败啦!"
-            LOGGER 当前Clash版本信息: $(${BINFILE} -v)
-            LOGGER "别急!先把更新失败原因找到再想更新的事儿吧!"
-        else
-            LOGGER "太牛啦!如果走到这里，说明Clash可执行程序搞的不翼而飞啦!谁吃了呢？"
-        fi
+        LOGGER "更新出现了点问题！看下错误信息吧！"
         return 1
     else
         # 更新成功啦
-        LOGGER "更新到新版本!"
+        LOGGER "Clash内核已经更新到最新版本:${clash_new_version}"
         dbus set clash_version=$clash_new_version
         dbus remove clash_new_version
-        # rm -f ${BINFILE}.${old_version}
     fi
 }
 
@@ -1177,12 +1146,6 @@ switch_clash_core() {
     ln -sf ${CONFIG_HOME}/${clash_core_current} ${BINFILE}
 }
 
-# 切换透明代理模式
-switch_clash_tmode() {
-    # 修改iptables规则
-    # 重启clash服务
-    LOGGER "切换透明代理模式为: $clash_tmode"
-}
 clash_config_init() {
     # 校验配置文件
     list_clash_core
@@ -1298,6 +1261,12 @@ do_action() {
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;
+            ignore_core_new_version)
+                ignore_core_new_version
+                ret_data="{$(dbus list clash_version  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
             *)
                 http_response "$1" >/dev/null 2>&1
                 ;;
@@ -1322,7 +1291,7 @@ do_action() {
         service_stop
         service_start
         ;;
-    switch_clash_tmode|update_clash_bin | update_vclash_bin | switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
+     update_vclash_bin | switch_trans_mode|switch_group_type|restore_config_file|switch_ipv6_mode)
         # 需要重启的操作分类
         $action_job
         if [ "$?" = "0" ]; then
@@ -1332,7 +1301,7 @@ do_action() {
             LOGGER "$action_job 执行出错啦!"
         fi
         ;;
-    get_proc_status|update_provider_file|update_geoip|update_lan_ipv6_ports|update_default_dns|backup_config_file|applay_new_config|upload_clash_file)
+    get_proc_status|update_clash_bin|update_provider_file|update_geoip|update_lan_ipv6_ports|update_default_dns|backup_config_file|applay_new_config|upload_clash_file)
         # 不需要重启操作
         $action_job
         ;;

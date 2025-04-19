@@ -66,8 +66,8 @@ remove_files
 remove_env
 LOGGER "卸载完成啦！一切都归于尘土，哦不！是垃圾站！"
 
-LOGGER "执行命令：rm -rf /koolshare/scripts/${app_name}_*"
+LOGGER "执行命令：rm -rf  /koolshare/scripts/clash_control.sh"
 rm -rf /koolshare/scripts/clash_control.sh
 # delete myself
-rm -f /koolshare/scripts/uninstall_${app_name}.sh
+# rm -f /koolshare/scripts/uninstall_${app_name}.sh
 
