@@ -1101,6 +1101,11 @@
         }
 
         function copyTextToClipboard(text) {
+            // 确保 textarea 有内容
+            if (!text) {
+                alert('没有可复制的内容！');
+                return;
+            }
             if (!navigator.clipboard) {
                 fallbackCopyTextToClipboard(text);
                 return;
@@ -1116,7 +1121,18 @@
         function copyURI(evt) {
             evt.preventDefault();
             copyTextToClipboard(evt.target.getAttribute('href'))
-                // alert("已复制到剪贴板");
+        }
+        function copyTextLog() {
+            const textarea = document.getElementById('clash_text_log');
+            copyTextToClipboard(textarea.value)
+        }
+        function copyLogMsg() {
+            const textarea = document.getElementById('clash_log_msg');
+            copyTextToClipboard(textarea.value)
+        }
+        function copyTextBakLog() {
+            const textarea = document.getElementById('clash_log_backup');
+            copyTextToClipboard(textarea.value)
         }
     </script>
 </head>
@@ -1421,6 +1437,7 @@
                         <tr id="logBackup">
                             <td colspan="2">
                                 <p style="text-align: left; color: rgb(32, 252, 32); font-size: 18px;padding-top: 10px;padding-bottom: 10px;">日志信息</p>
+                                <input type="button" class="button_gen" onclick="copyTextBakLog();" value="复制日志">
                                 <textarea rows="20 " wrap="off" readonly="readonly" id="clash_log_backup" class="input_text"></textarea>
                             </td>
                         </tr>
@@ -1442,11 +1459,13 @@
 
                     <div id="logMsg" style="display: none;">
                         <div>显示日志信息</div>
+                        <input type="button" class="button_gen" onclick="copyLogMsg();" value="复制日志">
                         <textarea rows="20 " wrap="off" readonly="readonly" id="clash_log_msg" class="input_text"></textarea>
                     </div>
 
                     <div id="logArea" style="display: none; ">
                         <div>显示日志信息</div>
+                        <input type="button" class="button_gen" onclick="copyTextLog();" value="复制日志">
                         <textarea rows="20 " wrap="off" readonly="readonly" id="clash_text_log" class="input_text"></textarea>
                         <a type="button" class="button_gen" id="btn_log_msg_close" onclick="close_log_msg(); " href="javascript:void(0); ">关闭(5秒后)</a>
                     </div>
