@@ -62,6 +62,15 @@ cron_id="clash_daemon"             # 调度ID,用来查询和删除操作标识
 FW_TYPE_CODE=""     # 固件类型代码
 FW_TYPE_NAME=""     # 固件类型名称
 
+
+LOGGER() {
+    echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
+}
+
+SYSLOG() {
+    logger -t "clash_syslog" "$@"
+}
+
 check_config_file() {
     # 检查 config.yaml 文件配置信息
     # 修改UI控制参数
@@ -100,13 +109,6 @@ check_config_file() {
     dbus set clash_yacd_ui=$clash_yacd_ui
 }
 
-LOGGER() {
-    echo -e "$(date +'%Y年%m月%d日%H:%M:%S'): $@"
-}
-
-SYSLOG() {
-    logger -t "$(date +'%Y年%m月%d日%H:%M:%S'):clash" "$@"
-}
 if [ "$lan_ipaddr" = "" ]; then
     LOGGER "真糟糕! nvram 命令没找到局域网路由器地址，这样防火墙规则配置不了啦!还是自己手动设置后再执行吧!"
     echo "XU6J03M6"
@@ -120,20 +122,6 @@ if [ ! -x "$(which cru)" ]; then
         LOGGER "糟糕!没有找到 cru 命令! 这样配置不了调度啦!"
     fi
 fi
-
-echo_status() {
-    if [ "$1" = "head" ]; then
-        printf "%-20s %-20s %-s" "进程名称" "进程号" "运行状态"
-        return 0
-    fi
-    pids=$(pidof $1)
-    if [ "$pids" == "" ]; then
-        printf "%-15s %-15s %-s" "$1" "$pids" "已停止."
-    else
-        printf "%-15s %-15s %-s" "$1" "$pids" "正常运行中."
-    fi
-}
-
 
 get_arch() {
     # 暂时支持ARM芯片吧，等手里有 MIPS 芯片再适配
@@ -160,26 +148,32 @@ get_proc_status() {
     
     free_mem="$(free | grep Mem | awk '{printf("%.02f MB", $4/1024);}')"
     total_mem="$(free | grep Mem | awk '{printf("%.02f MB", $2/1024);}')"
-    echo "+----------[ 服务信息: ${clash_rule_mode} ]--------------------------------"
-    echo "| $(echo_status head)"
-    echo "| $(echo_status $app_name)"
-    if [ "$(pidof $app_name)" != "" ]; then
-        clash_use_mem="$(cat /proc/$(pidof ${app_name})/status | grep VmRSS | awk '{printf("%.02f MB", $2/1024);}')"
-        echo "| Clash占用内存: $clash_use_mem, 系统剩余内存: $free_mem, 系统总内存: $total_mem"
+    app_pid=$(pidof $app_name) 
+    if [[ -z "$app_pid" ]] ; then
+        app_status="已停止"
+    else
+        app_status="运行中 , pid: ${app_pid}"
     fi
-    echo "+----------[ 调度信息 ]--------------------------------"
+    printf "|%-20.20s | %-30s |\n"  检查名称   检查结果
+    echo  "| --------:| -----------------------------------:|"
+    echo `printf "|%-20.20s |" 运行状态`" ${app_status}         |"
+    if [ ! -z "$app_pid" ]; then
+        echo `printf "|%-20.20s |" 内存使用信息`" 可用内存: $free_mem, 总内存: $total_mem |"
+    fi
+    echo `printf "|%-20.20s |" Clash重启信息`" [ $(grep 'clash 服务启动' /tmp/syslog.log|wc -l)] 次 |"
+    echo `printf "|%-20.20s |" 最后一次重启`" $(grep 'clash 服务启动' /tmp/syslog.log|tail -1| awk '{printf("%s", $0);}') |"
     tmp_cron=$(cru l| grep ${cron_id})
     if [ "$tmp_cron" != "" ]; then
-        echo "|  $tmp_cron"
+        echo `printf "|%-20.20s |" 定时调度`" $tmp_cron |"
     fi
-
-    echo "+---------------------------------------------------"
-    echo "| Clash重启信息: [$(grep 'clash 服务启动' /tmp/syslog.log|wc -l)] 次, 最近 [3次] 时间如下:"
-    echo "$(grep 'clash 服务启动' /tmp/syslog.log|tail -3| awk '{printf("| %s\n", $0);}')"
-    echo "+---------------------------------------------------"
+    printf "|%-20.20s |" 默认DNS信息
+    cat /tmp/resolv.conf | awk '/^nameserver/{ printf("%s,", $2 );}'
+    echo "|"
+    printf "|%-20.20s |" 默认Dnsmasq信息
+    cat /tmp/resolv.dnsmasq | awk -F= '/^server/{ printf("%s,", $2 );}'
+    echo "|"
+    echo
 }
-
-
 # 添加守护监控脚本
 add_cron() {
     if cru l | grep ${cron_id} >/dev/null; then
@@ -610,14 +604,12 @@ del_iptables_all() {
 }
 
 iptables_status() {
-    echo "IPv4 地址配置 NAT 规则:"
-    iptables -t nat -S
-    echo "+---------------------------------------------------------------+"
-    echo "IPv4 地址配置 mangle 规则:"
+    echo -e "IPv4 地址配置 mangle 规则:\n\`\`\`"
     iptables -t mangle -S
-    echo "+---------------------------------------------------------------+"
-    echo "IPv6 地址配置 mangle 规则:"
-    ip6tables -t mangle -S
+    echo -e "\`\`\`\n---\n"
+    echo -e "IPv6 地址配置 mangle 规则:\n\`\`\`"
+    ip6tables -t mangle -S | sed "s/${ipv6_prefix}/my_ipv6_prefix/g"
+    echo -e "\`\`\`\n---\n"
 }
 
 
@@ -839,12 +831,6 @@ update_clash_bin() {
     cd $CONFIG_HOME/core/
     new_ver=$clash_new_version
     old_version=$clash_version
-    
-    # 专业版更新
-    # https://hub.fastgit.org/Dreamacro/clash/releases/tag/premium
-    # https://github.com/Dreamacro/clash/releases/tag/premium
-    # Github更新了API调用获取release文件
-    # https://github.com/Dreamacro/clash/releases/expanded_assets/premium
     # 更新URL地址
     tag_url="https://github.com/MetaCubeX/mihomo/releases/expanded_assets/${new_ver}"
     LOGGER "CURL_OPTS:${CURL_OPTS}"
@@ -902,25 +888,34 @@ debug_info() {
 
 # DEBUG 路由器信息
 show_router_info() {
+
     get_fw_type
     echo "您的路由器基本信息(反馈开发者帮您分析问题用):"
-    echo "+---------------------------------------------------------------+"
-    echo "| 操作系统 : $(uname -nmrso)|"
-    echo "| 固件版本 : $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
-    echo "| 内存使用 : $(free -m|awk '/Mem/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
-    echo "| 磁盘空间 : $(df /koolshare |awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,total: %6.2f MB,usage: %6.2f%%\n", $4/1024,$2/1024, $3/$2*100)}')|"
-    echo "+---------------------------------------------------------------+"
-    echo "|>> vClash当前正在使用的软件版本：                                  |"
-    debug_info "vClash" "$(dbus get ${app_name}_vclash_version)"
-    debug_info "clash_premium" $(${CONFIG_HOME}/bin/clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')
-    debug_info "yq" "$(${YQ} -V|awk '{ print $NF}')"
-    debug_info "jq" "$(${JQ} -V)"
-    echo "|>> vClash初始安装包自带的软件版本(分析是否个人更改过):                |"
-    cat ${CONFIG_HOME}/version | awk -F':' '{ printf("|%20s : %-40.40s|\n",$1,$2) }'
-    echo "+---------------------------------------------------------------+"
+    get_proc_status
+    echo "| 名称 | 信息|"
+    echo "|--------------------:| -------------------------------------------:|"
+    echo "| 操作系统 | $(uname -nmrso)|"
+    echo "| 固件版本 | $(nvram get productid):${FW_TYPE_NAME}:$(nvram get buildno)|"
+    echo "| 内存使用 | $(free -m|awk '/Mem/{printf("free: %6.2f MB,usage: %6.2f%%\n", $4/1024, $3/$2*100)}')|"
+    echo "| 磁盘空间 | $(df /koolshare |awk '!/Filesystem|Mounted/{printf("free: %6.2f MB,usage: %6.2f%%\n", $4/1024, $3/$2*100)}')|"
+
+    echo
+    # 输出 Markdown 表格头
+    echo "| 软件  | 当前版本  | 安装版本 |"
+    echo "|----------:|----------------:|------------:|"
+    for software in vClash clash_core yq jq ; do
+        # 从临时文件中查找对应软件的当前版本
+        [[ "$software" == "vClash" ]] && current_version="$(dbus get ${app_name}_vclash_version)"
+        [[ "$software" == "clash_core" ]] && current_version="$(${CONFIG_HOME}/bin/clash -v|head -n1|awk '{printf("%s_%s_%s", $2, $3, $4)}')"
+        [[ "$software" == "yq" ]] && current_version="$(${YQ} -V|awk '{ print $NF}')"
+        [[ "$software" == "jq" ]] && current_version="$(${JQ} -V)"
+        initial_version=$(grep "^${software}:" "${CONFIG_HOME}/version" | cut -d':' -f2)
+        # 格式化输出，左对齐，宽度控制
+        printf "| %-12s | %-25s | %-20s |\n" "$software" "$current_version" "$initial_version"
+    done
+    echo
     echo "vClash的转发规则,分析转发规则是否正常:"
     iptables_status
-    echo "+---------------------------------------------------------------+"
 }
 
 
