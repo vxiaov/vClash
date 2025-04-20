@@ -1,0 +1,34 @@
+proxy-groups:
+  - name: 个人订阅组-select
+    type: select
+    use:
+      - proxy-provider-autogen
+  - name: 个人订阅组-url-test
+    type: url-test
+    url: 'https://www.gstatic.com/generate_204'
+    interval: 300
+    #tolerance: 50
+    #lazy: true
+    proxies:
+    use:
+      - proxy-provider-autogen
+  - name: 个人订阅组-fallback
+    type: fallback
+    url: 'https://www.gstatic.com/generate_204'
+    interval: 300
+    proxies:
+    use:
+      - proxy-provider-autogen
+  - name: 个人订阅组-load-balance
+    type: load-balance
+    url: 'https://www.gstatic.com/generate_204'
+    interval: 300
+    #lazy: true
+    ## round-robin  : 将会把所有的请求分配给策略组内不同的代理节点
+    ## consistent-hashing : 将相同的 目标地址 的请求分配给策略组内的同一个代理节点
+    ## sticky-sessions : 将相同的 来源地址 和 目标地址 的请求分配给策略组内的同一个代理节点，缓存 10 分钟过期
+    #strategy: consistent-hashing
+    proxies:
+    use:
+      - proxy-provider-autogen
+  

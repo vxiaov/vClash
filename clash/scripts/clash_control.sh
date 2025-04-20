@@ -51,6 +51,9 @@ env_file="${app_name}_env.sh"
 
 main_script="${KSHOME}/scripts/clash_control.sh"
 
+# 订阅节点组文件
+proxy_provider_file="${CONFIG_HOME}/providers/proxy_provider_autogen.yaml"
+
 # 可执行程序变量 #
 YQ=${CONFIG_HOME}/bin/yq
 JQ=${CONFIG_HOME}/bin/jq
@@ -76,7 +79,7 @@ check_config_file() {
     # 修改UI控制参数
     # 修改代理端口 redir-port 和 tproxy-port
     # 增加 HTTP订阅配置支持, 遇到 http开头的订阅地址，增加一个 curl 下载订阅内容，然后再写入到 config.yaml 中
-    custom_sniffer_file="$CONFIG_HOME/custom_rules/sniffer.yaml"
+    custom_sniffer_file="$CONFIG_HOME/templates/sniffer.yaml"
     [[ ! -f "$custom_sniffer_file" ]]  && LOGGER "自定义规则文件不存在: $custom_sniffer_file" && return 1
 
     [[ "$clash_config_filepath" == "" ]] && clash_config_filepath="config/config_default.yaml" && dbus set clash_config_filepath="$clash_config_filepath"
@@ -88,7 +91,6 @@ check_config_file() {
         current_config_file="${CONFIG_HOME}/config/.${md5_file}.yaml"
     fi
 
-    # TUN模式：不适合在路由器上使用，暂时屏蔽#
     modprobe xt_TPROXY >/dev/null 2>&1 || (LOGGER "不支持TPROXY模式"  && return 1 )
     dbus set clash_tmode="TPROXY"
     # 强制采用 TPROXY 模式
@@ -103,10 +105,57 @@ check_config_file() {
     tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tproxy_mark=$tproxy_mark tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" default_secret="$default_secret" ${YQ} e "$yq_expr" ${current_config_file} > $config_file
     [[ "$?" != "0" ]] && LOGGER "生成Clash启动配置文件失败!请检查Yaml格式！" && return 1
 
+
     # 合并 ${custom_sniffer_file} 到 ${config_file}
-    ${YQ} eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${config_file} ${custom_sniffer_file} > ${config_file}.tmp
+    ${YQ} ea 'select(fileIndex == 0) * select(fileIndex == 1)' ${config_file} ${custom_sniffer_file} > ${config_file}.tmp
     [[ "$?" != "0" ]] && LOGGER "合并自定义规则文件失败!请检查Yaml格式！" && return 1
+
     mv ${config_file}.tmp ${config_file}
+
+    # 检查是否有订阅节点组
+    if [[ ! -z "$clash_proxy_http" ]] ; then
+        # 下载订阅节点组
+        if [[ "${clash_proxy_http:0:4}" == "http" ]]; then
+            # 下载订阅内容,保存一个临时 http 链接 md5 文件名
+            group_name=provider-$(openssl rand -hex 4)
+            proxy_provider_template_file="${CONFIG_HOME}/templates/proxy-provider.yaml"
+            if [[ ! -f "$proxy_provider_template_file" ]]; then
+                LOGGER "自定义订阅节点组模板文件不存在: $proxy_provider_template_file"
+            else
+                # 替换 proxy-providers.proxy-provider-autogen 下的 url 参数
+                LOGGER "开始生成订阅节点组文件: $proxy_provider_file"
+                proxy_http=${clash_proxy_http} ${YQ} e '.proxy-providers."proxy-provider-autogen".url = strenv(proxy_http)' $proxy_provider_template_file > $proxy_provider_file
+                [[ "$?" != "0" ]] && LOGGER "生成订阅节点组文件失败!请检查Yaml格式！忽略本次错误!"
+            fi
+        fi
+        # 根据模板文件 proxy-group.yaml 订阅节点组信息合并到 config.yaml 中
+        proxy_group_template_file="${CONFIG_HOME}/templates/proxy-group.yaml"
+        if [[ ! -f "$proxy_group_template_file" ]]; then
+            LOGGER "自定义订阅节点组模板文件不存在: $proxy_group_template_file"
+        else
+            # 合并节点组(将节点组添加到proxies中)
+            ${YQ} ea 'select(fileIndex == 1).proxy-groups[].proxies += [select(fileIndex == 0).proxy-groups[].name] | select(fileIndex == 1)' ${proxy_group_template_file} ${config_file} > ${config_file}.tmp
+            if [[ "$?" != "0" ]] ; then
+                LOGGER "合并订阅节点组失败! 本次运行没有正确的订阅节点组信息！"
+            else
+                mv ${config_file}.tmp ${config_file}
+                LOGGER "添加订阅节点组成功!"
+            fi
+            # 合并而不是覆盖，因为可能存在多个订阅节点组
+            LOGGER "开始合并订阅节点组文件: $proxy_provider_file"
+            yq_group_expr='select(fi==1).proxy-groups as $plist  | select(fi==0)|.proxy-groups += $plist'
+            ${YQ} ea "$yq_group_expr" ${config_file} ${proxy_group_template_file}> ${config_file}.tmp
+            [[ "$?" != "0" ]] && LOGGER "合并订阅节点组文件失败!请检查Yaml格式！忽略本次错误!"
+            mv ${config_file}.tmp ${config_file}
+            ${YQ} ea 'select(fileIndex == 0) * select(fileIndex == 1)' ${config_file} ${proxy_provider_file} > ${config_file}.tmp
+            if [[ "$?" != "0" ]] ; then
+                LOGGER "合并订阅节点组失败! 本次运行没有正确的订阅节点组信息！"
+            else
+                mv ${config_file}.tmp ${config_file}
+                LOGGER "添加订阅节点组成功!"
+            fi
+        fi
+    fi
 
     [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     [[ "$clash_trans" == "" ]] && dbus set clash_trans="on"           # 默认开启透明代理模式
@@ -166,9 +215,9 @@ get_proc_status() {
     total_mem="$(free | grep Mem | awk '{printf("%.02f MB", $2/1024);}')"
     app_pid=$(pidof $app_name) 
     if [[ -z "$app_pid" ]] ; then
-        app_status="已停止"
+        app_status="*已停止*"
     else
-        app_status="运行中 , pid: ${app_pid}"
+        app_status=" **运行中**"
     fi
     printf "|%-20.20s | %-30s |\n"  检查名称   检查结果
     echo  "| --------:| -----------------------------------:|"
@@ -185,9 +234,9 @@ get_proc_status() {
     printf "|%-20.20s |" 默认DNS信息
     cat /tmp/resolv.conf | awk '/^nameserver/{ printf("%s,", $2 );}'
     echo "|"
-    printf "|%-20.20s |" 默认Dnsmasq信息
-    cat /tmp/resolv.dnsmasq | awk -F= '/^server/{ printf("%s,", $2 );}'
-    echo "|"
+    # printf "|%-20.20s |" 默认Dnsmasq信息
+    # cat /tmp/resolv.dnsmasq | awk -F= '/^server/{ printf("%s,", $2 );}'
+    # echo "|"
     echo
 }
 # 添加守护监控脚本
@@ -1018,6 +1067,25 @@ add_config_http() {
     dbus set clash_config_httplist="${clash_config_httplist}"
     dbus remove clash_config_http
 }
+add_proxy_http() {
+    LOGGER "添加订阅代理节点组"
+    if [ "$clash_proxy_http" = "" ] ; then
+        LOGGER "订阅代理节点URL地址为空"
+        return 1
+    fi
+    LOGGER "添加订阅代理节点成功"
+}
+del_proxy_http() {
+    LOGGER "删除订阅代理节点组"
+    if [ "$clash_proxy_http" = "" ] ; then
+        LOGGER "订阅代理节点URL地址为空"
+        return 1
+    fi
+    dbus remove clash_proxy_http
+    [[ -f "${proxy_provider_file}" ]] && rm -f ${proxy_provider_file}
+
+    LOGGER "删除订阅代理节点成功"
+}
 upload_clash_file() {
     # 升级clash文件
     LOGGER "上传Clash内核文件"
@@ -1185,10 +1253,15 @@ remove_file() {
         LOGGER "删除订阅配置:  $clash_remove_file"
         clash_config_httplist=$(echo "${clash_config_httplist}" | sed "s|$clash_remove_file||g")
         dbus set clash_config_httplist="$clash_config_httplist"
+        md5_file=$(echo "${clash_remove_file}" | md5sum | awk '{print $1}')
+        current_config_file="${CONFIG_HOME}/config/.${md5_file}.yaml"
+        if [ -f "${current_config_file}" ] ; then
+            rm -f "${current_config_file}"
+        fi
         return 0
     fi
-
     LOGGER "删除文件:  $CONFIG_HOME/$clash_remove_file"
+    dbus remove clash_remove_file
     rm $CONFIG_HOME/$clash_remove_file
 }
 
@@ -1321,6 +1394,18 @@ do_action() {
                 ;;
             add_config_http)
                 add_config_http
+                ret_data="{$(dbus list clash_config_  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            add_proxy_http)
+                add_proxy_http
+                ret_data="{$(dbus list clash_config_  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            del_proxy_http)
+                del_proxy_http
                 ret_data="{$(dbus list clash_config_  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 return 0

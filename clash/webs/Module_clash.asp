@@ -191,7 +191,7 @@
         function conf2obj() {
 
             var params = [
-                'clash_yacd_ui','clash_lan_ipv6_ports', 'clash_arch_type',
+                'clash_yacd_ui','clash_lan_ipv6_ports', 'clash_arch_type', 'clash_proxy_http',
             ];
             var params_chk = [
                 'clash_trans', 'clash_enable', 'clash_ipv6_mode', 'clash_log_type'
@@ -981,6 +981,28 @@
                 "clash_config_http": config_addr
             });
         }
+        function add_proxy_http(){
+            var proxy_addr = E("clash_proxy_http").value;
+            // 格式验证： http开头
+            if (proxy_addr.indexOf("http")!= 0) {
+                alert("代理链接格式不正确，必须以http开头");
+                return false;
+            }
+            apply_action("add_proxy_http", "3", function () {
+                dbus["clash_proxy_http"] = proxy_addr;
+                show_result("添加代理配置 " + proxy_addr + " 成功，手动刷新页面后可显示.", 3000);
+            },{
+                "clash_proxy_http": proxy_addr
+            });
+        }
+        function del_proxy_http() {
+            apply_action("del_proxy_http", "3", function () {
+                dbus["clash_proxy_http"] = "";
+                show_result("删除代理配置成功", 3000);
+            },{
+                "clash_proxy_http": dbus["clash_proxy_http"]
+            });
+        }
 
         // 上传 clash 文件
         function upload_clash_file() {
@@ -1270,19 +1292,10 @@
                             </td>
                         </tr>
                         <tr>
-                            <th>订阅配置:</th>
-                            <td>
-                                <input type="text" class="input_text" id="clash_config_http" placeholder="http(s)订阅配置">
-                            </td>
-                            <td>
-                                <a class="button_gen" onclick="add_config_http();" href="javascript:void(0);">添加订阅</a>
-                            </td>
-                        </tr>
-                        <tr>
                             <th>启动配置: </th>
                             <td>
                                 <div class="switch_field">
-                                    <select id="clash_switch_config" class="input_option" style="width:260px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_switch_config" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                             <td>
@@ -1293,11 +1306,11 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>Clash内核(<b id="clash_arch_type"></b>):</label>
+                                <label>Meta内核(<b id="clash_arch_type"></b>):</label>
                             </th>
-                            <td> <!-- Clash内核切换 -->
+                            <td> <!-- Clash.Meta内核切换 -->
                                 <div class="switch_field">
-                                    <select id="clash_switch_core" class="input_option" style="width:260px;margin:0px 0px 0px 2px;"></select>
+                                    <select id="clash_switch_core" class="input_option" style="width:300px;margin:0px 0px 0px 2px;"></select>
                                 </div>
                             </td>
                             <td>
@@ -1308,7 +1321,7 @@
                         </tr>
                         <tr>
                             <th>
-                                <label>Clash内核版本:</label>
+                                <label>Meta内核版本:</label>
                             </th>
                             <td>
                                 <div id="clash_version_status"><i>正在获取...</i></div>
@@ -1337,6 +1350,25 @@
                                     <a class="button_gen" onclick="vclash_version_check()" href="javascript:void(0);">检查更新</a>
                             </td>
                         </tr>
+                        <tr>
+                            <th>订阅配置:</th>
+                            <td>
+                                <input type="text" class="input_text" id="clash_config_http" placeholder="http(s)订阅配置">
+                            </td>
+                            <td>
+                                <a class="button_gen" onclick="add_config_http();" href="javascript:void(0);">添加订阅</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>订阅代理组:</th>
+                            <td>
+                                <input type="text" class="input_text" id="clash_proxy_http" placeholder="http(s)订阅代理组">
+                            </td>
+                            <td>
+                                <a class="button_gen" onclick="add_proxy_http();" href="javascript:void(0);">添加订阅</a>
+                                <a class="button_gen" onclick="del_proxy_http();" href="javascript:void(0);">删除订阅</a>
+                            </td>
+                        </tr>
                     </table>
                     <!-- 可选配置信息 -->
                     <table id="menu_options" class="FormTable">
@@ -1345,7 +1377,7 @@
                                 <td colspan="3">Clash - 可选配置</td>
                             </tr>
                         </thead>
-                        <tr>
+                        <tr style="display: none;"> <!-- 透明代理模式: to be removed  -->
                             <th>
                                 <label title="默认开启，开启此模式后内网无任何配置即可科学上网。&#010;如果只想使用clash提供的socks5代理,可关闭此选项。">透明代理模式</label>
                             </th>

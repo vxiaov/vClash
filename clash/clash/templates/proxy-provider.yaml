@@ -1,0 +1,13 @@
+proxy-providers:
+  proxy-provider-autogen:
+    type: http
+    path: ./providers/proxy_provider_autogen.yaml
+    url: https://raw.githubusercontent.com/vxiaov/free_proxies/main/clash/clash.provider.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: https://cp.cloudflare.com
+      interval: 300
+      timeout: 5000
+      lazy: true
+      expected-status: 204
