@@ -75,7 +75,18 @@ check_config_file() {
     # 检查 config.yaml 文件配置信息
     # 修改UI控制参数
     # 修改代理端口 redir-port 和 tproxy-port
+    # 增加 HTTP订阅配置支持, 遇到 http开头的订阅地址，增加一个 curl 下载订阅内容，然后再写入到 config.yaml 中
+    custom_sniffer_file="$CONFIG_HOME/custom_rules/sniffer.yaml"
+    [[ ! -f "$custom_sniffer_file" ]]  && LOGGER "自定义规则文件不存在: $custom_sniffer_file" && return 1
+
     [[ "$clash_config_filepath" == "" ]] && clash_config_filepath="config/config_default.yaml" && dbus set clash_config_filepath="$clash_config_filepath"
+
+    current_config_file="${CONFIG_HOME}/$clash_config_filepath"
+    if [[ "${clash_config_filepath:0:4}" == "http" ]]; then
+        # 订阅内容,保存一个临时 http 链接 md5 文件名
+        md5_file=$(echo "${clash_config_filepath}" | md5sum | awk '{print $1}')
+        current_config_file="${CONFIG_HOME}/config/.${md5_file}.yaml"
+    fi
 
     # TUN模式：不适合在路由器上使用，暂时屏蔽#
     modprobe xt_TPROXY >/dev/null 2>&1 || (LOGGER "不支持TPROXY模式"  && return 1 )
@@ -89,8 +100,13 @@ check_config_file() {
     yq_expr=${tmode_exp}${ipv6_expr}'.redir-port=env(tmp_port)|.dns.listen=strenv(tmp_dns)|.external-controller=strenv(tmp_yacd)|.external-ui=strenv(dashboard)|.secret=strenv(default_secret)|.allow-lan=true'
     
     # 生成当前工作的配置文件
-    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tproxy_mark=$tproxy_mark tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" default_secret="$default_secret" ${YQ} e "$yq_expr" ${CONFIG_HOME}/$clash_config_filepath > $config_file
+    tmp_yacd="${lan_ipaddr}:$yacd_port" tmp_dns="0.0.0.0:$dns_port" tport=$tproxy_port tproxy_mark=$tproxy_mark tmp_port=$redir_port dashboard="${CONFIG_HOME}/dashboard" default_secret="$default_secret" ${YQ} e "$yq_expr" ${current_config_file} > $config_file
     [[ "$?" != "0" ]] && LOGGER "生成Clash启动配置文件失败!请检查Yaml格式！" && return 1
+
+    # 合并 ${custom_sniffer_file} 到 ${config_file}
+    ${YQ} eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' ${config_file} ${custom_sniffer_file} > ${config_file}.tmp
+    [[ "$?" != "0" ]] && LOGGER "合并自定义规则文件失败!请检查Yaml格式！" && return 1
+    mv ${config_file}.tmp ${config_file}
 
     [[ "$clash_geoip_url" == "" ]] && dbus set clash_geoip_url="https://cdn.jsdelivr.net/gh/alecthw/mmdb_china_ip_list@release/Country.mmdb"
     [[ "$clash_trans" == "" ]] && dbus set clash_trans="on"           # 默认开启透明代理模式
@@ -983,7 +999,25 @@ restore_config_file() {
     rm -f "/tmp/upload/$clash_restore_file"
     dbus remove clash_restore_file
 }
-
+add_config_http() {
+    LOGGER "添加订阅配置"
+    if [ "$clash_config_http" = "" ] ; then
+        LOGGER "订阅配置URL地址为空"
+        return 1
+    fi
+    if [ -z "$clash_config_httplist" ] ; then
+        clash_config_httplist="${clash_config_http}"
+    else
+        if echo "$clash_config_httplist" | grep -q "$clash_config_http" ; then
+            LOGGER "订阅配置URL地址已经添加过"
+        else
+            clash_config_httplist="${clash_config_httplist} ${clash_config_http}"
+            LOGGER "添加订阅配置成功"
+        fi
+    fi
+    dbus set clash_config_httplist="${clash_config_httplist}"
+    dbus remove clash_config_http
+}
 upload_clash_file() {
     # 升级clash文件
     LOGGER "上传Clash内核文件"
@@ -1111,13 +1145,21 @@ set_one_file() {
 
 # 切换配置文件
 switch_clash_config() {
-    # TODO: 切换clash配置文件
-    # 1. 备份当前配置文件
-    # 2. 格式化验证新配置文件，并修改必要的设置
-    # 3. 如果格式验证失败，报错，恢复原来的配置
-    # 4. 如果格式验证成功，生成新配置，重启clash服务
     LOGGER "完成备份当前配置文件" && [[ -f ${config_file} ]] && cp ${config_file} ${config_file}.bak
 
+    # 切换订阅配置时，需要立即下载更新保存到 ${CONFIG_HOME}/config/ 目录下 .${md5sum}
+    if [[ "${clash_config_filepath:0:4}" == "http" ]] ; then
+        # 下载订阅配置文件, 在这里下载的目的是可以在代理可用情况下下载, 避免在代理不可用情况下下载失败.
+        LOGGER "切换订阅配置:  $clash_config_filepath"
+        md5_file=$(echo "${clash_config_filepath}" | md5sum | awk '{print $1}')
+        current_config_file="${CONFIG_HOME}/config/.${md5_file}.yaml"
+        # 下载配置文件
+        curl ${CURL_OPTS} -o ${current_config_file} ${clash_config_filepath}
+        if [ "$?" != "0" ] ; then
+            LOGGER "下载配置文件失败!"
+            return 1
+        fi
+    fi
     check_config_file && LOGGER "格式验证成功!新配置文件 $clash_config_filepath 切换完成!" && return 0
 
     [[ -f ${config_file}.bak ]] && cp ${config_file}.bak ${config_file} && LOGGER "【已经恢复原配置文件】"
@@ -1139,6 +1181,13 @@ switch_clash_core() {
 }
 
 remove_file() {
+    if [[ "${clash_remove_file:0:4}" == "http" ]] ; then
+        LOGGER "删除订阅配置:  $clash_remove_file"
+        clash_config_httplist=$(echo "${clash_config_httplist}" | sed "s|$clash_remove_file||g")
+        dbus set clash_config_httplist="$clash_config_httplist"
+        return 0
+    fi
+
     LOGGER "删除文件:  $CONFIG_HOME/$clash_remove_file"
     rm $CONFIG_HOME/$clash_remove_file
 }
@@ -1205,11 +1254,11 @@ do_action() {
                 ;;
             start)
                 # 启动服务, 并返回状态
-                #service_start
+                service_start
                 ret_data="{$(dbus list clash_ | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 # 先返回成功结果,放在后面执行启动功能，否则页面会一直等待且没有动态执行中的效果
-                service_start
+                # service_start
                 return 0
                 ;;
             switch_clash_config)
@@ -1267,6 +1316,12 @@ do_action() {
             remove_file)
                 remove_file
                 ret_data="{$(dbus list clash_core  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
+                response_json "$1" "$ret_data" "ok"
+                return 0
+                ;;
+            add_config_http)
+                add_config_http
+                ret_data="{$(dbus list clash_config_  | awk '{sub("=", "\":\""); printf("\"%s\",", $0)}'|sed 's/,$//')}"
                 response_json "$1" "$ret_data" "ok"
                 return 0
                 ;;

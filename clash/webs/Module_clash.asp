@@ -97,7 +97,10 @@
                 // 没有变化
                 return;
             } else {
-                // 切换配置文件
+                // 切换配置文件, http格式保存为escape编码
+                if ($j(this).val().indexOf("http") == 0) {
+                    dbus["clash_config_filepath"] = Base64.encode($j(this).val());
+                }
                 dbus["clash_config_filepath"] = $j(this).val();
                 switch_clash_config();
             }
@@ -250,25 +253,40 @@
         }
 
         // 更新clash配置文件列表
+        // modified: 增加httplist订阅配置链接
         function update_clash_filelist() {
             if (dbus["clash_config_filelist"]) {
                 var opt = document.getElementById("clash_switch_config");
                 opt.options.length = 0;
                 filelist = dbus["clash_config_filelist"].trim().split(" ");
                 current_file = dbus["clash_config_filepath"];
+                matched = false;
                 if (filelist.length > 0) {
                     for (var i = 0; i < filelist.length; i++) {
                         opt.options.add(new Option(filelist[i], filelist[i]));
-                    }
-                    if (current_file) {
-                        opt.value = current_file;
-                    } else {
-                        opt.value = filelist[0];
-                        dbus["clash_config_filepath"] = filelist[0];
+                        if (current_file == filelist[i]) {
+                            opt.value = current_file;
+                            matched = true;
+                        } 
                     }
                 }
+                if (dbus["clash_config_httplist"]) {
+                    httplist = dbus["clash_config_httplist"].trim().split(" ");
+                    if (httplist.length > 0) {
+                        for (var i = 0; i < httplist.length; i++) {
+                            opt.options.add(new Option(httplist[i], httplist[i]));
+                            if (current_file == httplist[i]) {
+                                opt.value = current_file;
+                                matched = true;
+                            }
+                        }
+                    }
+                }
+                if (!matched) {
+                    opt.value = filelist[0];
+                    dbus["clash_config_filepath"] = filelist[0];
+                }
             }
-
         }
 
         function update_clash_core_list() {
@@ -946,6 +964,21 @@
                 error: function(res) {
                     show_result("上传失败，请检查文件是否存在！", 3000);
                 }
+            });
+        }
+        // 添加订阅启动配置链接
+        function add_config_http() {
+            var config_addr = E("clash_config_http").value;
+            // 格式验证： http开头
+            if (config_addr.indexOf("http") != 0) {
+                alert("订阅链接格式不正确，必须以http开头");
+                return false;
+            }
+            apply_action("add_config_http", "0", function () {
+                show_result("添加订阅配置 " + config_addr + " 成功，手动刷新页面后可显示.", 3000);
+                E("#clash_config_http").value = ""; // 最后清空内容。
+            }, {
+                "clash_config_http": config_addr
             });
         }
 
