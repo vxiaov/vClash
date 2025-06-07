@@ -95,10 +95,11 @@ generate_dnsmasq_conf() {
 	ipv6_gfw_dns="2606:4700:4700::1111"
 
 	# 生成Dnsmasq配置规则 #	 国内直连优化 #
-	# url_addr="https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/refs/heads/master/accelerated-domains.china.conf"
-	# out_file="${rule_dir}/china-accelerated-domains.conf"
+	url_addr="https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/refs/heads/master/accelerated-domains.china.conf"
+	out_file="${rule_dir}/china-accelerated-domains.conf"
+	curl $url_addr > ${out_file}
 	# curl $url_addr | sed "s/114.114.114.114/${ipv4_cn_dns}/g" > ${out_file}
-	# echo "server=/githubusercontent.com/${ipv4_cn_dns}" >> ${out_file}
+	echo "server=/githubusercontent.com/${ipv4_cn_dns}" >> ${out_file}
 	# # echo "server=/githubusercontent.com/${ipv6_cn_dns}" >> ${out_file}
 
 	# url_addr="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
