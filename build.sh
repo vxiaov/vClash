@@ -101,8 +101,6 @@ generate_dnsmasq_conf() {
 	# curl $url_addr | sed "s/114.114.114.114/${ipv4_cn_dns}/g" > ${out_file}
 	# echo "server=/githubusercontent.com/${ipv4_cn_dns}" >> ${out_file}
 	# echo "server=/githubusercontent.com/${ipv6_cn_dns}" >> ${out_file}
-	echo "server=/githubusercontent.com/${ipv4_gfw_dns}" >> ${out_file}
-	echo "server=/githubusercontent.com/${ipv6_gfw_dns}" >> ${out_file}
 
 	# url_addr="https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
 	# out_file="${rule_dir}/china-direct.conf"
